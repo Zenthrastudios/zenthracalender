@@ -197,25 +197,19 @@ export default function PublicBookingPage() {
     if (!validateForm()) return;
 
     try {
-      // Build notes with custom field values
-      let fullNotes = notes;
-      if (Object.keys(customFieldValues).length > 0) {
-        const customAnswers = customFields
-          .map(field => {
-            const value = customFieldValues[field.id];
-            if (value === undefined || value === '' || value === false) return null;
-            const displayValue = field.type === 'checkbox' ? 'Yes' : value;
-            return `${field.label}: ${displayValue}`;
-          })
-          .filter(Boolean)
-          .join('\n');
-        
-        if (customAnswers) {
-          fullNotes = fullNotes 
-            ? `${notes}\n\n--- Custom Responses ---\n${customAnswers}`
-            : `--- Custom Responses ---\n${customAnswers}`;
-        }
-      }
+      // Build custom responses array
+      const customResponses = customFields
+        .map(field => {
+          const value = customFieldValues[field.id];
+          if (value === undefined || value === '' || value === false) return null;
+          return {
+            fieldId: field.id,
+            label: field.label,
+            value: field.type === 'checkbox' ? true : value,
+            type: field.type,
+          };
+        })
+        .filter(Boolean) as { fieldId: string; label: string; value: string | boolean; type: string }[];
 
       const booking = await createBooking.mutateAsync({
         event_type_id: eventData.eventType.id,
@@ -225,7 +219,8 @@ export default function PublicBookingPage() {
         attendee_timezone: timezone,
         start_time: selectedSlot.startTime.toISOString(),
         end_time: selectedSlot.endTime.toISOString(),
-        notes: fullNotes || undefined,
+        notes: notes || undefined,
+        custom_responses: customResponses.length > 0 ? customResponses : undefined,
       });
 
       toast.success('Booking confirmed!');

@@ -360,12 +360,53 @@ export default function Bookings() {
                   </div>
 
                   {/* Notes */}
-                  {selectedBooking.notes && (
+                  {selectedBooking.notes && !selectedBooking.notes.includes('--- Custom Responses ---') && (
                     <div className="space-y-3">
                       <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Notes</h4>
                       <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
                         <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
                         <p className="text-sm">{selectedBooking.notes}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Legacy notes with custom responses (for old bookings) */}
+                  {selectedBooking.notes && selectedBooking.notes.includes('--- Custom Responses ---') && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Notes</h4>
+                      <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                        <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
+                        <p className="text-sm">{selectedBooking.notes.split('--- Custom Responses ---')[0].trim() || 'No additional notes'}</p>
+                      </div>
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mt-4">Form Responses</h4>
+                      <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                        {selectedBooking.notes.split('--- Custom Responses ---')[1]?.trim().split('\n').map((line, idx) => {
+                          const [label, ...valueParts] = line.split(':');
+                          const value = valueParts.join(':').trim();
+                          return (
+                            <div key={idx} className="flex flex-col">
+                              <span className="text-xs text-muted-foreground">{label?.trim()}</span>
+                              <span className="text-sm font-medium">{value || '-'}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Custom Responses (new format) */}
+                  {selectedBooking.custom_responses && Array.isArray(selectedBooking.custom_responses) && selectedBooking.custom_responses.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Form Responses</h4>
+                      <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                        {selectedBooking.custom_responses.map((response, idx) => (
+                          <div key={idx} className="flex flex-col">
+                            <span className="text-xs text-muted-foreground">{response.label}</span>
+                            <span className="text-sm font-medium">
+                              {response.type === 'checkbox' ? (response.value ? 'Yes' : 'No') : String(response.value)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

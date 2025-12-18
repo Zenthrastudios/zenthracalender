@@ -78,6 +78,7 @@ export type Database = {
           attendee_timezone: string
           cancel_token: string | null
           created_at: string
+          custom_responses: Json | null
           end_time: string
           event_type_id: string
           google_event_id: string | null
@@ -97,6 +98,7 @@ export type Database = {
           attendee_timezone?: string
           cancel_token?: string | null
           created_at?: string
+          custom_responses?: Json | null
           end_time: string
           event_type_id: string
           google_event_id?: string | null
@@ -116,6 +118,7 @@ export type Database = {
           attendee_timezone?: string
           cancel_token?: string | null
           created_at?: string
+          custom_responses?: Json | null
           end_time?: string
           event_type_id?: string
           google_event_id?: string | null
