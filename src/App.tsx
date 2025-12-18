@@ -16,6 +16,7 @@ import Team from "./pages/Team";
 import Apps from "./pages/Apps";
 import Settings from "./pages/Settings";
 import PublicBooking from "./pages/PublicBooking";
+import PublicProfile from "./pages/PublicProfile";
 import BookingConfirmation from "./pages/BookingConfirmation";
 import NotFound from "./pages/NotFound";
 
@@ -69,6 +70,7 @@ function AppRoutes() {
           <Auth />
         </AuthRoute>
       } />
+      <Route path="/book/:username" element={<PublicProfile />} />
       <Route path="/book/:username/:eventSlug" element={<PublicBooking />} />
       <Route path="/booking/confirmed/:bookingId" element={<BookingConfirmation />} />
       
