@@ -89,7 +89,7 @@ const handler = async (req: Request): Promise<Response> => {
             Authorization: `Bearer ${RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            from: "CalSchedule <onboarding@resend.dev>",
+            from: "CalSchedule <noreply@intimatecare.in>",
             to: [booking.attendee_email],
             subject: `Reminder: ${booking.event_type?.title || "Meeting"} Tomorrow with ${hostProfile?.name || "Host"}`,
             html: `
