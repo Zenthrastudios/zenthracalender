@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { useScheduling } from '@/contexts/SchedulingContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEventTypes, useCreateEventType, useUpdateEventType, EventType } from '@/hooks/useEventTypes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,10 +18,7 @@ import {
 import { ChevronRight, Plus, X, Video, Phone, MapPin, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { EventType, Availability } from '@/types/scheduling';
-import { v4 as uuidv4 } from 'uuid';
 
-const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const DURATIONS = [15, 30, 45, 60];
 
 const LOCATION_TYPES = [
@@ -31,43 +29,26 @@ const LOCATION_TYPES = [
   { value: 'custom', label: 'Custom Link', icon: Globe },
 ];
 
-interface TimeBlock {
-  id: string;
-  startTime: number;
-  endTime: number;
-}
-
-interface DayAvailability {
-  enabled: boolean;
-  blocks: TimeBlock[];
-}
-
 export default function EventTypeEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { eventTypes, addEventType, updateEventType, availability, user } = useScheduling();
+  const { profile } = useAuth();
+  const { data: eventTypes } = useEventTypes();
+  const createEventType = useCreateEventType();
+  const updateEventType = useUpdateEventType();
   
   const isNew = id === 'new';
-  const existingEvent = eventTypes.find(et => et.id === id);
+  const existingEvent = eventTypes?.find(et => et.id === id);
 
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState(30);
   const [customDuration, setCustomDuration] = useState('');
-  const [locationType, setLocationType] = useState<EventType['locationType']>('google_meet');
+  const [locationType, setLocationType] = useState('google_meet');
   const [locationValue, setLocationValue] = useState('');
-  
-  // Availability state
-  const [dayAvailability, setDayAvailability] = useState<Record<number, DayAvailability>>({
-    0: { enabled: false, blocks: [] },
-    1: { enabled: true, blocks: [{ id: '1', startTime: 540, endTime: 1020 }] },
-    2: { enabled: true, blocks: [{ id: '2', startTime: 540, endTime: 1020 }] },
-    3: { enabled: true, blocks: [{ id: '3', startTime: 540, endTime: 1020 }] },
-    4: { enabled: true, blocks: [{ id: '4', startTime: 540, endTime: 1020 }] },
-    5: { enabled: true, blocks: [{ id: '5', startTime: 540, endTime: 1020 }] },
-    6: { enabled: false, blocks: [] },
-  });
+  const [isActive, setIsActive] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (existingEvent) {
@@ -75,8 +56,9 @@ export default function EventTypeEditor() {
       setSlug(existingEvent.slug);
       setDescription(existingEvent.description || '');
       setDuration(existingEvent.duration);
-      setLocationType(existingEvent.locationType);
-      setLocationValue(existingEvent.locationValue || '');
+      setLocationType(existingEvent.location_type);
+      setLocationValue(existingEvent.location_value || '');
+      setIsActive(existingEvent.is_active);
     }
   }, [existingEvent]);
 
@@ -91,95 +73,50 @@ export default function EventTypeEditor() {
     }
   }, [title, isNew]);
 
-  const formatTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    return `${displayHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${period}`;
-  };
-
-  const parseTime = (timeStr: string): number => {
-    const [time, period] = timeStr.split(' ');
-    const [hours, mins] = time.split(':').map(Number);
-    let totalMinutes = hours * 60 + mins;
-    if (period === 'PM' && hours !== 12) totalMinutes += 720;
-    if (period === 'AM' && hours === 12) totalMinutes -= 720;
-    return totalMinutes;
-  };
-
-  const toggleDay = (day: number) => {
-    setDayAvailability(prev => ({
-      ...prev,
-      [day]: {
-        enabled: !prev[day].enabled,
-        blocks: !prev[day].enabled ? [{ id: uuidv4(), startTime: 540, endTime: 1020 }] : []
-      }
-    }));
-  };
-
-  const addTimeBlock = (day: number) => {
-    setDayAvailability(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        blocks: [...prev[day].blocks, { id: uuidv4(), startTime: 540, endTime: 1020 }]
-      }
-    }));
-  };
-
-  const removeTimeBlock = (day: number, blockId: string) => {
-    setDayAvailability(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        blocks: prev[day].blocks.filter(b => b.id !== blockId)
-      }
-    }));
-  };
-
-  const updateTimeBlock = (day: number, blockId: string, field: 'startTime' | 'endTime', value: number) => {
-    setDayAvailability(prev => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        blocks: prev[day].blocks.map(b => 
-          b.id === blockId ? { ...b, [field]: value } : b
-        )
-      }
-    }));
-  };
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
       toast.error('Please enter a title');
       return;
     }
 
-    const finalDuration = DURATIONS.includes(duration) ? duration : parseInt(customDuration) || 30;
-
-    const eventData: Omit<EventType, 'id' | 'userId'> = {
-      title,
-      slug,
-      description,
-      duration: finalDuration,
-      bufferBefore: 5,
-      bufferAfter: 5,
-      locationType,
-      locationValue,
-      isActive: true,
-      minimumNotice: 60,
-    };
-
-    if (isNew) {
-      addEventType(eventData);
-      toast.success('Event type created!');
-    } else if (existingEvent) {
-      updateEventType(existingEvent.id, eventData);
-      toast.success('Event type updated!');
+    if (!slug.trim()) {
+      toast.error('Please enter a URL slug');
+      return;
     }
 
-    navigate('/dashboard');
+    setIsSubmitting(true);
+
+    const finalDuration = DURATIONS.includes(duration) ? duration : parseInt(customDuration) || 30;
+
+    const eventData = {
+      title,
+      slug,
+      description: description || null,
+      duration: finalDuration,
+      buffer_before: 5,
+      buffer_after: 5,
+      location_type: locationType,
+      location_value: locationValue || null,
+      is_active: isActive,
+      minimum_notice: 60,
+      color: null,
+    };
+
+    try {
+      if (isNew) {
+        await createEventType.mutateAsync(eventData);
+        toast.success('Event type created!');
+      } else if (existingEvent) {
+        await updateEventType.mutateAsync({ id: existingEvent.id, ...eventData });
+        toast.success('Event type updated!');
+      }
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Error saving event type:', error);
+      toast.error(error.message || 'Failed to save event type');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -201,8 +138,8 @@ export default function EventTypeEditor() {
             <Button variant="outline" onClick={() => navigate('/dashboard')}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
-              {isNew ? 'Create Event' : 'Save Changes'}
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : isNew ? 'Create Event' : 'Save Changes'}
             </Button>
           </div>
         </div>
@@ -225,7 +162,7 @@ export default function EventTypeEditor() {
               <Label htmlFor="slug">URL Slug</Label>
               <div className="flex items-center">
                 <span className="text-sm text-muted-foreground mr-2">
-                  {user?.username || 'alex'}.cal.com/
+                  /{profile?.username || 'user'}/
                 </span>
                 <Input
                   id="slug"
@@ -258,10 +195,14 @@ export default function EventTypeEditor() {
                 {DURATIONS.map((d) => (
                   <button
                     key={d}
-                    onClick={() => setDuration(d)}
+                    type="button"
+                    onClick={() => {
+                      setDuration(d);
+                      setCustomDuration('');
+                    }}
                     className={cn(
                       "px-4 py-2 rounded-full text-sm font-medium transition-colors",
-                      duration === d
+                      duration === d && !customDuration
                         ? "bg-primary text-primary-foreground"
                         : "bg-card border border-border hover:bg-muted"
                     )}
@@ -287,7 +228,7 @@ export default function EventTypeEditor() {
 
             <div className="space-y-2">
               <Label>Location</Label>
-              <Select value={locationType} onValueChange={(v) => setLocationType(v as EventType['locationType'])}>
+              <Select value={locationType} onValueChange={setLocationType}>
                 <SelectTrigger className="bg-card">
                   <SelectValue />
                 </SelectTrigger>
@@ -305,71 +246,18 @@ export default function EventTypeEditor() {
             </div>
           </div>
 
-          {/* Availability */}
-          <div className="border-t border-border pt-8">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold">Availability</h2>
-                <p className="text-sm text-muted-foreground">Set your weekly recurring schedule.</p>
-              </div>
-              <button className="text-sm text-primary hover:underline font-medium">
-                Copy from...
-              </button>
+          {/* Active Status */}
+          <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border">
+            <div>
+              <p className="font-medium">Event active</p>
+              <p className="text-sm text-muted-foreground">
+                When disabled, this event type won't be visible on your public booking page
+              </p>
             </div>
-
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5, 6, 0].map((day) => (
-                <div key={day} className="flex items-center gap-4">
-                  <Switch
-                    checked={dayAvailability[day].enabled}
-                    onCheckedChange={() => toggleDay(day)}
-                  />
-                  <span className="w-12 text-sm font-medium">{DAYS[day]}</span>
-                  
-                  {dayAvailability[day].enabled ? (
-                    <div className="flex-1 flex flex-wrap items-center gap-2">
-                      {dayAvailability[day].blocks.map((block) => (
-                        <div key={block.id} className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-                          <Input
-                            type="time"
-                            value={`${Math.floor(block.startTime / 60).toString().padStart(2, '0')}:${(block.startTime % 60).toString().padStart(2, '0')}`}
-                            onChange={(e) => {
-                              const [h, m] = e.target.value.split(':').map(Number);
-                              updateTimeBlock(day, block.id, 'startTime', h * 60 + m);
-                            }}
-                            className="w-28 h-8 bg-card text-sm"
-                          />
-                          <span className="text-muted-foreground">-</span>
-                          <Input
-                            type="time"
-                            value={`${Math.floor(block.endTime / 60).toString().padStart(2, '0')}:${(block.endTime % 60).toString().padStart(2, '0')}`}
-                            onChange={(e) => {
-                              const [h, m] = e.target.value.split(':').map(Number);
-                              updateTimeBlock(day, block.id, 'endTime', h * 60 + m);
-                            }}
-                            className="w-28 h-8 bg-card text-sm"
-                          />
-                          <button
-                            onClick={() => removeTimeBlock(day, block.id)}
-                            className="p-1 hover:bg-destructive/10 hover:text-destructive rounded"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => addTimeBlock(day)}
-                        className="p-2 rounded-full bg-accent hover:bg-accent/80 text-primary"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-sm text-muted-foreground italic">Unavailable</span>
-                  )}
-                </div>
-              ))}
-            </div>
+            <Switch
+              checked={isActive}
+              onCheckedChange={setIsActive}
+            />
           </div>
         </div>
       </div>

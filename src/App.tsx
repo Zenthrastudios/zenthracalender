@@ -3,12 +3,13 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { SchedulingProvider, useScheduling } from "@/contexts/SchedulingContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 // Pages
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Bookings from "./pages/Bookings";
 import EventTypeEditor from "./pages/EventTypeEditor";
 import PublicBooking from "./pages/PublicBooking";
 import BookingConfirmation from "./pages/BookingConfirmation";
@@ -18,10 +19,37 @@ const queryClient = new QueryClient();
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useScheduling();
+  const { user, isLoading } = useAuth();
   
-  if (!isAuthenticated) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+  
+  if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
+// Auth Route - redirects to dashboard if already logged in
+function AuthRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+  
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
   }
   
   return <>{children}</>;
@@ -32,7 +60,11 @@ function AppRoutes() {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<Landing />} />
-      <Route path="/auth" element={<Auth />} />
+      <Route path="/auth" element={
+        <AuthRoute>
+          <Auth />
+        </AuthRoute>
+      } />
       <Route path="/book/:username/:eventSlug" element={<PublicBooking />} />
       <Route path="/booking/confirmed/:bookingId" element={<BookingConfirmation />} />
       
@@ -42,14 +74,14 @@ function AppRoutes() {
           <Dashboard />
         </ProtectedRoute>
       } />
+      <Route path="/dashboard/bookings" element={
+        <ProtectedRoute>
+          <Bookings />
+        </ProtectedRoute>
+      } />
       <Route path="/dashboard/events/:id" element={
         <ProtectedRoute>
           <EventTypeEditor />
-        </ProtectedRoute>
-      } />
-      <Route path="/dashboard/bookings" element={
-        <ProtectedRoute>
-          <Dashboard />
         </ProtectedRoute>
       } />
       <Route path="/dashboard/availability" element={
@@ -81,7 +113,7 @@ function AppRoutes() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <SchedulingProvider>
+    <AuthProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -89,7 +121,7 @@ const App = () => (
           <AppRoutes />
         </BrowserRouter>
       </TooltipProvider>
-    </SchedulingProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

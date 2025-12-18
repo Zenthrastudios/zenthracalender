@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useScheduling } from '@/contexts/SchedulingContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   Link2, 
   Calendar, 
@@ -24,12 +24,12 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { user, logout } = useScheduling();
+  const { profile, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
   };
 
@@ -41,11 +41,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary to-secondary/70 flex items-center justify-center text-secondary-foreground font-semibold">
-              {user?.name?.charAt(0) || 'A'}
+              {profile?.name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">{user?.name || "Alex's Scheduler"}</p>
-              <p className="text-xs text-muted-foreground truncate">Pro Plan</p>
+              <p className="font-semibold text-sm truncate">{profile?.name || 'My Scheduler'}</p>
+              <p className="text-xs text-muted-foreground truncate">@{profile?.username || 'user'}</p>
             </div>
           </div>
         </div>
