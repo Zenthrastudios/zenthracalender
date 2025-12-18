@@ -7,7 +7,8 @@ import {
   Users, 
   Settings, 
   Star,
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +16,7 @@ const navItems = [
   { icon: Link2, label: 'Event Types', path: '/dashboard' },
   { icon: Calendar, label: 'Bookings', path: '/dashboard/bookings' },
   { icon: Clock, label: 'Availability', path: '/dashboard/availability' },
+  { icon: BarChart3, label: 'Analytics', path: '/dashboard/analytics' },
   { icon: Users, label: 'Teams', path: '/dashboard/teams' },
   { icon: Star, label: 'Apps', path: '/dashboard/apps' },
 ];
