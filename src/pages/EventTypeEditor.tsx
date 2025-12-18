@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Select,
   SelectContent,
@@ -23,7 +24,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { ChevronRight, Video, Phone, MapPin, Globe, Clock, Calendar, Settings2, User } from 'lucide-react';
+import { 
+  ChevronRight, Video, Phone, MapPin, Globe, Clock, Calendar, 
+  Settings2, User, Plus, Trash2, GripVertical, FileText 
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -49,6 +53,24 @@ const COLORS = [
 ];
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const FIELD_TYPES = [
+  { value: 'text', label: 'Short Text' },
+  { value: 'textarea', label: 'Long Text' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone Number' },
+  { value: 'select', label: 'Dropdown' },
+  { value: 'checkbox', label: 'Checkbox' },
+];
+
+interface CustomField {
+  id: string;
+  label: string;
+  type: 'text' | 'textarea' | 'email' | 'phone' | 'select' | 'checkbox';
+  required: boolean;
+  options?: string[]; // For select type
+  placeholder?: string;
+}
 
 export default function EventTypeEditor() {
   const { id } = useParams();
@@ -77,6 +99,9 @@ export default function EventTypeEditor() {
   const [bufferBefore, setBufferBefore] = useState(0);
   const [bufferAfter, setBufferAfter] = useState(5);
   const [minimumNotice, setMinimumNotice] = useState(60);
+
+  // Custom Form Fields
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -93,6 +118,10 @@ export default function EventTypeEditor() {
       setBufferBefore(existingEvent.buffer_before);
       setBufferAfter(existingEvent.buffer_after);
       setMinimumNotice(existingEvent.minimum_notice);
+      // Load custom fields if they exist
+      if ((existingEvent as any).custom_fields) {
+        setCustomFields((existingEvent as any).custom_fields);
+      }
     }
   }, [existingEvent]);
 
@@ -107,6 +136,27 @@ export default function EventTypeEditor() {
     }
   }, [title, isNew]);
 
+  const addCustomField = () => {
+    const newField: CustomField = {
+      id: `field-${Date.now()}`,
+      label: '',
+      type: 'text',
+      required: false,
+      placeholder: '',
+    };
+    setCustomFields([...customFields, newField]);
+  };
+
+  const updateCustomField = (id: string, updates: Partial<CustomField>) => {
+    setCustomFields(fields =>
+      fields.map(f => (f.id === id ? { ...f, ...updates } : f))
+    );
+  };
+
+  const removeCustomField = (id: string) => {
+    setCustomFields(fields => fields.filter(f => f.id !== id));
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       toast.error('Please enter a title');
@@ -116,6 +166,18 @@ export default function EventTypeEditor() {
     if (!slug.trim()) {
       toast.error('Please enter a URL slug');
       return;
+    }
+
+    // Validate custom fields
+    for (const field of customFields) {
+      if (!field.label.trim()) {
+        toast.error('All custom fields must have a label');
+        return;
+      }
+      if (field.type === 'select' && (!field.options || field.options.length === 0)) {
+        toast.error('Dropdown fields must have at least one option');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -134,14 +196,15 @@ export default function EventTypeEditor() {
       is_active: isActive,
       minimum_notice: minimumNotice,
       color,
+      custom_fields: customFields,
     };
 
     try {
       if (isNew) {
-        await createEventType.mutateAsync(eventData);
+        await createEventType.mutateAsync(eventData as any);
         toast.success('Event type created!');
       } else if (existingEvent) {
-        await updateEventType.mutateAsync({ id: existingEvent.id, ...eventData });
+        await updateEventType.mutateAsync({ id: existingEvent.id, ...eventData } as any);
         toast.success('Event type updated!');
       }
       navigate('/dashboard');
@@ -362,6 +425,125 @@ export default function EventTypeEditor() {
                   onChange={(e) => setLocationValue(e.target.value)}
                   className="bg-background"
                 />
+              </div>
+            )}
+          </div>
+
+          {/* Custom Form Fields */}
+          <div className="p-6 bg-card rounded-xl border border-border space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold">Booking Form Questions</h3>
+              </div>
+              <Button variant="outline" size="sm" onClick={addCustomField}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Question
+              </Button>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Add custom questions to collect information from attendees when they book.
+              Name, email, and notes are collected by default.
+            </p>
+
+            {customFields.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
+                <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No custom questions yet</p>
+                <p className="text-xs">Click "Add Question" to create a custom form field</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {customFields.map((field, index) => (
+                  <div
+                    key={field.id}
+                    className="p-4 border border-border rounded-lg bg-background space-y-4"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex items-center gap-2 text-muted-foreground cursor-grab">
+                        <GripVertical className="w-4 h-4" />
+                        <span className="text-sm font-medium">Q{index + 1}</span>
+                      </div>
+                      <div className="flex-1 grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Question Label</Label>
+                          <Input
+                            placeholder="e.g. Company Name"
+                            value={field.label}
+                            onChange={(e) => updateCustomField(field.id, { label: e.target.value })}
+                            className="bg-card"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Field Type</Label>
+                          <Select
+                            value={field.type}
+                            onValueChange={(v) => updateCustomField(field.id, { type: v as any })}
+                          >
+                            <SelectTrigger className="bg-card">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FIELD_TYPES.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>
+                                  {t.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => removeCustomField(field.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {field.type === 'select' && (
+                      <div className="ml-10 space-y-2">
+                        <Label>Options (one per line)</Label>
+                        <Textarea
+                          placeholder="Option 1&#10;Option 2&#10;Option 3"
+                          value={field.options?.join('\n') || ''}
+                          onChange={(e) =>
+                            updateCustomField(field.id, {
+                              options: e.target.value.split('\n').filter((o) => o.trim()),
+                            })
+                          }
+                          className="bg-card min-h-[80px]"
+                        />
+                      </div>
+                    )}
+
+                    <div className="ml-10 flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`required-${field.id}`}
+                          checked={field.required}
+                          onCheckedChange={(checked) =>
+                            updateCustomField(field.id, { required: !!checked })
+                          }
+                        />
+                        <Label htmlFor={`required-${field.id}`} className="text-sm font-normal">
+                          Required
+                        </Label>
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Placeholder text (optional)"
+                          value={field.placeholder || ''}
+                          onChange={(e) => updateCustomField(field.id, { placeholder: e.target.value })}
+                          className="bg-card h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

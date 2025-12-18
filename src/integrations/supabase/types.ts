@@ -85,6 +85,7 @@ export type Database = {
           id: string
           meet_link: string | null
           notes: string | null
+          reminder_sent: boolean | null
           reschedule_token: string | null
           start_time: string
           status: string
@@ -103,6 +104,7 @@ export type Database = {
           id?: string
           meet_link?: string | null
           notes?: string | null
+          reminder_sent?: boolean | null
           reschedule_token?: string | null
           start_time: string
           status?: string
@@ -121,6 +123,7 @@ export type Database = {
           id?: string
           meet_link?: string | null
           notes?: string | null
+          reminder_sent?: boolean | null
           reschedule_token?: string | null
           start_time?: string
           status?: string
@@ -142,6 +145,7 @@ export type Database = {
           buffer_before: number
           color: string | null
           created_at: string
+          custom_fields: Json | null
           description: string | null
           duration: number
           id: string
@@ -159,6 +163,7 @@ export type Database = {
           buffer_before?: number
           color?: string | null
           created_at?: string
+          custom_fields?: Json | null
           description?: string | null
           duration?: number
           id?: string
@@ -176,6 +181,7 @@ export type Database = {
           buffer_before?: number
           color?: string | null
           created_at?: string
+          custom_fields?: Json | null
           description?: string | null
           duration?: number
           id?: string

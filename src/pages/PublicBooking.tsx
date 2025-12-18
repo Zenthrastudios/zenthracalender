@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
@@ -25,6 +26,15 @@ interface TimeSlot {
   available: boolean;
   startTime: Date;
   endTime: Date;
+}
+
+interface CustomField {
+  id: string;
+  label: string;
+  type: 'text' | 'textarea' | 'email' | 'phone' | 'select' | 'checkbox';
+  required: boolean;
+  options?: string[];
+  placeholder?: string;
 }
 
 const TIMEZONES = [
@@ -76,10 +86,14 @@ export default function PublicBookingPage() {
   const [attendeeName, setAttendeeName] = useState('');
   const [attendeeEmail, setAttendeeEmail] = useState('');
   const [notes, setNotes] = useState('');
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
 
   const { data: existingBookings } = useHostBookingsForDate(eventData?.host?.id, selectedDate);
   const { data: googleCalendarConflicts } = useGoogleCalendarConflicts(eventData?.host?.id, selectedDate);
   const createBooking = useCreateBooking();
+
+  // Get custom fields from event type
+  const customFields: CustomField[] = (eventData?.eventType as any)?.custom_fields || [];
 
   const calendarDays = useMemo(() => {
     const start = startOfMonth(currentMonth);
@@ -141,11 +155,68 @@ export default function PublicBookingPage() {
     return slots;
   }, [selectedDate, eventData, availability, existingBookings, googleCalendarConflicts]);
 
+  const updateCustomFieldValue = (fieldId: string, value: string | boolean) => {
+    setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
+  };
+
+  const validateForm = () => {
+    if (!attendeeName.trim()) {
+      toast.error('Please enter your name');
+      return false;
+    }
+    if (!attendeeEmail.trim() || !/\S+@\S+\.\S+/.test(attendeeEmail)) {
+      toast.error('Please enter a valid email address');
+      return false;
+    }
+
+    // Validate required custom fields
+    for (const field of customFields) {
+      if (field.required) {
+        const value = customFieldValues[field.id];
+        if (field.type === 'checkbox') {
+          if (!value) {
+            toast.error(`Please check "${field.label}"`);
+            return false;
+          }
+        } else {
+          if (!value || (typeof value === 'string' && !value.trim())) {
+            toast.error(`Please fill in "${field.label}"`);
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  };
+
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSlot || !eventData) return;
 
+    if (!validateForm()) return;
+
     try {
+      // Build notes with custom field values
+      let fullNotes = notes;
+      if (Object.keys(customFieldValues).length > 0) {
+        const customAnswers = customFields
+          .map(field => {
+            const value = customFieldValues[field.id];
+            if (value === undefined || value === '' || value === false) return null;
+            const displayValue = field.type === 'checkbox' ? 'Yes' : value;
+            return `${field.label}: ${displayValue}`;
+          })
+          .filter(Boolean)
+          .join('\n');
+        
+        if (customAnswers) {
+          fullNotes = fullNotes 
+            ? `${notes}\n\n--- Custom Responses ---\n${customAnswers}`
+            : `--- Custom Responses ---\n${customAnswers}`;
+        }
+      }
+
       const booking = await createBooking.mutateAsync({
         event_type_id: eventData.eventType.id,
         host_id: eventData.host.id,
@@ -154,7 +225,7 @@ export default function PublicBookingPage() {
         attendee_timezone: timezone,
         start_time: selectedSlot.startTime.toISOString(),
         end_time: selectedSlot.endTime.toISOString(),
-        notes: notes || undefined,
+        notes: fullNotes || undefined,
       });
 
       toast.success('Booking confirmed!');
@@ -181,6 +252,88 @@ export default function PublicBookingPage() {
   }
 
   const LocationIcon = getLocationIcon(eventData.eventType.location_type);
+
+  const renderCustomField = (field: CustomField) => {
+    const value = customFieldValues[field.id];
+
+    switch (field.type) {
+      case 'text':
+      case 'email':
+      case 'phone':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label>
+              {field.label} {field.required && <span className="text-destructive">*</span>}
+            </Label>
+            <Input
+              type={field.type === 'email' ? 'email' : field.type === 'phone' ? 'tel' : 'text'}
+              value={(value as string) || ''}
+              onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
+              placeholder={field.placeholder}
+              required={field.required}
+              className="bg-background"
+            />
+          </div>
+        );
+
+      case 'textarea':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label>
+              {field.label} {field.required && <span className="text-destructive">*</span>}
+            </Label>
+            <Textarea
+              value={(value as string) || ''}
+              onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
+              placeholder={field.placeholder}
+              required={field.required}
+              className="bg-background min-h-[80px]"
+            />
+          </div>
+        );
+
+      case 'select':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label>
+              {field.label} {field.required && <span className="text-destructive">*</span>}
+            </Label>
+            <Select
+              value={(value as string) || ''}
+              onValueChange={(v) => updateCustomFieldValue(field.id, v)}
+            >
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder={field.placeholder || 'Select an option'} />
+              </SelectTrigger>
+              <SelectContent>
+                {field.options?.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+
+      case 'checkbox':
+        return (
+          <div key={field.id} className="flex items-center gap-2">
+            <Checkbox
+              id={field.id}
+              checked={(value as boolean) || false}
+              onCheckedChange={(checked) => updateCustomFieldValue(field.id, !!checked)}
+            />
+            <Label htmlFor={field.id} className="text-sm font-normal">
+              {field.label} {field.required && <span className="text-destructive">*</span>}
+            </Label>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -284,7 +437,7 @@ export default function PublicBookingPage() {
             {/* Time Slots / Booking Form */}
             <div className="p-6">
               {showBookingForm && selectedSlot ? (
-                <form onSubmit={handleBookingSubmit} className="space-y-4">
+                <form onSubmit={handleBookingSubmit} className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
                   <div>
                     <h2 className="font-semibold mb-1">Enter your details</h2>
                     <p className="text-sm text-muted-foreground">
@@ -292,7 +445,7 @@ export default function PublicBookingPage() {
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Your Name *</Label>
+                    <Label>Your Name <span className="text-destructive">*</span></Label>
                     <Input 
                       value={attendeeName} 
                       onChange={(e) => setAttendeeName(e.target.value)} 
@@ -302,7 +455,7 @@ export default function PublicBookingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email Address *</Label>
+                    <Label>Email Address <span className="text-destructive">*</span></Label>
                     <Input 
                       type="email" 
                       value={attendeeEmail} 
@@ -312,6 +465,10 @@ export default function PublicBookingPage() {
                       placeholder="john@example.com"
                     />
                   </div>
+
+                  {/* Custom Fields */}
+                  {customFields.map(renderCustomField)}
+
                   <div className="space-y-2">
                     <Label>Additional Notes</Label>
                     <Textarea 
