@@ -286,7 +286,7 @@ export default function Apps() {
                         <Badge variant="secondary" className="text-xs">Popular</Badge>
                       )}
                       {app.connected && (
-                        <Badge className="text-xs bg-primary/20 text-primary border-0">Connected</Badge>
+                        <Badge className="text-xs bg-emerald-500 text-white border-0">Connected</Badge>
                       )}
                       {!app.provider && (
                         <Badge variant="outline" className="text-xs">Coming Soon</Badge>
@@ -296,7 +296,7 @@ export default function Apps() {
                       {app.description}
                     </p>
                     {app.connectedEmail && (
-                      <p className="text-xs text-primary mt-2">{app.connectedEmail}</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">{app.connectedEmail}</p>
                     )}
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -319,7 +319,7 @@ export default function Apps() {
                     <div>
                       <DialogTitle>{selectedApp.name}</DialogTitle>
                       {selectedApp.connected && (
-                        <Badge className="mt-1 text-xs bg-primary/20 text-primary border-0">
+                        <Badge className="mt-1 text-xs bg-emerald-500 text-white border-0">
                           <Check className="w-3 h-3 mr-1" />
                           Connected
                         </Badge>
