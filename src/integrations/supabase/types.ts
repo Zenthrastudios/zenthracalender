@@ -14,7 +14,209 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      availability: {
+        Row: {
+          created_at: string
+          end_time: number
+          id: string
+          start_time: number
+          user_id: string
+          weekday: number
+        }
+        Insert: {
+          created_at?: string
+          end_time: number
+          id?: string
+          start_time: number
+          user_id: string
+          weekday: number
+        }
+        Update: {
+          created_at?: string
+          end_time?: number
+          id?: string
+          start_time?: number
+          user_id?: string
+          weekday?: number
+        }
+        Relationships: []
+      }
+      availability_overrides: {
+        Row: {
+          created_at: string
+          date: string
+          end_time: number | null
+          id: string
+          is_unavailable: boolean
+          start_time: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          end_time?: number | null
+          id?: string
+          is_unavailable?: boolean
+          start_time?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          end_time?: number | null
+          id?: string
+          is_unavailable?: boolean
+          start_time?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      bookings: {
+        Row: {
+          attendee_email: string
+          attendee_name: string
+          attendee_timezone: string
+          cancel_token: string | null
+          created_at: string
+          end_time: string
+          event_type_id: string
+          host_id: string
+          id: string
+          notes: string | null
+          reschedule_token: string | null
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attendee_email: string
+          attendee_name: string
+          attendee_timezone?: string
+          cancel_token?: string | null
+          created_at?: string
+          end_time: string
+          event_type_id: string
+          host_id: string
+          id?: string
+          notes?: string | null
+          reschedule_token?: string | null
+          start_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attendee_email?: string
+          attendee_name?: string
+          attendee_timezone?: string
+          cancel_token?: string | null
+          created_at?: string
+          end_time?: string
+          event_type_id?: string
+          host_id?: string
+          id?: string
+          notes?: string | null
+          reschedule_token?: string | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_types: {
+        Row: {
+          buffer_after: number
+          buffer_before: number
+          color: string | null
+          created_at: string
+          description: string | null
+          duration: number
+          id: string
+          is_active: boolean
+          location_type: string
+          location_value: string | null
+          minimum_notice: number
+          slug: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          buffer_after?: number
+          buffer_before?: number
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          duration?: number
+          id?: string
+          is_active?: boolean
+          location_type?: string
+          location_value?: string | null
+          minimum_notice?: number
+          slug: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          buffer_after?: number
+          buffer_before?: number
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          duration?: number
+          id?: string
+          is_active?: boolean
+          location_type?: string
+          location_value?: string | null
+          minimum_notice?: number
+          slug?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          name: string
+          timezone: string
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          timezone?: string
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
