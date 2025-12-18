@@ -12,6 +12,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<ProfileData>) => Promise<{ error: any }>;
+  refreshProfile: () => Promise<void>;
 }
 
 interface ProfileData {
@@ -135,6 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchProfile(user.id);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -146,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle,
       signOut,
       updateProfile,
+      refreshProfile,
     }}>
       {children}
     </AuthContext.Provider>

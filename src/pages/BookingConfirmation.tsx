@@ -1,6 +1,8 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useScheduling } from '@/contexts/SchedulingContext';
+import { useBookingById, useCancelBooking } from '@/hooks/useBookings';
+import { useProfileById } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { 
   Calendar, 
   CheckCircle, 
@@ -10,7 +12,11 @@ import {
   CalendarPlus,
   RefreshCw,
   XCircle,
-  ChevronDown
+  ChevronDown,
+  MapPin,
+  Phone,
+  Link as LinkIcon,
+  ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -21,15 +27,52 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
+const getLocationIcon = (locationType: string) => {
+  switch (locationType) {
+    case 'google_meet':
+    case 'zoom':
+      return Video;
+    case 'phone':
+      return Phone;
+    case 'in_person':
+      return MapPin;
+    default:
+      return LinkIcon;
+  }
+};
+
+const getLocationLabel = (locationType: string) => {
+  switch (locationType) {
+    case 'google_meet':
+      return 'Google Meet';
+    case 'zoom':
+      return 'Zoom';
+    case 'phone':
+      return 'Phone Call';
+    case 'in_person':
+      return 'In Person';
+    default:
+      return 'Online';
+  }
+};
+
 export default function BookingConfirmation() {
   const { bookingId } = useParams();
   const navigate = useNavigate();
-  const { bookings, eventTypes, cancelBooking } = useScheduling();
+  
+  const { data: booking, isLoading } = useBookingById(bookingId);
+  const { data: hostProfile } = useProfileById(booking?.host_id);
+  const cancelBooking = useCancelBooking();
 
-  const booking = bookings.find(b => b.id === bookingId);
-  const eventType = booking ? eventTypes.find(et => et.id === booking.eventTypeId) : null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
-  if (!booking || !eventType) {
+  if (!booking) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -41,11 +84,15 @@ export default function BookingConfirmation() {
     );
   }
 
+  const LocationIcon = getLocationIcon(booking.event_type?.location_type || 'google_meet');
+
   const handleAddToCalendar = (type: 'google' | 'outlook' | 'ics') => {
-    const title = encodeURIComponent(eventType.title);
-    const startTime = format(new Date(booking.startTime), "yyyyMMdd'T'HHmmss");
-    const endTime = format(new Date(booking.endTime), "yyyyMMdd'T'HHmmss");
-    const description = encodeURIComponent(`Meeting with ${booking.attendeeName}`);
+    const title = encodeURIComponent(booking.event_type?.title || 'Meeting');
+    const startTime = format(new Date(booking.start_time), "yyyyMMdd'T'HHmmss");
+    const endTime = format(new Date(booking.end_time), "yyyyMMdd'T'HHmmss");
+    const description = encodeURIComponent(
+      `Meeting with ${hostProfile?.name || 'Host'}${booking.meet_link ? `\n\nJoin: ${booking.meet_link}` : ''}`
+    );
 
     if (type === 'google') {
       const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startTime}/${endTime}&details=${description}`;
@@ -54,14 +101,13 @@ export default function BookingConfirmation() {
       const url = `https://outlook.live.com/calendar/0/deeplink/compose?subject=${title}&startdt=${startTime}&enddt=${endTime}&body=${description}`;
       window.open(url, '_blank');
     } else {
-      // Generate ICS file
       const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 BEGIN:VEVENT
 DTSTART:${startTime}
 DTEND:${endTime}
-SUMMARY:${eventType.title}
-DESCRIPTION:Meeting with ${booking.attendeeName}
+SUMMARY:${booking.event_type?.title || 'Meeting'}
+DESCRIPTION:Meeting with ${hostProfile?.name || 'Host'}${booking.meet_link ? `\\nJoin: ${booking.meet_link}` : ''}
 END:VEVENT
 END:VCALENDAR`;
       
@@ -80,10 +126,14 @@ END:VCALENDAR`;
     toast.info('Reschedule feature coming soon!');
   };
 
-  const handleCancel = () => {
-    cancelBooking(booking.id);
-    toast.success('Booking cancelled');
-    navigate('/');
+  const handleCancel = async () => {
+    try {
+      await cancelBooking.mutateAsync(booking);
+      toast.success('Booking cancelled');
+      navigate('/');
+    } catch (error) {
+      toast.error('Failed to cancel booking');
+    }
   };
 
   return (
@@ -110,9 +160,9 @@ END:VCALENDAR`;
             <CheckCircle className="w-8 h-8 text-primary-foreground" />
           </div>
 
-          <h1 className="text-3xl font-bold mb-2">Booking confirmed</h1>
+          <h1 className="text-3xl font-bold mb-2">Booking confirmed!</h1>
           <p className="text-muted-foreground">
-            You are scheduled with {booking.attendeeName || 'the host'}.
+            You are scheduled with {hostProfile?.name || 'the host'}.
           </p>
           <p className="text-sm text-muted-foreground mt-1">
             A calendar invitation has been sent to your email address.
@@ -121,37 +171,66 @@ END:VCALENDAR`;
 
         {/* Booking Details Card */}
         <div className="bg-card rounded-2xl shadow-card p-6 mb-6 animate-slide-up">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-            <Calendar className="w-4 h-4" />
-            <span>{format(new Date(booking.startTime), 'MMMM yyyy')}</span>
+          {/* Host Info */}
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+            <Avatar className="h-12 w-12">
+              <AvatarImage src={hostProfile?.avatar_url || ''} />
+              <AvatarFallback className="bg-primary/10 text-primary">
+                {hostProfile?.name?.charAt(0) || 'H'}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-medium">{hostProfile?.name || 'Host'}</p>
+              <p className="text-sm text-muted-foreground">@{hostProfile?.username}</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
-              <p className="text-xs text-secondary uppercase tracking-wide mb-1 flex items-center gap-1">
-                <Video className="w-3 h-3" /> WHAT
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
+                <LocationIcon className="w-3 h-3" /> WHAT
               </p>
-              <p className="font-semibold">{eventType.title}</p>
+              <p className="font-semibold">{booking.event_type?.title}</p>
+              <p className="text-sm text-muted-foreground">{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</p>
             </div>
             <div>
-              <p className="text-xs text-secondary uppercase tracking-wide mb-1 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
                 <User className="w-3 h-3" /> WHO
               </p>
-              <p className="font-semibold">{booking.attendeeName}</p>
+              <p className="font-semibold">{booking.attendee_name}</p>
+              <p className="text-sm text-muted-foreground">{booking.attendee_email}</p>
             </div>
           </div>
 
-          <div className="border-t border-dashed border-border pt-4">
-            <p className="text-xs text-secondary uppercase tracking-wide mb-1 flex items-center gap-1">
+          <div className="border-t border-dashed border-border pt-4 mb-4">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
               <Clock className="w-3 h-3" /> WHEN
             </p>
             <p className="font-semibold">
-              {format(new Date(booking.startTime), 'EEEE, MMMM d, yyyy')}{' '}
+              {format(new Date(booking.start_time), 'EEEE, MMMM d, yyyy')}{' '}
               <span className="text-primary">at</span>{' '}
-              {format(new Date(booking.startTime), 'h:mm a')} - {format(new Date(booking.endTime), 'h:mm a')}{' '}
-              <span className="text-muted-foreground">({booking.attendeeTimezone?.replace('_', ' ').split('/').pop()})</span>
+              {format(new Date(booking.start_time), 'h:mm a')} - {format(new Date(booking.end_time), 'h:mm a')}{' '}
+              <span className="text-muted-foreground">({booking.attendee_timezone?.replace('_', ' ').split('/').pop()})</span>
             </p>
           </div>
+
+          {/* Meet Link */}
+          {booking.meet_link && (
+            <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+                <Video className="w-3 h-3" /> JOIN MEETING
+              </p>
+              <a 
+                href={booking.meet_link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-primary hover:underline font-medium"
+              >
+                <span className="truncate">{booking.meet_link}</span>
+                <ExternalLink className="w-4 h-4 flex-shrink-0" />
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -188,10 +267,11 @@ END:VCALENDAR`;
             <div className="w-px h-4 bg-border"></div>
             <button
               onClick={handleCancel}
-              className="flex items-center gap-2 text-destructive hover:text-destructive/80 transition-colors"
+              disabled={cancelBooking.isPending}
+              className="flex items-center gap-2 text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
             >
               <XCircle className="w-4 h-4" />
-              Cancel
+              {cancelBooking.isPending ? 'Cancelling...' : 'Cancel'}
             </button>
           </div>
         </div>
