@@ -370,6 +370,31 @@ export default function Bookings() {
                     </div>
                   )}
 
+                  {/* Reschedule Link */}
+                  {selectedBooking.reschedule_token && selectedBooking.status !== 'cancelled' && !isPast(new Date(selectedBooking.start_time)) && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Reschedule Link</h4>
+                      <div className="flex items-center gap-2">
+                        <Input 
+                          value={`${window.location.origin}/reschedule/${selectedBooking.reschedule_token}`} 
+                          readOnly 
+                          className="bg-muted text-sm"
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          onClick={() => copyToClipboard(
+                            `${window.location.origin}/reschedule/${selectedBooking.reschedule_token}`, 
+                            'Reschedule link'
+                          )}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Share this link with the attendee to allow them to reschedule</p>
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div className="flex gap-3 pt-4 border-t">
                     <Button 
@@ -381,16 +406,28 @@ export default function Bookings() {
                       Email Attendee
                     </Button>
                     {selectedBooking.status !== 'cancelled' && !isPast(new Date(selectedBooking.start_time)) && (
-                      <Button 
-                        variant="destructive"
-                        onClick={() => {
-                          setDetailDialogOpen(false);
-                          setCancelDialogOpen(true);
-                        }}
-                      >
-                        <XCircle className="w-4 h-4 mr-2" />
-                        Cancel
-                      </Button>
+                      <>
+                        <Button 
+                          variant="outline"
+                          onClick={() => copyToClipboard(
+                            `${window.location.origin}/reschedule/${selectedBooking.reschedule_token}`, 
+                            'Reschedule link'
+                          )}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Send Reschedule
+                        </Button>
+                        <Button 
+                          variant="destructive"
+                          onClick={() => {
+                            setDetailDialogOpen(false);
+                            setCancelDialogOpen(true);
+                          }}
+                        >
+                          <XCircle className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>

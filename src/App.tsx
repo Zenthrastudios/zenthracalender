@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 // Pages
@@ -15,9 +16,11 @@ import Availability from "./pages/Availability";
 import Team from "./pages/Team";
 import Apps from "./pages/Apps";
 import Settings from "./pages/Settings";
+import Analytics from "./pages/Analytics";
 import PublicBooking from "./pages/PublicBooking";
 import PublicProfile from "./pages/PublicProfile";
 import BookingConfirmation from "./pages/BookingConfirmation";
+import Reschedule from "./pages/Reschedule";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +76,7 @@ function AppRoutes() {
       <Route path="/book/:username" element={<PublicProfile />} />
       <Route path="/book/:username/:eventSlug" element={<PublicBooking />} />
       <Route path="/booking/confirmed/:bookingId" element={<BookingConfirmation />} />
+      <Route path="/reschedule/:token" element={<Reschedule />} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={
@@ -105,6 +109,11 @@ function AppRoutes() {
           <Apps />
         </ProtectedRoute>
       } />
+      <Route path="/dashboard/analytics" element={
+        <ProtectedRoute>
+          <Analytics />
+        </ProtectedRoute>
+      } />
       <Route path="/dashboard/settings" element={
         <ProtectedRoute>
           <Settings />
@@ -119,15 +128,17 @@ function AppRoutes() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
