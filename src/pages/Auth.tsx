@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,6 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   
   const { signIn, signUp, signInWithGoogle } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +39,7 @@ export default function AuthPage() {
         toast.error(result.error.message || 'Authentication failed. Please try again.');
       } else {
         toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
-        navigate('/dashboard');
+        // Navigation is handled by AuthRoute based on role
       }
     } catch (error: any) {
       console.error('Auth error:', error);
