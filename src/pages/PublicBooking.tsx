@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useEventTypeBySlug } from '@/hooks/useEventTypes';
 import { useHostAvailabilityForBooking, useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useAvailability';
 import { useCreateBooking } from '@/hooks/useBookings';
+import { useCreateRazorpayOrder, useVerifyRazorpayPayment, useCreateCashfreeOrder, useVerifyCashfreePayment } from '@/hooks/usePayments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,10 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon } from 'lucide-react';
+import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2 } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+    Cashfree: any;
+  }
+}
 
 interface TimeSlot {
   time: string;
@@ -74,6 +82,7 @@ const getLocationLabel = (locationType: string) => {
 export default function PublicBookingPage() {
   const { username, eventSlug } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
   const { data: eventData, isLoading } = useEventTypeBySlug(username, eventSlug);
   const { data: availability } = useHostAvailabilityForBooking(eventData?.host?.id);
@@ -87,13 +96,42 @@ export default function PublicBookingPage() {
   const [attendeeEmail, setAttendeeEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   const { data: existingBookings } = useHostBookingsForDate(eventData?.host?.id, selectedDate);
   const { data: googleCalendarConflicts } = useGoogleCalendarConflicts(eventData?.host?.id, selectedDate);
   const createBooking = useCreateBooking();
+  
+  // Payment hooks
+  const createRazorpayOrder = useCreateRazorpayOrder();
+  const verifyRazorpayPayment = useVerifyRazorpayPayment();
+  const createCashfreeOrder = useCreateCashfreeOrder();
+  const verifyCashfreePayment = useVerifyCashfreePayment();
 
-  // Get custom fields from event type
+  // Get custom fields and payment info from event type
   const customFields: CustomField[] = (eventData?.eventType as any)?.custom_fields || [];
+  const isPaidEvent = (eventData?.eventType as any)?.is_paid || false;
+  const eventPrice = (eventData?.eventType as any)?.price || 0;
+  const paymentProvider = (eventData?.eventType as any)?.payment_provider || 'razorpay';
+
+  // Load Razorpay/Cashfree script dynamically
+  useEffect(() => {
+    if (isPaidEvent && paymentProvider === 'razorpay') {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+      return () => { document.body.removeChild(script); };
+    }
+    if (isPaidEvent && paymentProvider === 'cashfree') {
+      const script = document.createElement('script');
+      script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+      script.async = true;
+      document.body.appendChild(script);
+      return () => { document.body.removeChild(script); };
+    }
+  }, [isPaidEvent, paymentProvider]);
 
   const calendarDays = useMemo(() => {
     const start = startOfMonth(currentMonth);
@@ -190,43 +228,172 @@ export default function PublicBookingPage() {
     return true;
   };
 
+  const createBookingAfterPayment = async () => {
+    if (!selectedSlot || !eventData) return;
+
+    const customResponses = customFields
+      .map(field => {
+        const value = customFieldValues[field.id];
+        if (value === undefined || value === '' || value === false) return null;
+        return {
+          fieldId: field.id,
+          label: field.label,
+          value: field.type === 'checkbox' ? true : value,
+          type: field.type,
+        };
+      })
+      .filter(Boolean) as { fieldId: string; label: string; value: string | boolean; type: string }[];
+
+    const booking = await createBooking.mutateAsync({
+      event_type_id: eventData.eventType.id,
+      host_id: eventData.host.id,
+      attendee_name: attendeeName,
+      attendee_email: attendeeEmail,
+      attendee_timezone: timezone,
+      start_time: selectedSlot.startTime.toISOString(),
+      end_time: selectedSlot.endTime.toISOString(),
+      notes: notes || undefined,
+      custom_responses: customResponses.length > 0 ? customResponses : undefined,
+    });
+
+    toast.success('Booking confirmed!');
+    navigate(`/booking/confirmed/${booking.id}`);
+  };
+
+  const handleRazorpayPayment = async () => {
+    if (!selectedSlot || !eventData) return;
+    
+    setIsProcessingPayment(true);
+    try {
+      const tempBookingId = `temp_${Date.now()}`;
+      const amountInPaise = Math.round(eventPrice * 100);
+      
+      const orderResult = await createRazorpayOrder.mutateAsync({
+        bookingId: tempBookingId,
+        amount: amountInPaise,
+        customerName: attendeeName,
+        customerEmail: attendeeEmail,
+      });
+
+      const options = {
+        key: orderResult.keyId,
+        amount: orderResult.amount,
+        currency: orderResult.currency,
+        name: eventData.eventType.title,
+        description: `Booking with ${eventData.host.name}`,
+        order_id: orderResult.orderId,
+        handler: async function (response: any) {
+          try {
+            const verifyResult = await verifyRazorpayPayment.mutateAsync({
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+
+            if (verifyResult.verified) {
+              setPaymentCompleted(true);
+              await createBookingAfterPayment();
+            } else {
+              toast.error('Payment verification failed. Please try again.');
+            }
+          } catch (error) {
+            toast.error('Payment verification failed.');
+          }
+          setIsProcessingPayment(false);
+        },
+        prefill: {
+          name: attendeeName,
+          email: attendeeEmail,
+        },
+        theme: {
+          color: '#3b82f6',
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessingPayment(false);
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    } catch (error) {
+      console.error('Razorpay payment error:', error);
+      toast.error('Failed to initiate payment. Please try again.');
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleCashfreePayment = async () => {
+    if (!selectedSlot || !eventData) return;
+    
+    setIsProcessingPayment(true);
+    try {
+      const tempBookingId = `temp_${Date.now()}`;
+      
+      const orderResult = await createCashfreeOrder.mutateAsync({
+        bookingId: tempBookingId,
+        amount: eventPrice,
+        customerName: attendeeName,
+        customerEmail: attendeeEmail,
+        returnUrl: window.location.href,
+      });
+
+      // Use Cashfree Drop-in checkout
+      const cashfree = window.Cashfree({
+        mode: 'sandbox', // Change to 'production' for live
+      });
+
+      cashfree.checkout({
+        paymentSessionId: orderResult.paymentSessionId,
+        redirectTarget: '_modal',
+      }).then(async (result: any) => {
+        if (result.error) {
+          toast.error('Payment failed. Please try again.');
+          setIsProcessingPayment(false);
+          return;
+        }
+        
+        // Verify payment
+        const verifyResult = await verifyCashfreePayment.mutateAsync(orderResult.orderId);
+        if (verifyResult.isPaid) {
+          setPaymentCompleted(true);
+          await createBookingAfterPayment();
+        } else {
+          toast.error('Payment not completed. Please try again.');
+        }
+        setIsProcessingPayment(false);
+      }).catch(() => {
+        toast.error('Payment was cancelled.');
+        setIsProcessingPayment(false);
+      });
+    } catch (error) {
+      console.error('Cashfree payment error:', error);
+      toast.error('Failed to initiate payment. Please try again.');
+      setIsProcessingPayment(false);
+    }
+  };
+
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSlot || !eventData) return;
 
     if (!validateForm()) return;
 
-    try {
-      // Build custom responses array
-      const customResponses = customFields
-        .map(field => {
-          const value = customFieldValues[field.id];
-          if (value === undefined || value === '' || value === false) return null;
-          return {
-            fieldId: field.id,
-            label: field.label,
-            value: field.type === 'checkbox' ? true : value,
-            type: field.type,
-          };
-        })
-        .filter(Boolean) as { fieldId: string; label: string; value: string | boolean; type: string }[];
-
-      const booking = await createBooking.mutateAsync({
-        event_type_id: eventData.eventType.id,
-        host_id: eventData.host.id,
-        attendee_name: attendeeName,
-        attendee_email: attendeeEmail,
-        attendee_timezone: timezone,
-        start_time: selectedSlot.startTime.toISOString(),
-        end_time: selectedSlot.endTime.toISOString(),
-        notes: notes || undefined,
-        custom_responses: customResponses.length > 0 ? customResponses : undefined,
-      });
-
-      toast.success('Booking confirmed!');
-      navigate(`/booking/confirmed/${booking.id}`);
-    } catch (error) {
-      toast.error('Failed to create booking. Please try again.');
+    // If it's a paid event, initiate payment first
+    if (isPaidEvent && eventPrice > 0) {
+      if (paymentProvider === 'razorpay') {
+        await handleRazorpayPayment();
+      } else if (paymentProvider === 'cashfree') {
+        await handleCashfreePayment();
+      }
+    } else {
+      // Free event, create booking directly
+      try {
+        await createBookingAfterPayment();
+      } catch (error) {
+        toast.error('Failed to create booking. Please try again.');
+      }
     }
   };
 
@@ -364,6 +531,12 @@ export default function PublicBookingPage() {
                   <LocationIcon className="w-4 h-4" />
                   <span>{getLocationLabel(eventData.eventType.location_type)}</span>
                 </div>
+                {isPaidEvent && eventPrice > 0 && (
+                  <div className="flex items-center gap-3 text-primary font-medium">
+                    <IndianRupee className="w-4 h-4" />
+                    <span>₹{eventPrice.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
               </div>
               {eventData.eventType.description && (
                 <p className="text-sm text-muted-foreground mt-6 border-t border-border pt-4">
@@ -473,12 +646,49 @@ export default function PublicBookingPage() {
                       placeholder="Any additional information..."
                     />
                   </div>
+                  {/* Price Display for Paid Events */}
+                  {isPaidEvent && eventPrice > 0 && (
+                    <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-primary" />
+                          <span className="font-medium">Payment Required</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-lg font-bold text-primary">
+                          <IndianRupee className="w-5 h-5" />
+                          {eventPrice.toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Payment via {paymentProvider === 'razorpay' ? 'Razorpay' : 'Cashfree'}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex gap-3 pt-4">
                     <Button type="button" variant="outline" onClick={() => setShowBookingForm(false)} className="flex-1">
                       Back
                     </Button>
-                    <Button type="submit" className="flex-1" disabled={createBooking.isPending}>
-                      {createBooking.isPending ? 'Booking...' : 'Confirm Booking'}
+                    <Button 
+                      type="submit" 
+                      className="flex-1" 
+                      disabled={createBooking.isPending || isProcessingPayment}
+                    >
+                      {isProcessingPayment ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : createBooking.isPending ? (
+                        'Booking...'
+                      ) : isPaidEvent && eventPrice > 0 ? (
+                        <>
+                          <CreditCard className="w-4 h-4 mr-2" />
+                          Pay & Confirm
+                        </>
+                      ) : (
+                        'Confirm Booking'
+                      )}
                     </Button>
                   </div>
                 </form>

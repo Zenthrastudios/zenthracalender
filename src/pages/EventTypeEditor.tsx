@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/accordion';
 import { 
   ChevronRight, Video, Phone, MapPin, Globe, Clock, Calendar, 
-  Settings2, User, Plus, Trash2, GripVertical, FileText 
+  Settings2, User, Plus, Trash2, GripVertical, FileText, IndianRupee, CreditCard 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -50,6 +50,11 @@ const COLORS = [
   { value: '#ec4899', label: 'Pink' },
   { value: '#06b6d4', label: 'Cyan' },
   { value: '#f97316', label: 'Orange' },
+];
+
+const PAYMENT_PROVIDERS = [
+  { value: 'razorpay', label: 'Razorpay' },
+  { value: 'cashfree', label: 'Cashfree' },
 ];
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -102,6 +107,11 @@ export default function EventTypeEditor() {
 
   // Custom Form Fields
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
+
+  // Payment Settings
+  const [isPaid, setIsPaid] = useState(false);
+  const [price, setPrice] = useState('');
+  const [paymentProvider, setPaymentProvider] = useState<string>('razorpay');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -122,6 +132,10 @@ export default function EventTypeEditor() {
       if ((existingEvent as any).custom_fields) {
         setCustomFields((existingEvent as any).custom_fields);
       }
+      // Load payment settings
+      setIsPaid((existingEvent as any).is_paid || false);
+      setPrice((existingEvent as any).price?.toString() || '');
+      setPaymentProvider((existingEvent as any).payment_provider || 'razorpay');
     }
   }, [existingEvent]);
 
@@ -197,6 +211,9 @@ export default function EventTypeEditor() {
       minimum_notice: minimumNotice,
       color,
       custom_fields: customFields,
+      is_paid: isPaid,
+      price: isPaid ? parseFloat(price) || 0 : 0,
+      payment_provider: isPaid ? paymentProvider : null,
     };
 
     try {
@@ -544,6 +561,64 @@ export default function EventTypeEditor() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Payment Settings */}
+          <div className="p-6 bg-card rounded-xl border border-border space-y-4">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold">Payment Settings</h3>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
+              <div>
+                <p className="font-medium">Paid Event</p>
+                <p className="text-sm text-muted-foreground">
+                  Require payment before booking is confirmed
+                </p>
+              </div>
+              <Switch
+                checked={isPaid}
+                onCheckedChange={setIsPaid}
+              />
+            </div>
+
+            {isPaid && (
+              <div className="grid grid-cols-2 gap-4 p-4 bg-background rounded-lg border border-border">
+                <div className="space-y-2">
+                  <Label>Price (₹)</Label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      placeholder="500"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      className="pl-9 bg-card"
+                      min="1"
+                      step="1"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Enter amount in INR</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Payment Gateway</Label>
+                  <Select value={paymentProvider} onValueChange={setPaymentProvider}>
+                    <SelectTrigger className="bg-card">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_PROVIDERS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Choose your preferred gateway</p>
+                </div>
               </div>
             )}
           </div>
