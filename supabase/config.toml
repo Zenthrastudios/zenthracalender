@@ -10,6 +10,9 @@ enable_confirmations = false
 [functions.send-booking-email]
 verify_jwt = false
 
+[functions.send-booking-reminder]
+verify_jwt = false
+
 [functions.google-auth]
 verify_jwt = true
 
