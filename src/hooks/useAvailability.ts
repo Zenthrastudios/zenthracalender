@@ -114,3 +114,54 @@ export function useHostBookingsForDate(hostId: string | undefined, date: Date | 
     enabled: !!hostId && !!date,
   });
 }
+
+// Hook to check Google Calendar conflicts
+export function useGoogleCalendarConflicts(hostId: string | undefined, date: Date | null) {
+  return useQuery({
+    queryKey: ['google-calendar-conflicts', hostId, date?.toISOString()],
+    queryFn: async () => {
+      if (!hostId || !date) return [];
+
+      // Check if host has Google integration
+      const { data: integration } = await supabase
+        .from('user_integrations')
+        .select('id')
+        .eq('user_id', hostId)
+        .eq('provider', 'google')
+        .maybeSingle();
+
+      if (!integration) return [];
+
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      try {
+        const { data, error } = await supabase.functions.invoke('google-calendar', {
+          body: {
+            action: 'check-availability',
+            userId: hostId,
+            eventData: {
+              startTime: startOfDay.toISOString(),
+              endTime: endOfDay.toISOString(),
+            },
+          },
+        });
+
+        if (error) {
+          console.error('Failed to check Google Calendar:', error);
+          return [];
+        }
+
+        return data?.busySlots || [];
+      } catch (err) {
+        console.error('Google Calendar check failed:', err);
+        return [];
+      }
+    },
+    enabled: !!hostId && !!date,
+    staleTime: 60000, // Cache for 1 minute
+  });
+}
