@@ -276,8 +276,15 @@ END:VCALENDAR`;
           </div>
         </div>
 
+        {/* View All Bookings */}
+        <div className="text-center mt-8">
+          <Link to="/my-bookings" className="text-primary hover:underline text-sm font-medium">
+            View all your bookings →
+          </Link>
+        </div>
+
         {/* Footer */}
-        <div className="text-center mt-12 text-sm text-muted-foreground">
+        <div className="text-center mt-8 text-sm text-muted-foreground">
           POWERED BY <span className="font-semibold text-foreground">CalSchedule</span>
         </div>
       </main>

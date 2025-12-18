@@ -21,6 +21,7 @@ import PublicBooking from "./pages/PublicBooking";
 import PublicProfile from "./pages/PublicProfile";
 import BookingConfirmation from "./pages/BookingConfirmation";
 import Reschedule from "./pages/Reschedule";
+import MyBookings from "./pages/MyBookings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -77,6 +78,7 @@ function AppRoutes() {
       <Route path="/book/:username/:eventSlug" element={<PublicBooking />} />
       <Route path="/booking/confirmed/:bookingId" element={<BookingConfirmation />} />
       <Route path="/reschedule/:token" element={<Reschedule />} />
+      <Route path="/my-bookings" element={<MyBookings />} />
       
       {/* Protected Routes */}
       <Route path="/dashboard" element={
