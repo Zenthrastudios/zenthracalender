@@ -2,6 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+export interface CustomResponse {
+  fieldId: string;
+  label: string;
+  value: string | boolean;
+  type: string;
+}
+
 export interface Booking {
   id: string;
   event_type_id: string;
@@ -13,6 +20,7 @@ export interface Booking {
   end_time: string;
   status: 'confirmed' | 'cancelled' | 'rescheduled' | 'pending';
   notes: string | null;
+  custom_responses: CustomResponse[] | null;
   reschedule_token: string | null;
   cancel_token: string | null;
   google_event_id?: string | null;
@@ -57,7 +65,10 @@ export function useBookings(filter?: 'upcoming' | 'past' | 'cancelled') {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as Booking[];
+      return (data || []).map(item => ({
+        ...item,
+        custom_responses: (item.custom_responses as unknown as CustomResponse[]) || [],
+      })) as Booking[];
     },
     enabled: !!user,
   });
@@ -79,7 +90,11 @@ export function useBookingById(id: string | undefined) {
         .maybeSingle();
 
       if (error) throw error;
-      return data as Booking | null;
+      if (!data) return null;
+      return {
+        ...data,
+        custom_responses: (data.custom_responses as unknown as CustomResponse[]) || [],
+      } as Booking;
     },
     enabled: !!id,
   });
@@ -98,6 +113,7 @@ export function useCreateBooking() {
       start_time: string;
       end_time: string;
       notes?: string;
+      custom_responses?: CustomResponse[];
     }) => {
       // Get event type details
       const { data: eventType } = await supabase
@@ -156,7 +172,15 @@ export function useCreateBooking() {
       const { data: newBooking, error } = await supabase
         .from('bookings')
         .insert({
-          ...data,
+          event_type_id: data.event_type_id,
+          host_id: data.host_id,
+          attendee_name: data.attendee_name,
+          attendee_email: data.attendee_email,
+          attendee_timezone: data.attendee_timezone,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          notes: data.notes,
+          custom_responses: (data.custom_responses || []) as unknown as import('@/integrations/supabase/types').Json,
           google_event_id: googleEventId,
           meet_link: meetLink,
         })
@@ -188,7 +212,11 @@ export function useCreateBooking() {
         console.error('Failed to send confirmation email:', emailError);
       }
 
-      return { ...newBooking, meet_link: meetLink } as Booking;
+      return { 
+        ...newBooking, 
+        meet_link: meetLink,
+        custom_responses: (newBooking.custom_responses as unknown as CustomResponse[]) || [],
+      } as Booking;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
