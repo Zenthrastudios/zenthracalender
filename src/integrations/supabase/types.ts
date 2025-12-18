@@ -80,8 +80,10 @@ export type Database = {
           created_at: string
           end_time: string
           event_type_id: string
+          google_event_id: string | null
           host_id: string
           id: string
+          meet_link: string | null
           notes: string | null
           reschedule_token: string | null
           start_time: string
@@ -96,8 +98,10 @@ export type Database = {
           created_at?: string
           end_time: string
           event_type_id: string
+          google_event_id?: string | null
           host_id: string
           id?: string
+          meet_link?: string | null
           notes?: string | null
           reschedule_token?: string | null
           start_time: string
@@ -112,8 +116,10 @@ export type Database = {
           created_at?: string
           end_time?: string
           event_type_id?: string
+          google_event_id?: string | null
           host_id?: string
           id?: string
+          meet_link?: string | null
           notes?: string | null
           reschedule_token?: string | null
           start_time?: string

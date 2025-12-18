@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUploadAvatar } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { User, Globe, Camera } from 'lucide-react';
+import { User, Globe, Camera, Loader2 } from 'lucide-react';
 
 const TIMEZONES = [
   'America/New_York',
@@ -35,13 +36,16 @@ const TIMEZONES = [
 ];
 
 export default function Settings() {
-  const { profile, user, updateProfile } = useAuth();
+  const { profile, user, updateProfile, refreshProfile } = useAuth();
+  const uploadAvatar = useUploadAvatar();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [timezone, setTimezone] = useState('America/Los_Angeles');
   const [bio, setBio] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -50,6 +54,37 @@ export default function Settings() {
       setTimezone(profile.timezone || 'America/Los_Angeles');
     }
   }, [profile]);
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await uploadAvatar.mutateAsync({ userId: user.id, file });
+      await refreshProfile?.();
+      toast.success('Profile photo updated!');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Failed to upload photo');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -107,16 +142,31 @@ export default function Settings() {
                     {name?.charAt(0) || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <button className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-colors">
-                  <Camera className="w-4 h-4" />
+                <button 
+                  onClick={handleAvatarClick}
+                  disabled={isUploading}
+                  className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {isUploading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
                 </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">
-                  Upload a profile picture to personalize your booking page.
+                  Click the camera icon to upload a profile picture.
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Recommended: Square image, at least 200x200px
+                  Recommended: Square image, at least 200x200px (max 5MB)
                 </p>
               </div>
             </div>
@@ -164,6 +214,18 @@ export default function Settings() {
                 className="bg-muted"
               />
               <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bio">Bio</Label>
+              <Textarea
+                id="bio"
+                placeholder="Tell people a bit about yourself..."
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className="bg-background min-h-[80px]"
+              />
+              <p className="text-xs text-muted-foreground">This will appear on your public booking page</p>
             </div>
           </div>
 

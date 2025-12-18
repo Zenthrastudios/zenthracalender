@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventTypeBySlug } from '@/hooks/useEventTypes';
-import { useHostAvailabilityForBooking, useHostBookingsForDate } from '@/hooks/useAvailability';
+import { useHostAvailabilityForBooking, useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useAvailability';
 import { useCreateBooking } from '@/hooks/useBookings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -14,11 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Clock, Video, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import avatarRick from '@/assets/avatar-rick.png';
 
 interface TimeSlot {
   time: string;
@@ -31,6 +31,35 @@ const TIMEZONES = [
   'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York',
   'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai', 'Australia/Sydney',
 ];
+
+const getLocationIcon = (locationType: string) => {
+  switch (locationType) {
+    case 'google_meet':
+    case 'zoom':
+      return Video;
+    case 'phone':
+      return Phone;
+    case 'in_person':
+      return MapPin;
+    default:
+      return LinkIcon;
+  }
+};
+
+const getLocationLabel = (locationType: string) => {
+  switch (locationType) {
+    case 'google_meet':
+      return 'Google Meet';
+    case 'zoom':
+      return 'Zoom';
+    case 'phone':
+      return 'Phone Call';
+    case 'in_person':
+      return 'In Person';
+    default:
+      return 'Online';
+  }
+};
 
 export default function PublicBookingPage() {
   const { username, eventSlug } = useParams();
@@ -49,6 +78,7 @@ export default function PublicBookingPage() {
   const [notes, setNotes] = useState('');
 
   const { data: existingBookings } = useHostBookingsForDate(eventData?.host?.id, selectedDate);
+  const { data: googleCalendarConflicts } = useGoogleCalendarConflicts(eventData?.host?.id, selectedDate);
   const createBooking = useCreateBooking();
 
   const calendarDays = useMemo(() => {
@@ -83,15 +113,24 @@ export default function PublicBookingPage() {
         const slotEnd = addMinutes(slotStart, eventData.eventType.duration);
         
         const isAvailable = slotStart > now;
-        const hasConflict = existingBookings?.some(booking => {
+        
+        // Check existing bookings conflict
+        const hasBookingConflict = existingBookings?.some(booking => {
           const bookingStart = new Date(booking.start_time);
           const bookingEnd = new Date(booking.end_time);
           return slotStart < bookingEnd && slotEnd > bookingStart;
         });
 
+        // Check Google Calendar conflicts
+        const hasGoogleConflict = googleCalendarConflicts?.some((conflict: { start: string; end: string }) => {
+          const conflictStart = new Date(conflict.start);
+          const conflictEnd = new Date(conflict.end);
+          return slotStart < conflictEnd && slotEnd > conflictStart;
+        });
+
         slots.push({
           time: format(slotStart, 'hh:mma').toLowerCase(),
-          available: isAvailable && !hasConflict,
+          available: isAvailable && !hasBookingConflict && !hasGoogleConflict,
           startTime: slotStart,
           endTime: slotEnd,
         });
@@ -100,7 +139,7 @@ export default function PublicBookingPage() {
     });
 
     return slots;
-  }, [selectedDate, eventData, availability, existingBookings]);
+  }, [selectedDate, eventData, availability, existingBookings, googleCalendarConflicts]);
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +180,8 @@ export default function PublicBookingPage() {
     </div>;
   }
 
+  const LocationIcon = getLocationIcon(eventData.eventType.location_type);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border">
@@ -156,39 +197,69 @@ export default function PublicBookingPage() {
       <main className="max-w-5xl mx-auto px-4 py-12">
         <div className="bg-card rounded-2xl shadow-card overflow-hidden">
           <div className="grid md:grid-cols-[300px_1fr_1fr]">
+            {/* Host & Event Info */}
             <div className="p-6 border-r border-border">
-              <img src={avatarRick} alt={`${username}'s profile`} className="w-16 h-16 rounded-full object-cover mb-4" />
-              <p className="text-sm text-muted-foreground uppercase tracking-wide mb-1">{username?.toUpperCase()}</p>
+              <Avatar className="w-16 h-16 mb-4">
+                <AvatarImage src={eventData.host?.avatar_url || ''} />
+                <AvatarFallback className="text-xl bg-primary/10 text-primary">
+                  {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <p className="text-sm text-muted-foreground mb-1">{eventData.host?.name || username}</p>
               <h1 className="text-xl font-bold mb-4">{eventData.eventType.title}</h1>
               <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-3 text-muted-foreground"><Clock className="w-4 h-4" /><span>{eventData.eventType.duration} min</span></div>
-                <div className="flex items-center gap-3 text-muted-foreground"><Video className="w-4 h-4" /><span>Google Meet</span></div>
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span>{eventData.eventType.duration} min</span>
+                </div>
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <LocationIcon className="w-4 h-4" />
+                  <span>{getLocationLabel(eventData.eventType.location_type)}</span>
+                </div>
               </div>
-              {eventData.eventType.description && <p className="text-sm text-muted-foreground mt-6">{eventData.eventType.description}</p>}
+              {eventData.eventType.description && (
+                <p className="text-sm text-muted-foreground mt-6 border-t border-border pt-4">
+                  {eventData.eventType.description}
+                </p>
+              )}
             </div>
 
+            {/* Calendar */}
             <div className="p-6 border-r border-border">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-semibold">{format(currentMonth, 'MMMM yyyy')}</h2>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
               <div className="grid grid-cols-7 gap-1 mb-2">
-                {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(day => (
+                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
                   <div key={day} className="text-center text-xs text-muted-foreground font-medium py-2">{day}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: (firstDayOffset + 6) % 7 }).map((_, i) => <div key={`e-${i}`} className="aspect-square" />)}
+                {Array.from({ length: firstDayOffset }).map((_, i) => <div key={`e-${i}`} className="aspect-square" />)}
                 {calendarDays.map(date => {
                   const isAvailable = hasAvailability(date);
                   const isSelected = selectedDate && isSameDay(date, selectedDate);
                   const isPast = isBefore(date, new Date()) && !isToday(date);
                   return (
-                    <button key={date.toISOString()} onClick={() => isAvailable && !isPast && (setSelectedDate(date), setSelectedSlot(null))} disabled={!isAvailable || isPast}
-                      className={cn("aspect-square rounded-full flex items-center justify-center text-sm transition-all", isSelected && "bg-primary text-primary-foreground", !isSelected && isAvailable && !isPast && "hover:bg-accent", (!isAvailable || isPast) && "text-muted-foreground/50 cursor-not-allowed")}>
+                    <button 
+                      key={date.toISOString()} 
+                      onClick={() => isAvailable && !isPast && (setSelectedDate(date), setSelectedSlot(null), setShowBookingForm(false))} 
+                      disabled={!isAvailable || isPast}
+                      className={cn(
+                        "aspect-square rounded-full flex items-center justify-center text-sm transition-all",
+                        isSelected && "bg-primary text-primary-foreground",
+                        !isSelected && isAvailable && !isPast && "hover:bg-accent",
+                        (!isAvailable || isPast) && "text-muted-foreground/50 cursor-not-allowed"
+                      )}
+                    >
                       {format(date, 'd')}
                     </button>
                   );
@@ -197,22 +268,66 @@ export default function PublicBookingPage() {
               <div className="mt-6">
                 <Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Time Zone</Label>
                 <Select value={timezone} onValueChange={setTimezone}>
-                  <SelectTrigger className="bg-background"><div className="flex items-center gap-2"><Globe className="w-4 h-4 text-muted-foreground" /><SelectValue /></div></SelectTrigger>
-                  <SelectContent>{TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz.replace('_', ' ')}</SelectItem>)}</SelectContent>
+                  <SelectTrigger className="bg-background">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-muted-foreground" />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz.replace('_', ' ')}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
 
+            {/* Time Slots / Booking Form */}
             <div className="p-6">
               {showBookingForm && selectedSlot ? (
                 <form onSubmit={handleBookingSubmit} className="space-y-4">
-                  <div><h2 className="font-semibold mb-1">Enter your details</h2><p className="text-sm text-muted-foreground">{format(selectedSlot.startTime, 'EEEE, MMMM d')} at {format(selectedSlot.startTime, 'h:mm a')}</p></div>
-                  <div className="space-y-2"><Label>Your Name *</Label><Input value={attendeeName} onChange={(e) => setAttendeeName(e.target.value)} required className="bg-background" /></div>
-                  <div className="space-y-2"><Label>Email Address *</Label><Input type="email" value={attendeeEmail} onChange={(e) => setAttendeeEmail(e.target.value)} required className="bg-background" /></div>
-                  <div className="space-y-2"><Label>Additional Notes</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-background min-h-[80px]" /></div>
+                  <div>
+                    <h2 className="font-semibold mb-1">Enter your details</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {format(selectedSlot.startTime, 'EEEE, MMMM d')} at {format(selectedSlot.startTime, 'h:mm a')}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Your Name *</Label>
+                    <Input 
+                      value={attendeeName} 
+                      onChange={(e) => setAttendeeName(e.target.value)} 
+                      required 
+                      className="bg-background" 
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email Address *</Label>
+                    <Input 
+                      type="email" 
+                      value={attendeeEmail} 
+                      onChange={(e) => setAttendeeEmail(e.target.value)} 
+                      required 
+                      className="bg-background"
+                      placeholder="john@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Additional Notes</Label>
+                    <Textarea 
+                      value={notes} 
+                      onChange={(e) => setNotes(e.target.value)} 
+                      className="bg-background min-h-[80px]"
+                      placeholder="Any additional information..."
+                    />
+                  </div>
                   <div className="flex gap-3 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setShowBookingForm(false)} className="flex-1">Back</Button>
-                    <Button type="submit" className="flex-1" disabled={createBooking.isPending}>{createBooking.isPending ? 'Booking...' : 'Confirm'}</Button>
+                    <Button type="button" variant="outline" onClick={() => setShowBookingForm(false)} className="flex-1">
+                      Back
+                    </Button>
+                    <Button type="submit" className="flex-1" disabled={createBooking.isPending}>
+                      {createBooking.isPending ? 'Booking...' : 'Confirm Booking'}
+                    </Button>
                   </div>
                 </form>
               ) : selectedDate ? (
@@ -221,14 +336,36 @@ export default function PublicBookingPage() {
                   <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                     {timeSlots.filter(s => s.available).map((slot) => (
                       <div key={slot.time} className="flex gap-2">
-                        <button onClick={() => setSelectedSlot(slot)} className={cn("flex-1 py-3 px-4 rounded-lg text-sm font-medium border transition-all", selectedSlot?.time === slot.time ? "bg-foreground text-background border-foreground" : "bg-background border-border hover:border-primary text-primary")}>{slot.time}</button>
-                        {selectedSlot?.time === slot.time && <Button onClick={() => setShowBookingForm(true)} className="animate-scale-in">Confirm</Button>}
+                        <button 
+                          onClick={() => setSelectedSlot(slot)} 
+                          className={cn(
+                            "flex-1 py-3 px-4 rounded-lg text-sm font-medium border transition-all",
+                            selectedSlot?.time === slot.time 
+                              ? "bg-foreground text-background border-foreground" 
+                              : "bg-background border-border hover:border-primary text-primary"
+                          )}
+                        >
+                          {slot.time}
+                        </button>
+                        {selectedSlot?.time === slot.time && (
+                          <Button onClick={() => setShowBookingForm(true)} className="animate-scale-in">
+                            Next
+                          </Button>
+                        )}
                       </div>
                     ))}
-                    {timeSlots.filter(s => s.available).length === 0 && <p className="text-muted-foreground text-sm text-center py-8">No available slots for this day.</p>}
+                    {timeSlots.filter(s => s.available).length === 0 && (
+                      <p className="text-muted-foreground text-sm text-center py-8">
+                        No available slots for this day.
+                      </p>
+                    )}
                   </div>
                 </>
-              ) : <div className="h-full flex items-center justify-center text-muted-foreground"><p className="text-sm">Select a date to see available times</p></div>}
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <p className="text-sm">Select a date to see available times</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

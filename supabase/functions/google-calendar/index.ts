@@ -139,12 +139,13 @@ serve(async (req) => {
             body: JSON.stringify(event),
           }
         );
-        result = await response.json();
+        const createdEvent = await response.json();
         
-        console.log('Created calendar event:', result.id);
-        if (result.hangoutLink) {
-          console.log('Meet link:', result.hangoutLink);
+        console.log('Created calendar event:', createdEvent.id);
+        if (createdEvent.hangoutLink) {
+          console.log('Meet link:', createdEvent.hangoutLink);
         }
+        result = { event: createdEvent };
         break;
       }
 
@@ -176,7 +177,16 @@ serve(async (req) => {
             }),
           }
         );
-        result = await response.json();
+        const freeBusyResult = await response.json();
+        
+        // Transform response to return busy slots array
+        const busySlots = freeBusyResult.calendars?.primary?.busy || [];
+        result = { 
+          busySlots: busySlots.map((slot: { start: string; end: string }) => ({
+            start: slot.start,
+            end: slot.end,
+          }))
+        };
         break;
       }
 
