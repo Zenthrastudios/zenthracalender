@@ -11,6 +11,10 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Bookings from "./pages/Bookings";
 import EventTypeEditor from "./pages/EventTypeEditor";
+import Availability from "./pages/Availability";
+import Team from "./pages/Team";
+import Apps from "./pages/Apps";
+import Settings from "./pages/Settings";
 import PublicBooking from "./pages/PublicBooking";
 import BookingConfirmation from "./pages/BookingConfirmation";
 import NotFound from "./pages/NotFound";
@@ -86,22 +90,22 @@ function AppRoutes() {
       } />
       <Route path="/dashboard/availability" element={
         <ProtectedRoute>
-          <Dashboard />
+          <Availability />
         </ProtectedRoute>
       } />
       <Route path="/dashboard/teams" element={
         <ProtectedRoute>
-          <Dashboard />
+          <Team />
         </ProtectedRoute>
       } />
       <Route path="/dashboard/apps" element={
         <ProtectedRoute>
-          <Dashboard />
+          <Apps />
         </ProtectedRoute>
       } />
       <Route path="/dashboard/settings" element={
         <ProtectedRoute>
-          <Dashboard />
+          <Settings />
         </ProtectedRoute>
       } />
       
