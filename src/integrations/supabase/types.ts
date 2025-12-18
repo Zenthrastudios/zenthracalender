@@ -153,9 +153,12 @@ export type Database = {
           duration: number
           id: string
           is_active: boolean
+          is_paid: boolean | null
           location_type: string
           location_value: string | null
           minimum_notice: number
+          payment_provider: string | null
+          price: number | null
           slug: string
           title: string
           updated_at: string
@@ -171,9 +174,12 @@ export type Database = {
           duration?: number
           id?: string
           is_active?: boolean
+          is_paid?: boolean | null
           location_type?: string
           location_value?: string | null
           minimum_notice?: number
+          payment_provider?: string | null
+          price?: number | null
           slug: string
           title: string
           updated_at?: string
@@ -189,9 +195,12 @@ export type Database = {
           duration?: number
           id?: string
           is_active?: boolean
+          is_paid?: boolean | null
           location_type?: string
           location_value?: string | null
           minimum_notice?: number
+          payment_provider?: string | null
+          price?: number | null
           slug?: string
           title?: string
           updated_at?: string

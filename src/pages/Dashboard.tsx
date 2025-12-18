@@ -16,8 +16,10 @@ import {
   MoreHorizontal,
   Lock,
   Phone,
-  MapPin
+  MapPin,
+  IndianRupee
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -147,7 +149,15 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <h3 className="font-semibold text-lg mb-1">{eventType.title}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-lg">{eventType.title}</h3>
+                      {(eventType as any).is_paid && (eventType as any).price > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          <IndianRupee className="w-3 h-3 mr-0.5" />
+                          {(eventType as any).price}
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground mb-4">
                       {eventType.duration}m • One-on-One {!eventType.is_active && '• Hidden'}
                     </p>
