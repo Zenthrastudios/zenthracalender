@@ -30,6 +30,7 @@ import {
   XCircle,
   ArrowUp,
   ArrowDown,
+  IndianRupee,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,12 +44,12 @@ export default function Analytics() {
     queryKey: ['analytics-bookings', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
+
       const { data, error } = await supabase
         .from('bookings')
         .select(`
           *,
-          event_type:event_types(title, duration, location_type)
+          event_type:event_types(title, duration, location_type, is_paid, price)
         `)
         .eq('host_id', user.id);
 
@@ -63,7 +64,7 @@ export default function Analytics() {
     queryKey: ['analytics-event-types', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
+
       const { data, error } = await supabase
         .from('event_types')
         .select('*')
@@ -89,28 +90,46 @@ export default function Analytics() {
 
     const totalBookings = thisMonth.length;
     const previousTotal = lastMonth.length;
-    const bookingChange = previousTotal > 0 
+    const bookingChange = previousTotal > 0
       ? ((totalBookings - previousTotal) / previousTotal * 100).toFixed(1)
       : totalBookings > 0 ? 100 : 0;
 
     const confirmed = thisMonth.filter(b => b.status === 'confirmed').length;
     const cancelled = thisMonth.filter(b => b.status === 'cancelled').length;
-    const cancellationRate = totalBookings > 0 
+    const cancellationRate = totalBookings > 0
       ? ((cancelled / totalBookings) * 100).toFixed(1)
       : 0;
 
     const previousCancelled = lastMonth.filter(b => b.status === 'cancelled').length;
-    const previousCancellationRate = previousTotal > 0 
+    const previousCancellationRate = previousTotal > 0
       ? ((previousCancelled / previousTotal) * 100).toFixed(1)
       : 0;
 
     // Calculate average duration
     const avgDuration = thisMonth.length > 0
       ? Math.round(thisMonth.reduce((acc, b) => {
-          const duration = (new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / 60000;
-          return acc + duration;
-        }, 0) / thisMonth.length)
+        const duration = (new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / 60000;
+        return acc + duration;
+      }, 0) / thisMonth.length)
       : 0;
+
+    // Calculate revenue (only for confirmed paid bookings)
+    const thisMonthRevenue = thisMonth
+      .filter(b => b.status === 'confirmed' && (b.event_type as any)?.is_paid)
+      .reduce((acc, b) => acc + ((b.event_type as any)?.price || 0), 0);
+
+    const lastMonthRevenue = lastMonth
+      .filter(b => b.status === 'confirmed' && (b.event_type as any)?.is_paid)
+      .reduce((acc, b) => acc + ((b.event_type as any)?.price || 0), 0);
+
+    const revenueChange = lastMonthRevenue > 0
+      ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(1)
+      : thisMonthRevenue > 0 ? 100 : 0;
+
+    // Total revenue (all time)
+    const totalRevenue = bookings
+      .filter(b => b.status === 'confirmed' && (b.event_type as any)?.is_paid)
+      .reduce((acc, b) => acc + ((b.event_type as any)?.price || 0), 0);
 
     return {
       totalBookings,
@@ -121,13 +140,16 @@ export default function Analytics() {
       previousCancellationRate: Number(previousCancellationRate),
       avgDuration,
       uniqueAttendees: new Set(thisMonth.map(b => b.attendee_email)).size,
+      thisMonthRevenue,
+      revenueChange: Number(revenueChange),
+      totalRevenue,
     };
   }, [bookings]);
 
   // Popular time slots
   const timeSlotData = useMemo(() => {
     const slots: Record<number, number> = {};
-    
+
     bookings.forEach(booking => {
       const hour = getHours(new Date(booking.start_time));
       slots[hour] = (slots[hour] || 0) + 1;
@@ -150,7 +172,7 @@ export default function Analytics() {
     return days.map(day => {
       const dayStart = startOfDay(day);
       const dayEnd = endOfDay(day);
-      
+
       const dayBookings = bookings.filter(b => {
         const bookingDate = new Date(b.created_at);
         return bookingDate >= dayStart && bookingDate <= dayEnd;
@@ -168,7 +190,7 @@ export default function Analytics() {
   // Event type breakdown
   const eventTypeData = useMemo(() => {
     const breakdown: Record<string, number> = {};
-    
+
     bookings.forEach(booking => {
       const title = booking.event_type?.title || 'Unknown';
       breakdown[title] = (breakdown[title] || 0) + 1;
@@ -205,7 +227,7 @@ export default function Analytics() {
 
   return (
     <DashboardLayout>
-      <div className="p-8 max-w-7xl">
+      <div className="p-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold">Analytics</h1>
@@ -213,7 +235,7 @@ export default function Analytics() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -234,6 +256,31 @@ export default function Analytics() {
                 </div>
                 <div className="p-3 bg-primary/10 rounded-full">
                   <Calendar className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Revenue (30 days)</p>
+                  <p className="text-3xl font-bold">₹{stats.thisMonthRevenue.toLocaleString('en-IN')}</p>
+                  <div className={cn(
+                    "flex items-center text-sm mt-1",
+                    stats.revenueChange >= 0 ? "text-emerald-600" : "text-red-600"
+                  )}>
+                    {stats.revenueChange >= 0 ? (
+                      <ArrowUp className="w-4 h-4 mr-1" />
+                    ) : (
+                      <ArrowDown className="w-4 h-4 mr-1" />
+                    )}
+                    {Math.abs(stats.revenueChange)}% vs last month
+                  </div>
+                </div>
+                <div className="p-3 bg-green-500/10 rounded-full">
+                  <IndianRupee className="w-6 h-6 text-green-500" />
                 </div>
               </div>
             </CardContent>
@@ -308,27 +355,27 @@ export default function Analytics() {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={dailyData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       className="text-xs"
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     />
-                    <YAxis 
+                    <YAxis
                       className="text-xs"
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     />
-                    <Tooltip 
-                      contentStyle={{ 
+                    <Tooltip
+                      contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
                       }}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="bookings" 
-                      stroke="#F5A623" 
-                      fill="#F5A623" 
+                    <Area
+                      type="monotone"
+                      dataKey="bookings"
+                      stroke="#F5A623"
+                      fill="#F5A623"
                       fillOpacity={0.2}
                     />
                   </AreaChart>
@@ -348,25 +395,25 @@ export default function Analytics() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={timeSlotData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="label" 
+                    <XAxis
+                      dataKey="label"
                       className="text-xs"
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     />
-                    <YAxis 
+                    <YAxis
                       className="text-xs"
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     />
-                    <Tooltip 
-                      contentStyle={{ 
+                    <Tooltip
+                      contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
                       }}
                     />
-                    <Bar 
-                      dataKey="bookings" 
-                      fill="#3B82F6" 
+                    <Bar
+                      dataKey="bookings"
+                      fill="#3B82F6"
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
@@ -402,8 +449,8 @@ export default function Analytics() {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
@@ -445,8 +492,8 @@ export default function Analytics() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip 
-                        contentStyle={{ 
+                      <Tooltip
+                        contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
