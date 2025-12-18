@@ -5,7 +5,7 @@ import { useBookings, useCancelBooking, Booking } from '@/hooks/useBookings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   Search,
   Calendar,
   Clock,
@@ -157,11 +157,11 @@ export default function Bookings() {
             <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
             <h2 className="text-lg font-semibold mb-2">No {filter} bookings</h2>
             <p className="text-muted-foreground">
-              {filter === 'upcoming' 
+              {filter === 'upcoming'
                 ? "You don't have any upcoming bookings yet."
                 : filter === 'past'
-                ? "No past bookings found."
-                : "No cancelled bookings."}
+                  ? "No past bookings found."
+                  : "No cancelled bookings."}
             </p>
           </div>
         ) : (
@@ -200,7 +200,7 @@ export default function Bookings() {
                         <h3 className="font-semibold text-lg mb-1">
                           {booking.event_type?.title || 'Meeting'}
                         </h3>
-                        
+
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
                           <div className="flex items-center gap-1.5">
                             <Clock className="w-4 h-4" />
@@ -341,16 +341,16 @@ export default function Bookings() {
                       <span>{getLocationLabel(selectedBooking.event_type?.location_type || 'google_meet')}</span>
                     </div>
                     {selectedBooking.meet_link && (
-                      <div className="flex items-center gap-2">
-                        <Input 
-                          value={selectedBooking.meet_link} 
-                          readOnly 
-                          className="bg-muted text-sm"
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Input
+                          value={selectedBooking.meet_link}
+                          readOnly
+                          className="bg-muted text-sm flex-1 min-w-0"
                         />
-                        <Button variant="outline" size="icon" onClick={() => copyToClipboard(selectedBooking.meet_link!, 'Meeting link')}>
+                        <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(selectedBooking.meet_link!, 'Meeting link')}>
                           <Copy className="w-4 h-4" />
                         </Button>
-                        <Button variant="outline" size="icon" asChild>
+                        <Button variant="outline" size="icon" className="shrink-0" asChild>
                           <a href={selectedBooking.meet_link} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="w-4 h-4" />
                           </a>
@@ -416,16 +416,22 @@ export default function Bookings() {
                     <div className="space-y-3">
                       <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Reschedule Link</h4>
                       <div className="flex items-center gap-2">
-                        <Input 
-                          value={`${window.location.origin}/reschedule/${selectedBooking.reschedule_token}`} 
-                          readOnly 
-                          className="bg-muted text-sm"
-                        />
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
+                        <div className="relative flex-1 min-w-0">
+                          <Input
+                            value={`${window.location.origin}/reschedule/${selectedBooking.reschedule_token}`}
+                            readOnly
+                            className="bg-muted text-sm pr-10 truncate"
+                          />
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none bg-gradient-to-l from-muted pl-4">
+                            {/* Gradient fade effect (optional) */}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
                           onClick={() => copyToClipboard(
-                            `${window.location.origin}/reschedule/${selectedBooking.reschedule_token}`, 
+                            `${window.location.origin}/reschedule/${selectedBooking.reschedule_token}`,
                             'Reschedule link'
                           )}
                         >
@@ -437,9 +443,9 @@ export default function Bookings() {
                   )}
 
                   {/* Actions */}
-                  <div className="flex gap-3 pt-4 border-t">
-                    <Button 
-                      variant="outline" 
+                  <div className="flex flex-col sm:flex-freedom gap-3 pt-4 border-t">
+                    <Button
+                      variant="outline"
                       className="flex-1"
                       onClick={() => window.open(`mailto:${selectedBooking.attendee_email}`)}
                     >
@@ -448,18 +454,20 @@ export default function Bookings() {
                     </Button>
                     {selectedBooking.status !== 'cancelled' && !isPast(new Date(selectedBooking.start_time)) && (
                       <>
-                        <Button 
+                        <Button
                           variant="outline"
+                          className="flex-1 whitespace-nowrap"
                           onClick={() => copyToClipboard(
-                            `${window.location.origin}/reschedule/${selectedBooking.reschedule_token}`, 
+                            `${window.location.origin}/reschedule/${selectedBooking.reschedule_token}`,
                             'Reschedule link'
                           )}
                         >
                           <RefreshCw className="w-4 h-4 mr-2" />
                           Send Reschedule
                         </Button>
-                        <Button 
+                        <Button
                           variant="destructive"
+                          className="flex-1"
                           onClick={() => {
                             setDetailDialogOpen(false);
                             setCancelDialogOpen(true);
