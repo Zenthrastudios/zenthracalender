@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useScheduling } from '@/contexts/SchedulingContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,7 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login, signup } = useScheduling();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,28 +23,38 @@ export default function AuthPage() {
     setIsLoading(true);
     
     try {
-      let success: boolean;
+      let result;
       if (isLogin) {
-        success = await login(email, password);
+        result = await signIn(email, password);
       } else {
-        success = await signup(name, email, password);
+        if (!name.trim()) {
+          toast.error('Please enter your name');
+          setIsLoading(false);
+          return;
+        }
+        result = await signUp(email, password, name);
       }
       
-      if (success) {
+      if (result.error) {
+        console.error('Auth error:', result.error);
+        toast.error(result.error.message || 'Authentication failed. Please try again.');
+      } else {
         toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
         navigate('/dashboard');
-      } else {
-        toast.error('Invalid credentials. Please try again.');
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Auth error:', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleAuth = () => {
-    toast.info('Google authentication will be available once Cloud is connected.');
+  const handleGoogleAuth = async () => {
+    const { error } = await signInWithGoogle();
+    if (error) {
+      toast.error('Failed to sign in with Google');
+    }
   };
 
   return (
