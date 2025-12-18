@@ -57,15 +57,29 @@ export function useUploadAvatar() {
   return useMutation({
     mutationFn: async ({ userId, file }: { userId: string; file: File }) => {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const fileName = `${Date.now()}.${fileExt}`;
+      // Store in a folder named after the user ID to match RLS policies
+      const filePath = `${userId}/${fileName}`;
+
+      // Delete old avatar files for this user (optional cleanup)
+      const { data: existingFiles } = await supabase.storage
+        .from('avatars')
+        .list(userId);
+
+      if (existingFiles && existingFiles.length > 0) {
+        const filesToDelete = existingFiles.map(f => `${userId}/${f.name}`);
+        await supabase.storage.from('avatars').remove(filesToDelete);
+      }
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
