@@ -1,1 +1,23 @@
 project_id = "fvajnhhtdbicqjhqtzfp"
+
+[auth]
+enabled = true
+site_url = "https://bbef2f86-ec62-454e-9996-569e3df26b20.lovableproject.com"
+
+[auth.email]
+enable_confirmations = false
+
+[functions.send-booking-email]
+verify_jwt = false
+
+[functions.google-auth]
+verify_jwt = true
+
+[functions.google-oauth-callback]
+verify_jwt = false
+
+[functions.google-calendar]
+verify_jwt = true
+
+[functions.google-disconnect]
+verify_jwt = true
