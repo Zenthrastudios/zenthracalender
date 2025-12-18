@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from 'next-themes';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUploadAvatar } from '@/hooks/useProfile';
@@ -7,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -15,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { User, Globe, Camera, Loader2 } from 'lucide-react';
+import { User, Globe, Camera, Loader2, Moon, Sun, Monitor } from 'lucide-react';
 
 const TIMEZONES = [
   'America/New_York',
@@ -37,6 +39,7 @@ const TIMEZONES = [
 
 export default function Settings() {
   const { profile, user, updateProfile, refreshProfile } = useAuth();
+  const { theme, setTheme } = useTheme();
   const uploadAvatar = useUploadAvatar();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -253,6 +256,49 @@ export default function Settings() {
               <p className="text-xs text-muted-foreground">
                 All times in your availability and bookings will be shown in this timezone
               </p>
+            </div>
+          </div>
+
+          {/* Theme Settings */}
+          <div className="p-6 bg-card rounded-xl border border-border space-y-4">
+            <div className="flex items-center gap-2">
+              <Moon className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold">Appearance</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Theme</p>
+                  <p className="text-sm text-muted-foreground">Choose your preferred color scheme</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant={theme === 'light' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTheme('light')}
+                  >
+                    <Sun className="w-4 h-4 mr-2" />
+                    Light
+                  </Button>
+                  <Button
+                    variant={theme === 'dark' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTheme('dark')}
+                  >
+                    <Moon className="w-4 h-4 mr-2" />
+                    Dark
+                  </Button>
+                  <Button
+                    variant={theme === 'system' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTheme('system')}
+                  >
+                    <Monitor className="w-4 h-4 mr-2" />
+                    System
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
