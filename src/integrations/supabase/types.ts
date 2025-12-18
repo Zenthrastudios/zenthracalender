@@ -199,6 +199,56 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          booking_id: string | null
+          created_at: string
+          currency: string
+          id: string
+          metadata: Json | null
+          order_id: string
+          payment_id: string | null
+          provider: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          booking_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          order_id: string
+          payment_id?: string | null
+          provider: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          booking_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          order_id?: string
+          payment_id?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
