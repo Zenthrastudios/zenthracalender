@@ -13,11 +13,13 @@ interface EmailRequest {
   recipientEmail: string;
   recipientName: string;
   hostName: string;
+  hostEmail?: string;
   eventTitle: string;
   startTime: string;
   endTime: string;
   timezone: string;
   meetingLink?: string;
+  notes?: string;
 }
 
 const formatDateTime = (dateStr: string, timezone: string) => {
@@ -31,6 +33,45 @@ const formatDateTime = (dateStr: string, timezone: string) => {
     minute: "2-digit",
     timeZone: timezone,
   });
+};
+
+// Generate ICS calendar file content
+const generateICSContent = (data: EmailRequest, isCancellation = false): string => {
+  const startDate = new Date(data.startTime);
+  const endDate = new Date(data.endTime);
+  
+  // Format date to ICS format (YYYYMMDDTHHMMSSZ)
+  const formatToICS = (date: Date): string => {
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  };
+  
+  const uid = `${data.bookingId}@calschedule`;
+  const now = formatToICS(new Date());
+  const start = formatToICS(startDate);
+  const end = formatToICS(endDate);
+  
+  const location = data.meetingLink || '';
+  const description = `Meeting with ${data.hostName}${data.notes ? `\\n\\nNotes: ${data.notes}` : ''}${data.meetingLink ? `\\n\\nJoin: ${data.meetingLink}` : ''}`;
+  
+  return `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CalSchedule//EN
+CALSCALE:GREGORIAN
+METHOD:${isCancellation ? 'CANCEL' : 'REQUEST'}
+BEGIN:VEVENT
+UID:${uid}
+DTSTAMP:${now}
+DTSTART:${start}
+DTEND:${end}
+SUMMARY:${data.eventTitle} with ${data.hostName}
+DESCRIPTION:${description}
+LOCATION:${location}
+STATUS:${isCancellation ? 'CANCELLED' : 'CONFIRMED'}
+ORGANIZER;CN=${data.hostName}:mailto:${data.hostEmail || 'noreply@calschedule.com'}
+ATTENDEE;CN=${data.recipientName};RSVP=TRUE:mailto:${data.recipientEmail}
+SEQUENCE:${isCancellation ? '1' : '0'}
+END:VEVENT
+END:VCALENDAR`;
 };
 
 const getEmailContent = (data: EmailRequest) => {
@@ -57,7 +98,10 @@ const getEmailContent = (data: EmailRequest) => {
               <p style="color: #666; margin: 8px 0;"><strong>When:</strong> ${startFormatted}</p>
               <p style="color: #666; margin: 8px 0;"><strong>Timezone:</strong> ${data.timezone}</p>
               ${data.meetingLink ? `<p style="color: #666; margin: 8px 0;"><strong>Meeting Link:</strong> <a href="${data.meetingLink}" style="color: #F5A623;">${data.meetingLink}</a></p>` : ""}
+              ${data.notes ? `<p style="color: #666; margin: 8px 0;"><strong>Notes:</strong> ${data.notes}</p>` : ""}
             </div>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 20px;">📅 A calendar invite is attached to this email. Add it to your calendar to stay organized!</p>
             
             <p style="color: #999; font-size: 14px; text-align: center; margin-top: 30px;">Powered by CalSchedule</p>
           </div>
@@ -81,6 +125,8 @@ const getEmailContent = (data: EmailRequest) => {
               <p style="color: #666; margin: 8px 0; text-decoration: line-through;"><strong>When:</strong> ${startFormatted}</p>
             </div>
             
+            <p style="color: #666; font-size: 14px; margin-top: 20px;">📅 A calendar update is attached to remove this event from your calendar.</p>
+            
             <p style="color: #999; font-size: 14px; text-align: center; margin-top: 30px;">Powered by CalSchedule</p>
           </div>
         `,
@@ -96,6 +142,7 @@ const getEmailContent = (data: EmailRequest) => {
             <div style="background: #FAF8F5; border-radius: 12px; padding: 24px; margin: 24px 0;">
               <h2 style="color: #1a1a1a; font-size: 18px;">${data.eventTitle}</h2>
               <p style="color: #666;"><strong>When:</strong> ${startFormatted}</p>
+              ${data.meetingLink ? `<p style="color: #666;"><strong>Join:</strong> <a href="${data.meetingLink}" style="color: #F5A623;">${data.meetingLink}</a></p>` : ""}
             </div>
           </div>
         `,
@@ -121,6 +168,11 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Email request:", { type: data.type, to: data.recipientEmail });
 
     const { subject, html } = getEmailContent(data);
+    
+    // Generate ICS calendar content
+    const isCancellation = data.type === "cancellation";
+    const icsContent = generateICSContent(data, isCancellation);
+    const icsBase64 = btoa(icsContent);
 
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -133,6 +185,13 @@ const handler = async (req: Request): Promise<Response> => {
         to: [data.recipientEmail],
         subject,
         html,
+        attachments: [
+          {
+            filename: isCancellation ? "cancellation.ics" : "invite.ics",
+            content: icsBase64,
+            content_type: "text/calendar; method=" + (isCancellation ? "CANCEL" : "REQUEST"),
+          },
+        ],
       }),
     });
 

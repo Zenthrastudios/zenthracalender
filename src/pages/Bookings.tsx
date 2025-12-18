@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useBookings, useCancelBooking, Booking } from '@/hooks/useBookings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { 
   Search,
   Calendar,
@@ -15,7 +16,11 @@ import {
   MoreHorizontal,
   XCircle,
   RefreshCw,
-  Mail
+  Mail,
+  ExternalLink,
+  Copy,
+  FileText,
+  X
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -33,6 +38,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +54,7 @@ export default function Bookings() {
   const [searchQuery, setSearchQuery] = useState('');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   const { data: bookings, isLoading } = useBookings(filter);
   const cancelBooking = useCancelBooking();
@@ -64,6 +76,16 @@ export default function Bookings() {
     } catch (error) {
       toast.error('Failed to cancel booking');
     }
+  };
+
+  const handleViewDetails = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setDetailDialogOpen(true);
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
   };
 
   const getLocationIcon = (type: string) => {
@@ -154,9 +176,10 @@ export default function Bookings() {
                 <div
                   key={booking.id}
                   className={cn(
-                    "bg-card rounded-xl border border-border p-5 transition-all hover:shadow-card-hover",
+                    "bg-card rounded-xl border border-border p-5 transition-all hover:shadow-card-hover cursor-pointer",
                     booking.status === 'cancelled' && "opacity-60"
                   )}
+                  onClick={() => handleViewDetails(booking)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex gap-4">
@@ -220,13 +243,16 @@ export default function Bookings() {
                     {/* Actions */}
                     {booking.status !== 'cancelled' && !isBookingPast && (
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon">
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => window.open(`mailto:${booking.attendee_email}`)}>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`mailto:${booking.attendee_email}`);
+                          }}>
                             <Mail className="w-4 h-4 mr-2" />
                             Email attendee
                           </DropdownMenuItem>
@@ -236,7 +262,8 @@ export default function Bookings() {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedBooking(booking);
                               setCancelDialogOpen(true);
                             }}
@@ -253,6 +280,124 @@ export default function Bookings() {
             })}
           </div>
         )}
+
+        {/* Booking Detail Dialog */}
+        <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+          <DialogContent className="max-w-lg">
+            {selectedBooking && (
+              <>
+                <DialogHeader>
+                  <div className="flex items-center justify-between">
+                    <DialogTitle className="text-xl">
+                      {selectedBooking.event_type?.title || 'Meeting Details'}
+                    </DialogTitle>
+                    {selectedBooking.status === 'cancelled' ? (
+                      <Badge variant="destructive">Cancelled</Badge>
+                    ) : (
+                      <Badge className="bg-emerald-500 text-white">Confirmed</Badge>
+                    )}
+                  </div>
+                </DialogHeader>
+
+                <div className="space-y-6 mt-4">
+                  {/* Date & Time */}
+                  <div className="flex items-start gap-4 p-4 bg-muted/50 rounded-lg">
+                    <Calendar className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium">
+                        {format(new Date(selectedBooking.start_time), 'EEEE, MMMM d, yyyy')}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(selectedBooking.start_time), 'h:mm a')} - {format(new Date(selectedBooking.end_time), 'h:mm a')}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {selectedBooking.attendee_timezone}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Attendee Info */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Attendee</h4>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+                        <User className="w-5 h-5 text-accent-foreground" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">{selectedBooking.attendee_name}</p>
+                        <p className="text-sm text-muted-foreground">{selectedBooking.attendee_email}</p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => copyToClipboard(selectedBooking.attendee_email, 'Email')}>
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Location */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Location</h4>
+                    <div className="flex items-center gap-3">
+                      {getLocationIcon(selectedBooking.event_type?.location_type || 'google_meet')}
+                      <span>{getLocationLabel(selectedBooking.event_type?.location_type || 'google_meet')}</span>
+                    </div>
+                    {selectedBooking.meet_link && (
+                      <div className="flex items-center gap-2">
+                        <Input 
+                          value={selectedBooking.meet_link} 
+                          readOnly 
+                          className="bg-muted text-sm"
+                        />
+                        <Button variant="outline" size="icon" onClick={() => copyToClipboard(selectedBooking.meet_link!, 'Meeting link')}>
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" asChild>
+                          <a href={selectedBooking.meet_link} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notes */}
+                  {selectedBooking.notes && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Notes</h4>
+                      <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                        <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
+                        <p className="text-sm">{selectedBooking.notes}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-4 border-t">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => window.open(`mailto:${selectedBooking.attendee_email}`)}
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      Email Attendee
+                    </Button>
+                    {selectedBooking.status !== 'cancelled' && !isPast(new Date(selectedBooking.start_time)) && (
+                      <Button 
+                        variant="destructive"
+                        onClick={() => {
+                          setDetailDialogOpen(false);
+                          setCancelDialogOpen(true);
+                        }}
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Cancel Confirmation Dialog */}
         <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
