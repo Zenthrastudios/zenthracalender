@@ -15,12 +15,15 @@ export interface Booking {
   notes: string | null;
   reschedule_token: string | null;
   cancel_token: string | null;
+  google_event_id?: string | null;
+  meet_link?: string | null;
   created_at: string;
   updated_at: string;
   event_type?: {
     title: string;
     duration: number;
     location_type: string;
+    description?: string;
   };
 }
 
@@ -36,7 +39,7 @@ export function useBookings(filter?: 'upcoming' | 'past' | 'cancelled') {
         .from('bookings')
         .select(`
           *,
-          event_type:event_types(title, duration, location_type)
+          event_type:event_types(title, duration, location_type, description)
         `)
         .eq('host_id', user.id)
         .order('start_time', { ascending: filter !== 'past' });
@@ -96,12 +99,70 @@ export function useCreateBooking() {
       end_time: string;
       notes?: string;
     }) => {
+      // Get event type details
+      const { data: eventType } = await supabase
+        .from('event_types')
+        .select('title, duration, location_type')
+        .eq('id', data.event_type_id)
+        .single();
+
+      // Get host profile for name
+      const { data: hostProfile } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('user_id', data.host_id)
+        .single();
+
+      // Check if host has Google Calendar integration
+      const { data: integration } = await supabase
+        .from('user_integrations')
+        .select('id')
+        .eq('user_id', data.host_id)
+        .eq('provider', 'google')
+        .maybeSingle();
+
+      let googleEventId: string | null = null;
+      let meetLink: string | null = null;
+
+      // Create Google Calendar event with Meet link if integrated
+      if (integration && eventType?.location_type === 'google_meet') {
+        try {
+          const { data: calendarResult, error: calendarError } = await supabase.functions.invoke('google-calendar', {
+            body: {
+              action: 'create-event',
+              userId: data.host_id,
+              eventData: {
+                title: eventType.title,
+                description: `Meeting with ${data.attendee_name}\n\nNotes: ${data.notes || 'None'}`,
+                startTime: data.start_time,
+                endTime: data.end_time,
+                timezone: data.attendee_timezone,
+                attendees: [data.attendee_email],
+                createMeet: true,
+              },
+            },
+          });
+
+          if (!calendarError && calendarResult?.event) {
+            googleEventId = calendarResult.event.id;
+            meetLink = calendarResult.event.hangoutLink;
+          }
+        } catch (err) {
+          console.error('Failed to create Google Calendar event:', err);
+        }
+      }
+
+      // Create booking in database
       const { data: newBooking, error } = await supabase
         .from('bookings')
-        .insert(data)
+        .insert({
+          ...data,
+          google_event_id: googleEventId,
+          meet_link: meetLink,
+        })
         .select(`
           *,
-          event_type:event_types(title, duration, location_type)
+          event_type:event_types(title, duration, location_type, description)
         `)
         .single();
 
@@ -109,12 +170,6 @@ export function useCreateBooking() {
 
       // Send confirmation email
       try {
-        const { data: hostProfile } = await supabase
-          .from('profiles')
-          .select('name')
-          .eq('user_id', data.host_id)
-          .single();
-
         await supabase.functions.invoke('send-booking-email', {
           body: {
             type: 'confirmation',
@@ -122,17 +177,18 @@ export function useCreateBooking() {
             recipientEmail: data.attendee_email,
             recipientName: data.attendee_name,
             hostName: hostProfile?.name || 'Host',
-            eventTitle: newBooking.event_type?.title || 'Meeting',
+            eventTitle: eventType?.title || 'Meeting',
             startTime: data.start_time,
             endTime: data.end_time,
             timezone: data.attendee_timezone,
+            meetLink: meetLink,
           }
         });
       } catch (emailError) {
         console.error('Failed to send confirmation email:', emailError);
       }
 
-      return newBooking as Booking;
+      return { ...newBooking, meet_link: meetLink } as Booking;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
