@@ -46,9 +46,9 @@ export default function LandingPage() {
           <span className="font-bold text-xl">CalSchedule</span>
         </Link>
         <nav className="hidden md:flex items-center gap-8 text-sm">
+          <Link to="/my-bookings" className="text-muted-foreground hover:text-foreground transition-colors">My Bookings</Link>
           <Link to="/features" className="text-muted-foreground hover:text-foreground transition-colors">Features</Link>
           <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
-          <Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link>
         </nav>
         <div className="flex items-center gap-3">
           <Button variant="ghost" asChild>
