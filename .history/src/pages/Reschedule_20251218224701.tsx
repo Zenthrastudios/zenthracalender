@@ -317,12 +317,12 @@ export default function Reschedule() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="w-full max-w-4xl mx-auto px-4 py-6 sm:py-8">
+      <div className="w-full md:w-1/2 mx-auto p-4 py-8">
         <Card>
           <CardContent className="p-0">
-            <div className="flex flex-col lg:flex-row">
+            <div className="grid md:grid-cols-[300px_1fr]">
               {/* Left Sidebar - Event Info */}
-              <div className="p-4 sm:p-6 border-b lg:border-b-0 lg:border-r border-border lg:w-[280px] lg:shrink-0">
+              <div className="p-6 border-b md:border-b-0 md:border-r border-border">
                 {hostProfile && (
                   <div className="flex items-center gap-3 mb-6">
                     <Avatar className="h-12 w-12">
@@ -365,12 +365,12 @@ export default function Reschedule() {
               </div>
 
               {/* Right Side - Calendar & Times */}
-              <div className="p-4 sm:p-6 flex-1 min-w-0">
+              <div className="p-6">
                 <h2 className="text-lg font-semibold mb-4">Select a new date & time</h2>
 
-                <div className="flex flex-col gap-6">
+                <div className="grid md:grid-cols-2 gap-6">
                   {/* Calendar */}
-                  <div className="flex justify-center">
+                  <div>
                     <Calendar
                       mode="single"
                       selected={selectedDate}
@@ -386,48 +386,48 @@ export default function Reschedule() {
                   </div>
 
                   {/* Time Slots */}
-                  {selectedDate && (
-                    <div>
-                      <p className="text-sm font-medium mb-3">
-                        {format(selectedDate, 'EEEE, MMMM d')}
-                      </p>
-                      {availableSlots.length > 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[250px] overflow-y-auto pr-1">
-                          {availableSlots.map((slot) => (
-                            <button
-                              key={slot.time}
-                              onClick={() => setSelectedTime(slot.time)}
-                              className={cn(
-                                "px-3 py-2.5 text-sm rounded-lg border transition-colors",
-                                selectedTime === slot.time
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "bg-background hover:bg-muted border-border"
-                              )}
-                            >
-                              {slot.label}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No available times for this date
+                  <div>
+                    {selectedDate ? (
+                      <div>
+                        <p className="text-sm font-medium mb-3">
+                          {format(selectedDate, 'EEEE, MMMM d')}
                         </p>
-                      )}
-                    </div>
-                  )}
-
-                  {!selectedDate && (
-                    <div className="flex items-center justify-center py-8 text-muted-foreground">
-                      <CalendarIcon className="w-5 h-5 mr-2" />
-                      Select a date to see available times
-                    </div>
-                  )}
+                        {availableSlots.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+                            {availableSlots.map((slot) => (
+                              <button
+                                key={slot.time}
+                                onClick={() => setSelectedTime(slot.time)}
+                                className={cn(
+                                  "px-3 py-2 text-sm rounded-lg border transition-colors",
+                                  selectedTime === slot.time
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-background hover:bg-muted border-border"
+                                )}
+                              >
+                                {slot.label}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No available times for this date
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <CalendarIcon className="w-5 h-5 mr-2" />
+                        Select a date
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Confirm Button */}
                 {selectedTime && (
                   <div className="mt-6 pt-6 border-t">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">
                           {format(new Date(selectedTime), 'EEEE, MMMM d, yyyy')}
@@ -436,7 +436,7 @@ export default function Reschedule() {
                           {format(new Date(selectedTime), 'h:mm a')} ({booking.attendee_timezone})
                         </p>
                       </div>
-                      <Button onClick={handleReschedule} disabled={isSubmitting} className="w-full sm:w-auto">
+                      <Button onClick={handleReschedule} disabled={isSubmitting}>
                         {isSubmitting ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />

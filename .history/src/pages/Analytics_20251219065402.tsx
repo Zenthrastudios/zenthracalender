@@ -200,50 +200,6 @@ export default function Analytics() {
     ].filter(item => item.value > 0);
   }, [bookings]);
 
-  // Heatmap data for bookings by day of week and hour
-  const heatmapData = useMemo(() => {
-    const data: Record<string, Record<number, number>> = {};
-    DAYS_SHORT.forEach(day => {
-      data[day] = {};
-      HOURS_RANGE.forEach(hour => {
-        data[day][hour] = 0;
-      });
-    });
-
-    bookings.forEach(booking => {
-      const date = new Date(booking.start_time);
-      const dayName = DAYS_SHORT[getDay(date)];
-      const hour = getHours(date);
-      const hourBucket = Math.floor(hour / 2) * 2;
-      if (data[dayName] && hourBucket in data[dayName]) {
-        data[dayName][hourBucket]++;
-      }
-    });
-
-    return data;
-  }, [bookings]);
-
-  const maxHeatmapValue = useMemo(() => {
-    let max = 0;
-    Object.values(heatmapData).forEach(hours => {
-      Object.values(hours).forEach(val => {
-        if (val > max) max = val;
-      });
-    });
-    return max || 1;
-  }, [heatmapData]);
-
-  const getHeatmapColor = (value: number) => {
-    if (value === 0) return 'bg-blue-50 dark:bg-blue-950/30';
-    const intensity = value / maxHeatmapValue;
-    if (intensity < 0.25) return 'bg-blue-100 dark:bg-blue-900/40';
-    if (intensity < 0.5) return 'bg-blue-200 dark:bg-blue-800/50';
-    if (intensity < 0.75) return 'bg-blue-300 dark:bg-blue-700/60';
-    return 'bg-blue-400 dark:bg-blue-600/70';
-  };
-
-  const totalBookingsAll = bookings.length;
-
   if (isLoading) {
     return (
       <DashboardLayout>

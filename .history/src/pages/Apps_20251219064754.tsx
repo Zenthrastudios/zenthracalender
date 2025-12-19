@@ -215,11 +215,11 @@ export default function Apps() {
 
   return (
     <DashboardLayout>
-      <div className="px-4 py-6 sm:p-8 max-w-5xl">
+      <div className="p-8 max-w-5xl">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold">Apps & Integrations</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Connect your favorite tools to enhance your scheduling</p>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold">Apps & Integrations</h1>
+          <p className="text-muted-foreground">Connect your favorite tools to enhance your scheduling</p>
         </div>
 
         {/* Connected Apps Summary */}
@@ -271,57 +271,42 @@ export default function Apps() {
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredApps.map(app => (
               <div
                 key={app.id}
                 className={cn(
-                  "p-4 sm:p-5 bg-card rounded-xl border transition-all hover:shadow-md cursor-pointer group",
-                  app.connected 
-                    ? "border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20" 
-                    : "border-border hover:border-primary/30",
-                  !app.provider && "opacity-70"
+                  "p-5 bg-card rounded-xl border transition-all hover:shadow-md cursor-pointer",
+                  app.connected ? "border-primary/50 bg-primary/5" : "border-border",
+                  !app.provider && "opacity-60"
                 )}
                 onClick={() => setSelectedApp(app)}
               >
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className={cn(
-                    "p-2.5 sm:p-3 rounded-lg border shrink-0",
-                    app.connected 
-                      ? "bg-white dark:bg-background border-emerald-200 dark:border-emerald-800/50" 
-                      : "bg-background border-border"
-                  )}>
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-background rounded-lg border border-border">
                     {app.icon}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-sm sm:text-base">{app.name}</h3>
+                      <h3 className="font-semibold">{app.name}</h3>
                       {app.popular && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                          Popular
-                        </span>
+                        <Badge variant="secondary" className="text-xs">Popular</Badge>
                       )}
                       {app.connected && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
-                          Connected
-                        </span>
+                        <Badge className="text-xs bg-emerald-500 text-white border-0">Connected</Badge>
                       )}
                       {!app.provider && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
-                          Coming Soon
-                        </span>
+                        <Badge variant="outline" className="text-xs">Coming Soon</Badge>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                       {app.description}
                     </p>
                     {app.connectedEmail && (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 truncate">
-                        {app.connectedEmail}
-                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">{app.connectedEmail}</p>
                     )}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </div>
               </div>
             ))}
@@ -341,10 +326,10 @@ export default function Apps() {
                     <div>
                       <DialogTitle>{selectedApp.name}</DialogTitle>
                       {selectedApp.connected && (
-                        <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                        <Badge className="mt-1 text-xs bg-emerald-500 text-white border-0">
                           <Check className="w-3 h-3 mr-1" />
                           Connected
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   </div>

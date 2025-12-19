@@ -215,11 +215,11 @@ export default function Apps() {
 
   return (
     <DashboardLayout>
-      <div className="px-4 py-6 sm:p-8 max-w-5xl">
+      <div className="p-8 max-w-5xl">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold">Apps & Integrations</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Connect your favorite tools to enhance your scheduling</p>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold">Apps & Integrations</h1>
+          <p className="text-muted-foreground">Connect your favorite tools to enhance your scheduling</p>
         </div>
 
         {/* Connected Apps Summary */}
@@ -341,10 +341,10 @@ export default function Apps() {
                     <div>
                       <DialogTitle>{selectedApp.name}</DialogTitle>
                       {selectedApp.connected && (
-                        <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                        <Badge className="mt-1 text-xs bg-emerald-500 text-white border-0">
                           <Check className="w-3 h-3 mr-1" />
                           Connected
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   </div>

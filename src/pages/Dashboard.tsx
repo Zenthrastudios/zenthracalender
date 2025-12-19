@@ -7,12 +7,12 @@ import { useBookings } from '@/hooks/useBookings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { 
-  Plus, 
-  Search, 
-  Bell, 
-  Video, 
-  Copy, 
+import {
+  Plus,
+  Search,
+  Bell,
+  Video,
+  Copy,
   MoreHorizontal,
   Lock,
   Phone,
@@ -32,7 +32,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
-  const filteredEventTypes = eventTypes?.filter(et => 
+  const filteredEventTypes = eventTypes?.filter(et =>
     et.title.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
@@ -69,37 +69,37 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold">Event Types</h1>
-          <div className="flex items-center gap-4">
-            <div className="relative">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
+          <h1 className="text-xl md:text-2xl font-bold">Event Types</h1>
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="relative flex-1 sm:flex-none">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search event types..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64 bg-card border-border"
+                className="pl-10 w-full sm:w-48 md:w-64 bg-card border-border"
               />
             </div>
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative shrink-0">
               <Bell className="w-5 h-5" />
               {recentBookings.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"></span>
               )}
             </Button>
-            <Button onClick={() => navigate('/dashboard/events/new')}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create
+            <Button onClick={() => navigate('/dashboard/events/new')} className="shrink-0">
+              <Plus className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Create</span>
             </Button>
           </div>
         </div>
 
-        <div className="flex gap-8">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Event Types Grid */}
-          <div className="flex-1">
-            <p className="text-muted-foreground mb-6">
+          <div className="flex-1 order-2 lg:order-1">
+            <p className="text-muted-foreground mb-4 md:mb-6 text-sm md:text-base">
               Create and manage your booking links. Share these links with people to let them book time with you.
             </p>
 
@@ -192,11 +192,11 @@ export default function Dashboard() {
           </div>
 
           {/* Sidebar - Upcoming Bookings */}
-          <div className="w-80">
+          <div className="w-full lg:w-80 order-1 lg:order-2">
             <div className="bg-accent/50 rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold">Upcoming</h2>
-                <button 
+                <button
                   onClick={() => navigate('/dashboard/bookings')}
                   className="text-sm text-primary hover:underline font-medium"
                 >
@@ -209,7 +209,7 @@ export default function Dashboard() {
                   recentBookings.map((booking) => {
                     const bookingDate = new Date(booking.start_time);
                     const isBookingToday = isToday(bookingDate);
-                    
+
                     return (
                       <div key={booking.id} className="relative">
                         <div className="flex items-center gap-2 mb-2">
@@ -247,7 +247,7 @@ export default function Dashboard() {
                     <p className="text-xs text-muted-foreground mt-1">
                       Share your booking link: /{profile?.username || 'user'}
                     </p>
-                    <button 
+                    <button
                       onClick={() => {
                         navigator.clipboard.writeText(`${window.location.origin}/book/${profile?.username || 'user'}`);
                         toast.success('Link copied!');
