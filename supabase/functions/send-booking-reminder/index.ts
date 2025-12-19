@@ -11,6 +11,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const getHostEmail = async (supabase: ReturnType<typeof createClient>, hostId: string) => {
+  const { data, error } = await supabase.auth.admin.getUserById(hostId);
+  if (error) {
+    console.error('Failed to load host auth user:', error);
+    return null;
+  }
+  return data.user?.email || null;
+};
+
 const formatDateTime = (dateStr: string, timezone: string) => {
   const date = new Date(dateStr);
   return date.toLocaleString("en-US", {
@@ -134,6 +143,8 @@ const handler = async (req: Request): Promise<Response> => {
           .eq("user_id", booking.host_id)
           .single();
 
+        const hostEmail = await getHostEmail(supabase, booking.host_id);
+
         const startFormatted = formatDateTime(booking.start_time, booking.attendee_timezone);
 
         const siteUrl = PUBLIC_SITE_URL?.trim() || "";
@@ -190,6 +201,53 @@ const handler = async (req: Request): Promise<Response> => {
 
         const emailResult = await res.json();
         console.log(`Email sent to ${booking.attendee_email}:`, emailResult);
+
+        // Send separate host reminder email
+        if (hostEmail) {
+          const hostDetailsCard = `
+            <div style="margin:16px 0;padding:16px;border:1px solid rgba(255,255,255,0.08);border-radius:16px;background:rgba(255,255,255,0.03);">
+              <div style="font-weight:800;color:#FFFFFF;font-size:16px;">${escapeHtml(booking.event_type?.title || "Meeting")}</div>
+              <div style="margin-top:10px;">
+                <div style="color:#CBD5E1;"><span style="color:#94A3B8;">When:</span> ${escapeHtml(startFormatted)}</div>
+                <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Duration:</span> ${escapeHtml(String(booking.event_type?.duration || 30))} minutes</div>
+                <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Timezone:</span> ${escapeHtml(booking.attendee_timezone)}</div>
+                <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Attendee:</span> ${escapeHtml(booking.attendee_name)} (${escapeHtml(booking.attendee_email)})</div>
+              </div>
+              ${booking.meet_link ? `<div style="margin-top:10px;color:#CBD5E1;"><span style="color:#94A3B8;">Meeting link:</span> <a href="${booking.meet_link}" style="color:#60A5FA;text-decoration:none;">${escapeHtml(booking.meet_link)}</a></div>` : ""}
+            </div>
+          `;
+
+          const hostActions = `
+            <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;">
+              ${joinUrl ? buildPrimaryButton("Join meeting", joinUrl, "primary") : ""}
+            </div>
+          `;
+
+          const hostRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${RESEND_API_KEY}`,
+            },
+            body: JSON.stringify({
+              from: "CalSchedule <noreply@intimatecare.in>",
+              to: [hostEmail],
+              subject: `Reminder: ${booking.event_type?.title || "Meeting"} with ${booking.attendee_name}`,
+              html: wrapEmail({
+                title: "Reminder",
+                subtitle: `Hi ${hostProfile?.name || "Host"}, your meeting is coming up soon.`,
+                badgeText: "REMINDER",
+                accent: "#3B82F6",
+                bodyHtml: `${hostDetailsCard}${hostActions}<div style="margin-top:14px;color:#CBD5E1;">Tip: join 2–3 minutes early so you can start on time.</div>`,
+              }),
+            }),
+          });
+
+          const hostEmailResult = await hostRes.json();
+          console.log(`Host reminder email sent to ${hostEmail}:`, hostEmailResult);
+        } else {
+          console.warn('Host email not available, skipping host reminder email');
+        }
 
         if (res.ok) {
           // Mark reminder as sent

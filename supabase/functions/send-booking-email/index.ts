@@ -262,6 +262,99 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
   }
 };
 
+const getHostEmailContent = (
+  data: EmailRequest,
+  host: { name: string; email: string },
+  attendee: { name: string; email: string },
+  links: { joinUrl?: string },
+) => {
+  const startFormatted = formatDateTime(data.startTime, data.timezone);
+  const endFormatted = formatDateTime(data.endTime, data.timezone);
+
+  const detailsCard = `
+    <div style="margin:16px 0;padding:16px;border:1px solid rgba(255,255,255,0.08);border-radius:16px;background:rgba(255,255,255,0.03);">
+      <div style="font-weight:800;color:#FFFFFF;font-size:16px;">${escapeHtml(data.eventTitle)}</div>
+      <div style="margin-top:10px;">
+        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">When:</span> ${escapeHtml(startFormatted)}</div>
+        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Ends:</span> ${escapeHtml(endFormatted)}</div>
+        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Timezone:</span> ${escapeHtml(data.timezone)}</div>
+        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Attendee:</span> ${escapeHtml(attendee.name)} (${escapeHtml(attendee.email)})</div>
+      </div>
+      ${data.meetingLink ? `<div style="margin-top:10px;color:#CBD5E1;"><span style="color:#94A3B8;">Meeting link:</span> <a href="${data.meetingLink}" style="color:#60A5FA;text-decoration:none;">${escapeHtml(data.meetingLink)}</a></div>` : ""}
+      ${data.notes ? `<div style="margin-top:10px;color:#CBD5E1;"><span style="color:#94A3B8;">Attendee notes:</span> ${escapeHtml(data.notes)}</div>` : ""}
+    </div>
+  `;
+
+  const actions = links.joinUrl
+    ? `<div style="margin-top:14px;">${buildPrimaryButton('Join meeting', links.joinUrl, 'primary')}</div>`
+    : '';
+
+  switch (data.type) {
+    case 'confirmation':
+      return {
+        subject: `New booking: ${data.eventTitle} with ${attendee.name}`,
+        html: wrapEmail({
+          title: 'New booking',
+          subtitle: `Hi ${host.name}, you have a new booking.`,
+          badgeText: 'NEW BOOKING',
+          accent: '#22C55E',
+          bodyHtml: `${detailsCard}${actions}`,
+        }),
+      };
+    case 'cancellation':
+      return {
+        subject: `Cancelled: ${data.eventTitle} with ${attendee.name}`,
+        html: wrapEmail({
+          title: 'Booking cancelled',
+          subtitle: `Hi ${host.name}, this booking has been cancelled.`,
+          badgeText: 'CANCELLED',
+          accent: '#EF4444',
+          bodyHtml: `${detailsCard}${actions}`,
+        }),
+      };
+    case 'reschedule':
+      return {
+        subject: `Rescheduled: ${data.eventTitle} with ${attendee.name}`,
+        html: wrapEmail({
+          title: 'Booking rescheduled',
+          subtitle: `Hi ${host.name}, the booking time has been updated.`,
+          badgeText: 'RESCHEDULED',
+          accent: '#F59E0B',
+          bodyHtml: `${detailsCard}${actions}`,
+        }),
+      };
+    case 'reminder':
+      return {
+        subject: `Reminder: ${data.eventTitle} with ${attendee.name}`,
+        html: wrapEmail({
+          title: 'Reminder',
+          subtitle: `Hi ${host.name}, your meeting is coming up soon.`,
+          badgeText: 'REMINDER',
+          accent: '#3B82F6',
+          bodyHtml: `${detailsCard}${actions}<div style="margin-top:14px;color:#CBD5E1;">Tip: join 2–3 minutes early so you can start on time.</div>`,
+        }),
+      };
+    default:
+      return {
+        subject: `Update: ${data.eventTitle} with ${attendee.name}`,
+        html: wrapEmail({
+          title: 'Booking update',
+          subtitle: `Update for ${data.eventTitle}.`,
+          bodyHtml: `${detailsCard}${actions}`,
+        }),
+      };
+  }
+};
+
+const getHostEmail = async (supabase: ReturnType<typeof createClient>, hostId: string) => {
+  const { data, error } = await supabase.auth.admin.getUserById(hostId);
+  if (error) {
+    console.error('Failed to load host auth user:', error);
+    return null;
+  }
+  return data.user?.email || null;
+};
+
 const handler = async (req: Request): Promise<Response> => {
   console.log("send-booking-email function invoked");
 
@@ -276,7 +369,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: bookingRow } = await supabase
       .from('bookings')
-      .select('cancel_token, reschedule_token')
+      .select('cancel_token, reschedule_token, host_id')
       .eq('id', data.bookingId)
       .maybeSingle();
 
@@ -319,6 +412,48 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!res.ok) {
       throw new Error(result.message || "Failed to send email");
+    }
+
+    // Send separate host notification email
+    const hostId = bookingRow?.host_id;
+    if (hostId) {
+      const resolvedHostEmail = data.hostEmail?.trim() || (await getHostEmail(supabase, hostId));
+      if (resolvedHostEmail) {
+        const hostContent = getHostEmailContent(
+          data,
+          { name: data.hostName, email: resolvedHostEmail },
+          { name: data.recipientName, email: data.recipientEmail },
+          { joinUrl },
+        );
+
+        const hostRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+          },
+          body: JSON.stringify({
+            from: "CalSchedule <noreply@intimatecare.in>",
+            to: [resolvedHostEmail],
+            subject: hostContent.subject,
+            html: hostContent.html,
+            attachments: [
+              {
+                filename: isCancellation ? "cancellation.ics" : "invite.ics",
+                content: icsBase64,
+                content_type: "text/calendar; method=" + (isCancellation ? "CANCEL" : "REQUEST"),
+              },
+            ],
+          }),
+        });
+
+        const hostResult = await hostRes.json();
+        console.log("Host email sent:", { to: resolvedHostEmail, result: hostResult });
+      } else {
+        console.warn('Host email not available, skipping host notification');
+      }
+    } else {
+      console.warn('Host id not available for booking, skipping host notification');
     }
 
     return new Response(JSON.stringify({ success: true, data: result }), {

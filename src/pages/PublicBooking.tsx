@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2, Star } from 'lucide-react';
+import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2, Star, Instagram, Facebook, Linkedin, Twitter, Youtube, Pin } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -48,10 +48,7 @@ interface CustomField {
   placeholder?: string;
 }
 
-const TIMEZONES = [
-  'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York',
-  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai', 'Australia/Sydney',
-];
+const TIMEZONES = ['Asia/Kolkata'];
 
 const getLocationIcon = (locationType: string) => {
   switch (locationType) {
@@ -82,6 +79,16 @@ const getLocationLabel = (locationType: string) => {
   }
 };
 
+type SocialLinks = {
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+  linkedin?: string;
+  twitter?: string;
+  youtube?: string;
+  pinterest?: string;
+};
+
 export default function PublicBookingPage() {
   const { username, eventSlug } = useParams();
   const navigate = useNavigate();
@@ -96,7 +103,7 @@ export default function PublicBookingPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
-  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
+  const [timezone] = useState('Asia/Kolkata');
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [attendeeName, setAttendeeName] = useState('');
   const [attendeeEmail, setAttendeeEmail] = useState('');
@@ -125,6 +132,21 @@ export default function PublicBookingPage() {
 
   const showTestimonials = eventData?.eventType?.show_testimonials ?? true;
   const { data: testimonials } = useTestimonials(eventData?.eventType?.id, { includeHidden: false });
+
+  const socialLinks: SocialLinks = useMemo(() => {
+    const incoming = eventData?.eventType?.social_links;
+    if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+      return incoming as unknown as SocialLinks;
+    }
+    return {};
+  }, [eventData?.eventType?.social_links]);
+
+  const normalizeUrl = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    return `https://${trimmed}`;
+  };
 
   // Load Razorpay/Cashfree script dynamically
   useEffect(() => {
@@ -529,38 +551,162 @@ export default function PublicBookingPage() {
 
       <main className="max-w-5xl mx-auto px-4 py-12">
         <div className="bg-card rounded-2xl shadow-card overflow-hidden">
+          {eventData.eventType.banner_image_url && eventData.eventType.banner_image_url.trim() !== '' && (
+            <div className="w-full h-44 md:h-52 bg-muted overflow-hidden">
+              <img
+                src={eventData.eventType.banner_image_url}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
           <div className="grid md:grid-cols-[300px_1fr_1fr]">
             {/* Host & Event Info */}
             <div className="p-6 border-r border-border">
-              <Avatar className="w-16 h-16 mb-4">
-                <AvatarImage src={eventData.host?.avatar_url || ''} />
-                <AvatarFallback className="text-xl bg-primary/10 text-primary">
-                  {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase() || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <p className="text-sm text-muted-foreground mb-1">{eventData.host?.name || username}</p>
-              <h1 className="text-xl font-bold mb-4">{eventData.eventType.title}</h1>
+              <div className="flex items-start gap-3">
+                <Avatar className="w-12 h-12">
+                  <AvatarImage src={eventData.host?.avatar_url || ''} />
+                  <AvatarFallback className="text-lg bg-primary/10 text-primary">
+                    {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{eventData.host?.name || username}</p>
+                  <p className="text-xs text-muted-foreground truncate">Book a session</p>
+                </div>
+              </div>
 
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>{eventData.eventType.duration} min</span>
-                </div>
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <LocationIcon className="w-4 h-4" />
-                  <span>{getLocationLabel(eventData.eventType.location_type)}</span>
-                </div>
-                {isPaidEvent && eventPrice > 0 && (
-                  <div className="flex items-center gap-3 text-primary font-medium">
-                    <IndianRupee className="w-4 h-4" />
-                    <span>₹{eventPrice.toLocaleString('en-IN')}</span>
-                  </div>
+              <h1 className="text-2xl font-bold mt-5 leading-tight">{eventData.eventType.title}</h1>
+
+              <p className="text-sm text-muted-foreground mt-2">
+                Choose a time that works for you. You’ll get a confirmation email with all details.
+              </p>
+
+              <div className="mt-5 space-y-3 text-sm">
+                {selectedSlot ? (
+                  <>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span>
+                        {format(selectedSlot.startTime, 'EEEE, MMM d, yyyy')} · {format(selectedSlot.startTime, 'h:mm a')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <Globe className="w-4 h-4" />
+                      <span>Asia/Kolkata (IST)</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span>{eventData.eventType.duration} min</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <LocationIcon className="w-4 h-4" />
+                      <span>{getLocationLabel(eventData.eventType.location_type)}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <Globe className="w-4 h-4" />
+                      <span>Asia/Kolkata (IST)</span>
+                    </div>
+                    {isPaidEvent && eventPrice > 0 && (
+                      <div className="flex items-center gap-3 text-primary font-medium">
+                        <IndianRupee className="w-4 h-4" />
+                        <span>₹{eventPrice.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
+
               {eventData.eventType.description && (
-                <p className="text-sm text-muted-foreground mt-6 border-t border-border pt-4">
+                <p className="text-sm text-muted-foreground mt-6 border-t border-border pt-4 whitespace-pre-wrap">
                   {eventData.eventType.description}
                 </p>
+              )}
+
+              {Object.values(socialLinks).some((v) => typeof v === 'string' && v.trim() !== '') && (
+                <div className="mt-5 flex items-center gap-2">
+                  {socialLinks.website?.trim() && (
+                    <a
+                      href={normalizeUrl(socialLinks.website)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      aria-label="Website"
+                    >
+                      <Globe className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.instagram?.trim() && (
+                    <a
+                      href={normalizeUrl(socialLinks.instagram)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      aria-label="Instagram"
+                    >
+                      <Instagram className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.facebook?.trim() && (
+                    <a
+                      href={normalizeUrl(socialLinks.facebook)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      aria-label="Facebook"
+                    >
+                      <Facebook className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.linkedin?.trim() && (
+                    <a
+                      href={normalizeUrl(socialLinks.linkedin)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      aria-label="LinkedIn"
+                    >
+                      <Linkedin className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.twitter?.trim() && (
+                    <a
+                      href={normalizeUrl(socialLinks.twitter)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      aria-label="Twitter"
+                    >
+                      <Twitter className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.youtube?.trim() && (
+                    <a
+                      href={normalizeUrl(socialLinks.youtube)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      aria-label="YouTube"
+                    >
+                      <Youtube className="w-4 h-4" />
+                    </a>
+                  )}
+                  {socialLinks.pinterest?.trim() && (
+                    <a
+                      href={normalizeUrl(socialLinks.pinterest)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      aria-label="Pinterest"
+                    >
+                      <Pin className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
               )}
 
               {showTestimonials && (testimonials || []).length > 0 && (
@@ -644,17 +790,10 @@ export default function PublicBookingPage() {
               </div>
               <div className="mt-6">
                 <Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Time Zone</Label>
-                <Select value={timezone} onValueChange={setTimezone}>
-                  <SelectTrigger className="bg-background">
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-muted-foreground" />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz.replace('_', ' ')}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-foreground">Asia/Kolkata (IST)</span>
+                </div>
               </div>
             </div>
 

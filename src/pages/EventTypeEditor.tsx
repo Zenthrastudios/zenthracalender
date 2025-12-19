@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +7,7 @@ import { useAvailabilitySchedules, useScheduleAvailability } from '@/hooks/useAv
 import { useInstructors } from '@/hooks/useInstructors';
 import { useTestimonials, useCreateTestimonial, useUpdateTestimonial, useDeleteTestimonial, Testimonial } from '@/hooks/useTestimonials';
 import type { TablesInsert, TablesUpdate, Json } from '@/integrations/supabase/types';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -100,6 +101,16 @@ interface TestimonialFormState {
   is_visible: boolean;
 }
 
+type SocialLinks = {
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+  linkedin?: string;
+  twitter?: string;
+  youtube?: string;
+  pinterest?: string;
+};
+
 export default function EventTypeEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -117,12 +128,15 @@ export default function EventTypeEditor() {
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
+  const [bannerImageUrl, setBannerImageUrl] = useState('');
+
   const [duration, setDuration] = useState(30);
   const [customDuration, setCustomDuration] = useState('');
   const [locationType, setLocationType] = useState('google_meet');
   const [locationValue, setLocationValue] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [color, setColor] = useState('#3b82f6');
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>({});
 
   // Advanced Settings
   const [bufferBefore, setBufferBefore] = useState(0);
@@ -161,7 +175,12 @@ export default function EventTypeEditor() {
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [isBannerUploading, setIsBannerUploading] = useState(false);
+  const [isTestimonialAvatarUploading, setIsTestimonialAvatarUploading] = useState(false);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
+  const testimonialAvatarFileInputRef = useRef<HTMLInputElement>(null);
+  const [testimonialAvatarFile, setTestimonialAvatarFile] = useState<File | null>(null);
+
   // Get availability for selected schedule
   const { data: scheduleAvailability } = useScheduleAvailability(scheduleId);
 
@@ -170,6 +189,7 @@ export default function EventTypeEditor() {
       setTitle(existingEvent.title);
       setSlug(existingEvent.slug);
       setDescription(existingEvent.description || '');
+      setBannerImageUrl(existingEvent.banner_image_url || '');
       setDuration(existingEvent.duration);
       setLocationType(existingEvent.location_type);
       setLocationValue(existingEvent.location_value || '');
@@ -191,6 +211,13 @@ export default function EventTypeEditor() {
       // Load schedule assignment
       setScheduleId(existingEvent.schedule_id || null);
       setShowTestimonials(existingEvent.show_testimonials ?? true);
+
+      const incomingSocialLinks = existingEvent.social_links;
+      if (incomingSocialLinks && typeof incomingSocialLinks === 'object' && !Array.isArray(incomingSocialLinks)) {
+        setSocialLinks(incomingSocialLinks as unknown as SocialLinks);
+      } else {
+        setSocialLinks({});
+      }
     }
   }, [existingEvent]);
 
@@ -204,6 +231,7 @@ export default function EventTypeEditor() {
       sort_order: '0',
       is_visible: true,
     });
+    setTestimonialAvatarFile(null);
     setIsTestimonialDialogOpen(true);
   };
 
@@ -218,10 +246,57 @@ export default function EventTypeEditor() {
       sort_order: String(t.sort_order ?? 0),
       is_visible: t.is_visible,
     });
+    setTestimonialAvatarFile(null);
     setIsTestimonialDialogOpen(true);
   };
 
+  const uploadPublicImage = async (folder: string, file: File) => {
+    const fileExt = file.name.split('.').pop() || 'png';
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${folder}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('public-images')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data: publicUrlData } = supabase.storage
+      .from('public-images')
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  };
+
+  const handleBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setIsBannerUploading(true);
+    try {
+      const ownerId = profile?.user_id || 'unknown';
+      const url = await uploadPublicImage(`event-banners/${ownerId}`, file);
+      setBannerImageUrl(url);
+      toast.success('Banner image uploaded');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to upload banner image';
+      toast.error(message);
+    } finally {
+      setIsBannerUploading(false);
+      if (bannerFileInputRef.current) bannerFileInputRef.current.value = '';
+    }
+  };
+
   const submitTestimonial = async () => {
+
     if (isNew || !existingEvent?.id) {
       toast.error('Please create the event type first');
       return;
@@ -241,11 +316,17 @@ export default function EventTypeEditor() {
 
     try {
       if (testimonialForm.id) {
+        let avatarUrl: string | null = testimonialForm.avatar_url ? testimonialForm.avatar_url : null;
+        if (testimonialAvatarFile) {
+          setIsTestimonialAvatarUploading(true);
+          avatarUrl = await uploadPublicImage(`testimonials/${testimonialForm.id}`, testimonialAvatarFile);
+        }
+
         await updateTestimonial.mutateAsync({
           id: testimonialForm.id,
           author_name: testimonialForm.author_name,
           author_title: testimonialForm.author_title || null,
-          avatar_url: testimonialForm.avatar_url || null,
+          avatar_url: avatarUrl,
           rating,
           content: testimonialForm.content,
           sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
@@ -253,22 +334,30 @@ export default function EventTypeEditor() {
         });
         toast.success('Testimonial updated');
       } else {
-        await createTestimonial.mutateAsync({
+        const created = await createTestimonial.mutateAsync({
           event_type_id: existingEvent.id,
           author_name: testimonialForm.author_name,
           author_title: testimonialForm.author_title || null,
-          avatar_url: testimonialForm.avatar_url || null,
+          avatar_url: null,
           rating,
           content: testimonialForm.content,
           sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
           is_visible: testimonialForm.is_visible,
         });
+
+        if (testimonialAvatarFile) {
+          setIsTestimonialAvatarUploading(true);
+          const avatarUrl = await uploadPublicImage(`testimonials/${created.id}`, testimonialAvatarFile);
+          await updateTestimonial.mutateAsync({ id: created.id, avatar_url: avatarUrl });
+        }
         toast.success('Testimonial added');
       }
       setIsTestimonialDialogOpen(false);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to save testimonial';
       toast.error(message);
+    } finally {
+      setIsTestimonialAvatarUploading(false);
     }
   };
 
@@ -343,6 +432,7 @@ export default function EventTypeEditor() {
       title,
       slug,
       description: description || null,
+      banner_image_url: bannerImageUrl.trim() ? bannerImageUrl.trim() : null,
       duration: finalDuration,
       buffer_before: bufferBefore,
       buffer_after: bufferAfter,
@@ -352,6 +442,7 @@ export default function EventTypeEditor() {
       minimum_notice: minimumNotice,
       color,
       custom_fields: customFields as unknown as Json,
+      social_links: (socialLinks as unknown as Json) || null,
       is_paid: isPaid,
       price: isPaid ? parseFloat(price) || 0 : 0,
       payment_provider: isPaid ? paymentProvider : null,
@@ -533,6 +624,7 @@ export default function EventTypeEditor() {
                 </DialogHeader>
 
                 <div className="space-y-4">
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Author Name</Label>
@@ -546,13 +638,67 @@ export default function EventTypeEditor() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Avatar URL</Label>
-                      <Input value={testimonialForm.avatar_url} onChange={(e) => setTestimonialForm(s => ({ ...s, avatar_url: e.target.value }))} />
+                      <Label>Avatar</Label>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={testimonialForm.avatar_url || ''} />
+                          <AvatarFallback className="bg-primary/10 text-primary">
+                            {testimonialForm.author_name?.charAt(0) || 'A'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-wrap gap-2">
+                          <input
+                            ref={testimonialAvatarFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            aria-label="Upload testimonial avatar"
+                            title="Upload testimonial avatar"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              if (!file.type.startsWith('image/')) {
+                                toast.error('Please select an image file');
+
+                                return;
+                              }
+                              if (file.size > 5 * 1024 * 1024) {
+                                toast.error('Image must be less than 5MB');
+                                return;
+                              }
+                              setTestimonialAvatarFile(file);
+                              setTestimonialForm(s => ({ ...s, avatar_url: URL.createObjectURL(file) }));
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => testimonialAvatarFileInputRef.current?.click()}
+                          >
+                            Upload
+                          </Button>
+                          {testimonialForm.avatar_url && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setTestimonialAvatarFile(null);
+                                setTestimonialForm(s => ({ ...s, avatar_url: '' }));
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Rating (1-5)</Label>
-                      <Input value={testimonialForm.rating} onChange={(e) => setTestimonialForm(s => ({ ...s, rating: e.target.value }))} />
-                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Rating (1-5)</Label>
+                    <Input value={testimonialForm.rating} onChange={(e) => setTestimonialForm(s => ({ ...s, rating: e.target.value }))} />
                   </div>
 
                   <div className="space-y-2">
@@ -574,7 +720,7 @@ export default function EventTypeEditor() {
 
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsTestimonialDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={submitTestimonial} disabled={createTestimonial.isPending || updateTestimonial.isPending}>
+                  <Button onClick={submitTestimonial} disabled={createTestimonial.isPending || updateTestimonial.isPending || isTestimonialAvatarUploading}>
                     Save
                   </Button>
                 </DialogFooter>
@@ -714,6 +860,132 @@ export default function EventTypeEditor() {
                 onChange={(e) => setDescription(e.target.value)}
                 className="bg-background min-h-[100px]"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Banner Image</Label>
+              <div className="flex items-start gap-4">
+                <div className="w-40 h-24 rounded-lg border border-border bg-muted overflow-hidden">
+                  {bannerImageUrl ? (
+                    <img src={bannerImageUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                      No image
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    ref={bannerFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    aria-label="Upload event banner image"
+                    title="Upload event banner image"
+                    onChange={handleBannerFileChange}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => bannerFileInputRef.current?.click()}
+                    disabled={isBannerUploading}
+                  >
+                    {isBannerUploading ? 'Uploading...' : 'Upload'}
+                  </Button>
+                  {bannerImageUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setBannerImageUrl('')}
+                      disabled={isBannerUploading}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This image will be shown at the top of the public booking page.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <Label>Social Links</Label>
+                <p className="text-sm text-muted-foreground">Add links (Pinterest, Instagram, etc.) to display icons on the public booking page.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="social-website">Website</Label>
+                  <Input
+                    id="social-website"
+                    placeholder="https://yourwebsite.com"
+                    value={socialLinks.website || ''}
+                    onChange={(e) => setSocialLinks(s => ({ ...s, website: e.target.value }))}
+                    className="bg-background"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="social-linkedin">LinkedIn</Label>
+                  <Input
+                    id="social-linkedin"
+                    placeholder="https://linkedin.com/in/..."
+                    value={socialLinks.linkedin || ''}
+                    onChange={(e) => setSocialLinks(s => ({ ...s, linkedin: e.target.value }))}
+                    className="bg-background"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="social-instagram">Instagram</Label>
+                  <Input
+                    id="social-instagram"
+                    placeholder="https://instagram.com/..."
+                    value={socialLinks.instagram || ''}
+                    onChange={(e) => setSocialLinks(s => ({ ...s, instagram: e.target.value }))}
+                    className="bg-background"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="social-facebook">Facebook</Label>
+                  <Input
+                    id="social-facebook"
+                    placeholder="https://facebook.com/..."
+                    value={socialLinks.facebook || ''}
+                    onChange={(e) => setSocialLinks(s => ({ ...s, facebook: e.target.value }))}
+                    className="bg-background"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="social-twitter">X / Twitter</Label>
+                  <Input
+                    id="social-twitter"
+                    placeholder="https://x.com/..."
+                    value={socialLinks.twitter || ''}
+                    onChange={(e) => setSocialLinks(s => ({ ...s, twitter: e.target.value }))}
+                    className="bg-background"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="social-youtube">YouTube</Label>
+                  <Input
+                    id="social-youtube"
+                    placeholder="https://youtube.com/@..."
+                    value={socialLinks.youtube || ''}
+                    onChange={(e) => setSocialLinks(s => ({ ...s, youtube: e.target.value }))}
+                    className="bg-background"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="social-pinterest">Pinterest</Label>
+                  <Input
+                    id="social-pinterest"
+                    placeholder="https://pinterest.com/..."
+                    value={socialLinks.pinterest || ''}
+                    onChange={(e) => setSocialLinks(s => ({ ...s, pinterest: e.target.value }))}
+                    className="bg-background"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Color Picker */}

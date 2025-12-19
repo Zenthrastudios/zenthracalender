@@ -187,6 +187,7 @@ export type Database = {
         Row: {
           buffer_after: number
           buffer_before: number
+          banner_image_url: string | null
           color: string | null
           created_at: string
           custom_fields: Json | null
@@ -202,6 +203,7 @@ export type Database = {
           payment_provider: string | null
           price: number | null
           schedule_id: string | null
+          social_links: Json | null
           show_testimonials: boolean
           slug: string
           title: string
@@ -211,6 +213,7 @@ export type Database = {
         Insert: {
           buffer_after?: number
           buffer_before?: number
+          banner_image_url?: string | null
           color?: string | null
           created_at?: string
           custom_fields?: Json | null
@@ -226,6 +229,7 @@ export type Database = {
           payment_provider?: string | null
           price?: number | null
           schedule_id?: string | null
+          social_links?: Json | null
           show_testimonials?: boolean
           slug: string
           title: string
@@ -235,6 +239,7 @@ export type Database = {
         Update: {
           buffer_after?: number
           buffer_before?: number
+          banner_image_url?: string | null
           color?: string | null
           created_at?: string
           custom_fields?: Json | null
@@ -250,6 +255,7 @@ export type Database = {
           payment_provider?: string | null
           price?: number | null
           schedule_id?: string | null
+          social_links?: Json | null
           show_testimonials?: boolean
           slug?: string
           title?: string
