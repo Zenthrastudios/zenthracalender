@@ -46,22 +46,37 @@ export function useCreateInstructor() {
       bio?: string;
       specialization?: string;
     }) => {
-      // Use Edge Function to create user with admin privileges
-      const { data, error } = await supabase.functions.invoke('create-instructor', {
-        body: {
-          name: instructorData.name,
-          email: instructorData.email,
-          password: instructorData.password,
-          bio: instructorData.bio,
-          specialization: instructorData.specialization,
-          created_by: user?.id,
+      // First create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: instructorData.email,
+        password: instructorData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            name: instructorData.name,
+          },
         },
       });
 
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Failed to create user');
+
+      // Create instructor record
+      const { data, error } = await supabase
+        .from('instructors')
+        .insert({
+          user_id: authData.user.id,
+          name: instructorData.name,
+          email: instructorData.email,
+          bio: instructorData.bio || null,
+          specialization: instructorData.specialization || null,
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      
-      return data.instructor as Instructor;
+      return data as Instructor;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instructors'] });

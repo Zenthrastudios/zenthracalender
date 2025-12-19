@@ -84,57 +84,41 @@ interface DaySchedule {
 }
 
 export default function Availability() {
-  const { data: schedules, isLoading: schedulesLoading } = useAvailabilitySchedules();
-  const createSchedule = useCreateSchedule();
-  const updateScheduleMutation = useUpdateSchedule();
-  const deleteSchedule = useDeleteSchedule();
-  const updateScheduleAvailability = useUpdateScheduleAvailability();
+  const { data: availability, isLoading } = useAvailability();
+  const updateAvailability = useUpdateAvailability();
   
-  // Selected schedule
-  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
+  // Schedule state
+  const [schedule, setSchedule] = useState<Record<number, DaySchedule>>({});
   
-  // Schedule availability data
-  const { data: scheduleAvailability, isLoading: availabilityLoading } = useScheduleAvailability(selectedScheduleId);
-  
-  // Weekly schedule state
-  const [weeklySchedule, setWeeklySchedule] = useState<Record<number, DaySchedule>>({});
-  
-  // New schedule dialog
-  const [newScheduleDialogOpen, setNewScheduleDialogOpen] = useState(false);
-  const [newScheduleName, setNewScheduleName] = useState('');
-  const [editingSchedule, setEditingSchedule] = useState<{ id: string; name: string } | null>(null);
+  // Advanced settings
+  const [bookingPeriod, setBookingPeriod] = useState(60); // days in advance
+  const [minimumNotice, setMinimumNotice] = useState(60); // minutes
+  const [slotIncrement, setSlotIncrement] = useState(30); // minutes
+  const [dailyLimit, setDailyLimit] = useState(0); // 0 = unlimited
   
   const [isSaving, setIsSaving] = useState(false);
 
-  // Auto-select first schedule or default
+  // Initialize schedule from availability data
   useEffect(() => {
-    if (schedules && schedules.length > 0 && !selectedScheduleId) {
-      const defaultSchedule = schedules.find(s => s.is_default) || schedules[0];
-      setSelectedScheduleId(defaultSchedule.id);
-    }
-  }, [schedules, selectedScheduleId]);
-
-  // Initialize weekly schedule from availability data
-  useEffect(() => {
-    if (scheduleAvailability) {
+    if (availability) {
       const newSchedule: Record<number, DaySchedule> = {};
       
       DAYS.forEach(day => {
-        const daySlots = scheduleAvailability.filter(a => a.weekday === day.value);
+        const daySlots = availability.filter(a => a.weekday === day.value);
         newSchedule[day.value] = {
           enabled: daySlots.length > 0,
           slots: daySlots.length > 0 
             ? daySlots.map(s => ({ start: s.start_time, end: s.end_time }))
-            : [{ start: 540, end: 1020 }],
+            : [{ start: 540, end: 1020 }], // Default 9am-5pm
         };
       });
       
-      setWeeklySchedule(newSchedule);
+      setSchedule(newSchedule);
     }
-  }, [scheduleAvailability]);
+  }, [availability]);
 
   const toggleDay = (dayValue: number) => {
-    setWeeklySchedule(prev => ({
+    setSchedule(prev => ({
       ...prev,
       [dayValue]: {
         ...prev[dayValue],
@@ -145,7 +129,7 @@ export default function Availability() {
   };
 
   const addSlot = (dayValue: number) => {
-    setWeeklySchedule(prev => ({
+    setSchedule(prev => ({
       ...prev,
       [dayValue]: {
         ...prev[dayValue],
@@ -155,7 +139,7 @@ export default function Availability() {
   };
 
   const removeSlot = (dayValue: number, index: number) => {
-    setWeeklySchedule(prev => ({
+    setSchedule(prev => ({
       ...prev,
       [dayValue]: {
         ...prev[dayValue],
@@ -165,7 +149,7 @@ export default function Availability() {
   };
 
   const updateSlot = (dayValue: number, index: number, field: 'start' | 'end', value: number) => {
-    setWeeklySchedule(prev => ({
+    setSchedule(prev => ({
       ...prev,
       [dayValue]: {
         ...prev[dayValue],
@@ -177,11 +161,11 @@ export default function Availability() {
   };
 
   const copyToWeekdays = (sourceDayValue: number) => {
-    const sourceDay = weeklySchedule[sourceDayValue];
+    const sourceDay = schedule[sourceDayValue];
     if (!sourceDay) return;
 
-    const weekdays = [1, 2, 3, 4, 5];
-    setWeeklySchedule(prev => {
+    const weekdays = [1, 2, 3, 4, 5]; // Mon-Fri
+    setSchedule(prev => {
       const updated = { ...prev };
       weekdays.forEach(day => {
         updated[day] = {
@@ -195,17 +179,15 @@ export default function Availability() {
   };
 
   const handleSave = async () => {
-    if (!selectedScheduleId) return;
-    
     setIsSaving(true);
     
     try {
-      const slots: { weekday: number; start_time: number; end_time: number }[] = [];
+      const newAvailability: { weekday: number; start_time: number; end_time: number }[] = [];
       
-      Object.entries(weeklySchedule).forEach(([day, daySchedule]) => {
+      Object.entries(schedule).forEach(([day, daySchedule]) => {
         if (daySchedule.enabled) {
           daySchedule.slots.forEach(slot => {
-            slots.push({
+            newAvailability.push({
               weekday: parseInt(day),
               start_time: slot.start,
               end_time: slot.end,
@@ -214,65 +196,12 @@ export default function Availability() {
         }
       });
 
-      await updateScheduleAvailability.mutateAsync({ scheduleId: selectedScheduleId, slots });
+      await updateAvailability.mutateAsync(newAvailability);
       toast.success('Availability saved!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to save availability');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleCreateSchedule = async () => {
-    if (!newScheduleName.trim()) {
-      toast.error('Please enter a schedule name');
-      return;
-    }
-    
-    try {
-      const newSchedule = await createSchedule.mutateAsync({ name: newScheduleName.trim() });
-      setSelectedScheduleId(newSchedule.id);
-      setNewScheduleName('');
-      setNewScheduleDialogOpen(false);
-      toast.success('Schedule created!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create schedule');
-    }
-  };
-
-  const handleUpdateScheduleName = async () => {
-    if (!editingSchedule || !editingSchedule.name.trim()) return;
-    
-    try {
-      await updateScheduleMutation.mutateAsync({ id: editingSchedule.id, name: editingSchedule.name.trim() });
-      setEditingSchedule(null);
-      toast.success('Schedule renamed!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to rename schedule');
-    }
-  };
-
-  const handleSetDefault = async (scheduleId: string) => {
-    try {
-      await updateScheduleMutation.mutateAsync({ id: scheduleId, isDefault: true });
-      toast.success('Default schedule updated!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to set default');
-    }
-  };
-
-  const handleDeleteSchedule = async (scheduleId: string) => {
-    try {
-      await deleteSchedule.mutateAsync(scheduleId);
-      if (selectedScheduleId === scheduleId) {
-        const remaining = schedules?.filter(s => s.id !== scheduleId);
-        if (remaining && remaining.length > 0) {
-          setSelectedScheduleId(remaining[0].id);
-        }
-      }
-      toast.success('Schedule deleted!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete schedule');
     }
   };
 
@@ -284,10 +213,7 @@ export default function Availability() {
     return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
   };
 
-  const selectedSchedule = schedules?.find(s => s.id === selectedScheduleId);
-  const isLoading = schedulesLoading || availabilityLoading;
-
-  if (schedulesLoading) {
+  if (isLoading) {
     return (
       <DashboardLayout>
         <div className="p-8 flex items-center justify-center">
@@ -312,133 +238,16 @@ export default function Availability() {
         </div>
 
         <div className="space-y-4 sm:space-y-6">
-          {/* Schedule Selector */}
-          <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold">Availability Schedules</h3>
-              </div>
-              <Dialog open={newScheduleDialogOpen} onOpenChange={setNewScheduleDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Plus className="w-4 h-4 mr-1" />
-                    New Schedule
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Schedule</DialogTitle>
-                    <DialogDescription>
-                      Create a new availability schedule that you can assign to different event types.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Schedule Name</Label>
-                      <Input
-                        placeholder="e.g. Evening Hours, Weekend Only"
-                        value={newScheduleName}
-                        onChange={(e) => setNewScheduleName(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setNewScheduleDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleCreateSchedule} disabled={createSchedule.isPending}>
-                      {createSchedule.isPending ? 'Creating...' : 'Create Schedule'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {/* Schedule Tabs */}
-            <div className="flex flex-wrap gap-2">
-              {schedules?.map((schedule) => (
-                <div
-                  key={schedule.id}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors",
-                    selectedScheduleId === schedule.id
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "bg-background border-border hover:bg-muted"
-                  )}
-                  onClick={() => setSelectedScheduleId(schedule.id)}
-                >
-                  <span className="text-sm font-medium">{schedule.name}</span>
-                  {schedule.is_default && (
-                    <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">Default</span>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1">
-                        <MoreVertical className="w-3 h-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditingSchedule({ id: schedule.id, name: schedule.name })}>
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Rename
-                      </DropdownMenuItem>
-                      {!schedule.is_default && (
-                        <DropdownMenuItem onClick={() => handleSetDefault(schedule.id)}>
-                          <Check className="w-4 h-4 mr-2" />
-                          Set as Default
-                        </DropdownMenuItem>
-                      )}
-                      {schedules.length > 1 && (
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={() => handleDeleteSchedule(schedule.id)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-            </div>
-
-            {/* Rename Dialog */}
-            <Dialog open={!!editingSchedule} onOpenChange={(open) => !open && setEditingSchedule(null)}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Rename Schedule</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Schedule Name</Label>
-                    <Input
-                      value={editingSchedule?.name || ''}
-                      onChange={(e) => setEditingSchedule(prev => prev ? { ...prev, name: e.target.value } : null)}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setEditingSchedule(null)}>Cancel</Button>
-                  <Button onClick={handleUpdateScheduleName} disabled={updateScheduleMutation.isPending}>
-                    {updateScheduleMutation.isPending ? 'Saving...' : 'Save'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
           {/* Weekly Schedule */}
           <div className="bg-card rounded-xl border border-border p-4 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">
-                {selectedSchedule?.name || 'Weekly Schedule'}
-              </h3>
+              <h3 className="font-semibold">Weekly Schedule</h3>
             </div>
 
             <div className="space-y-3">
               {DAYS.map((day) => {
-                const daySchedule = weeklySchedule[day.value];
+                const daySchedule = schedule[day.value];
                 const isEnabled = daySchedule?.enabled || false;
 
                 return (
@@ -563,6 +372,87 @@ export default function Availability() {
             </div>
           </div>
 
+          {/* Advanced Settings */}
+          <Accordion type="single" collapsible className="bg-card rounded-xl border border-border">
+            <AccordionItem value="advanced" className="border-none">
+              <AccordionTrigger className="px-4 sm:px-6 hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">Advanced Settings</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Booking Period</Label>
+                    <Select value={bookingPeriod.toString()} onValueChange={(v) => setBookingPeriod(parseInt(v))}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[7, 14, 30, 60, 90, 180, 365].map((d) => (
+                          <SelectItem key={d} value={d.toString()}>
+                            {d} days in advance
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">How far in advance can people book</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm">Minimum Notice</Label>
+                    <Select value={minimumNotice.toString()} onValueChange={(v) => setMinimumNotice(parseInt(v))}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[0, 30, 60, 120, 240, 480, 1440].map((m) => (
+                          <SelectItem key={m} value={m.toString()}>
+                            {m === 0 ? 'No minimum' : m < 60 ? `${m} minutes` : m < 1440 ? `${m / 60} hours` : `${m / 1440} day(s)`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Minimum time before a booking can start</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm">Time Slot Increment</Label>
+                    <Select value={slotIncrement.toString()} onValueChange={(v) => setSlotIncrement(parseInt(v))}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[15, 30, 60].map((m) => (
+                          <SelectItem key={m} value={m.toString()}>{m} minutes</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Available time slots will start at these intervals</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm">Daily Booking Limit</Label>
+                    <Select value={dailyLimit.toString()} onValueChange={(v) => setDailyLimit(parseInt(v))}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[0, 1, 2, 3, 4, 5, 10].map((n) => (
+                          <SelectItem key={n} value={n.toString()}>
+                            {n === 0 ? 'Unlimited' : `${n} bookings per day`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Maximum number of bookings per day</p>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
           {/* Quick Preview */}
           <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -572,7 +462,7 @@ export default function Availability() {
             {/* Mobile: horizontal scroll, Desktop: grid */}
             <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 sm:grid sm:grid-cols-7 sm:overflow-visible">
               {DAYS.map((day) => {
-                const daySchedule = weeklySchedule[day.value];
+                const daySchedule = schedule[day.value];
                 const isEnabled = daySchedule?.enabled || false;
 
                 return (

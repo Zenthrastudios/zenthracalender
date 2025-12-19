@@ -24,7 +24,6 @@ interface Booking {
     title: string;
     duration: number;
     location_type: string;
-    location_value?: string | null;
   } | null;
   host: {
     name: string;
@@ -66,8 +65,7 @@ export default function GuestDashboard() {
           event_type:event_types(
             title,
             duration,
-            location_type,
-            location_value
+            location_type
           )
         `)
         .ilike('attendee_email', user.email)
@@ -140,16 +138,6 @@ export default function GuestDashboard() {
       default:
         return <MapPin className="w-4 h-4" />;
     }
-  };
-
-  const getJoinLink = (booking: Booking) => {
-    const meetLink = booking.meet_link;
-    if (meetLink) return meetLink;
-
-    const lv = booking.event_type?.location_value;
-    if (lv && /^https?:\/\//i.test(lv)) return lv;
-
-    return null;
   };
 
   return (
@@ -240,19 +228,14 @@ export default function GuestDashboard() {
                           </div>
 
                           <div className="flex flex-wrap gap-2">
-                            {getJoinLink(booking) ? (
+                            {booking.meet_link && (
                               <Button asChild>
-                                <a href={getJoinLink(booking) as string} target="_blank" rel="noopener noreferrer">
+                                <a href={booking.meet_link} target="_blank" rel="noopener noreferrer">
                                   <Video className="w-4 h-4 mr-2" />
                                   Join Meeting
                                 </a>
                               </Button>
-                            ) : booking.event_type?.location_type === 'google_meet' ? (
-                              <Button disabled>
-                                <Video className="w-4 h-4 mr-2" />
-                                Link pending
-                              </Button>
-                            ) : null}
+                            )}
                             {booking.reschedule_token && (
                               <Button variant="outline" asChild>
                                 <Link to={`/reschedule/${booking.reschedule_token}`}>

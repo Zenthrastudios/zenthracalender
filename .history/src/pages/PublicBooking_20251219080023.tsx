@@ -86,10 +86,7 @@ export default function PublicBookingPage() {
   const [searchParams] = useSearchParams();
   
   const { data: eventData, isLoading } = useEventTypeBySlug(username, eventSlug);
-  
-  // Get schedule_id from event type, or use default schedule
-  const scheduleId = (eventData?.eventType as any)?.schedule_id || null;
-  const { data: availability } = useBookingAvailability(eventData?.host?.id, scheduleId);
+  const { data: availability } = useHostAvailabilityForBooking(eventData?.host?.id);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);

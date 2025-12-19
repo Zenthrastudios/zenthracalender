@@ -43,13 +43,6 @@ export default function MyBookings() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const getJoinLink = (booking: Booking) => {
-    if (booking.meet_link) return booking.meet_link;
-    const lv = booking.event_type?.location_value;
-    if (lv && /^https?:\/\//i.test(lv)) return lv;
-    return null;
-  };
-
   // Auto-fetch bookings if user is logged in
   useEffect(() => {
     if (user?.email) {
@@ -308,19 +301,14 @@ export default function MyBookings() {
                               </div>
 
                               <div className="flex flex-col gap-2">
-                                {getJoinLink(booking) ? (
-                                  <a href={getJoinLink(booking) as string} target="_blank" rel="noopener noreferrer">
+                                {booking.meet_link && (
+                                  <a href={booking.meet_link} target="_blank" rel="noopener noreferrer">
                                     <Button size="sm" className="w-full">
                                       <ExternalLink className="w-4 h-4 mr-2" />
                                       Join Meeting
                                     </Button>
                                   </a>
-                                ) : booking.event_type?.location_type === 'google_meet' || booking.event_type?.location_type === 'zoom' ? (
-                                  <Button size="sm" className="w-full" disabled>
-                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                    Link pending
-                                  </Button>
-                                ) : null}
+                                )}
                                 {booking.reschedule_token && (
                                   <Link to={`/reschedule/${booking.reschedule_token}`}>
                                     <Button variant="outline" size="sm" className="w-full">

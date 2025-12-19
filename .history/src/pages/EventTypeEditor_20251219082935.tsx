@@ -316,7 +316,7 @@ export default function EventTypeEditor() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Select Instructor</Label>
-                  <Select value={instructorId || 'none'} onValueChange={(v) => setInstructorId(v === 'none' ? null : v)}>
+                  <Select value={instructorId || ''} onValueChange={(v) => setInstructorId(v || null)}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Choose an instructor..." />
                     </SelectTrigger>

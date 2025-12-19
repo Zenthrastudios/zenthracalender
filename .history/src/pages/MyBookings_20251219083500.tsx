@@ -13,7 +13,6 @@ import { toast } from 'sonner';
 
 interface Booking {
   id: string;
-  host_id: string;
   start_time: string;
   end_time: string;
   status: string;
@@ -43,13 +42,6 @@ export default function MyBookings() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const getJoinLink = (booking: Booking) => {
-    if (booking.meet_link) return booking.meet_link;
-    const lv = booking.event_type?.location_value;
-    if (lv && /^https?:\/\//i.test(lv)) return lv;
-    return null;
-  };
-
   // Auto-fetch bookings if user is logged in
   useEffect(() => {
     if (user?.email) {
@@ -72,7 +64,6 @@ export default function MyBookings() {
         .from('bookings')
         .select(`
           id,
-          host_id,
           start_time,
           end_time,
           status,
@@ -84,7 +75,7 @@ export default function MyBookings() {
           cancel_token,
           reschedule_token,
           event_type:event_types(title, duration, location_type, location_value),
-          host_id
+          host:profiles!bookings_host_id_fkey(name, username)
         `)
         .ilike('attendee_email', searchEmail.trim())
         .order('start_time', { ascending: false });
@@ -92,33 +83,13 @@ export default function MyBookings() {
       if (error) throw error;
 
       // Transform data to handle the joined relations
-      const rows = (data || []).map((booking: any) => ({
+      const transformedBookings = (data || []).map(booking => ({
         ...booking,
         event_type: Array.isArray(booking.event_type) ? booking.event_type[0] : booking.event_type,
+        host: Array.isArray(booking.host) ? booking.host[0] : booking.host,
       }));
 
-      const hostIds = Array.from(new Set(rows.map((b: any) => b.host_id).filter(Boolean)));
-      let hostByUserId = new Map<string, { name: string; username: string | null }>();
-
-      if (hostIds.length > 0) {
-        const { data: hostProfiles, error: hostError } = await supabase
-          .from('profiles')
-          .select('user_id, name, username')
-          .in('user_id', hostIds);
-
-        if (hostError) throw hostError;
-
-        (hostProfiles || []).forEach((p: any) => {
-          hostByUserId.set(p.user_id, { name: p.name, username: p.username });
-        });
-      }
-
-      const transformedBookings = rows.map((b: any) => ({
-        ...b,
-        host: hostByUserId.get(b.host_id) || null,
-      }));
-
-      setBookings(transformedBookings as Booking[]);
+      setBookings(transformedBookings);
     } catch (error: any) {
       console.error('Error fetching bookings:', error);
       toast.error('Failed to fetch bookings');
@@ -308,19 +279,14 @@ export default function MyBookings() {
                               </div>
 
                               <div className="flex flex-col gap-2">
-                                {getJoinLink(booking) ? (
-                                  <a href={getJoinLink(booking) as string} target="_blank" rel="noopener noreferrer">
+                                {booking.meet_link && (
+                                  <a href={booking.meet_link} target="_blank" rel="noopener noreferrer">
                                     <Button size="sm" className="w-full">
                                       <ExternalLink className="w-4 h-4 mr-2" />
                                       Join Meeting
                                     </Button>
                                   </a>
-                                ) : booking.event_type?.location_type === 'google_meet' || booking.event_type?.location_type === 'zoom' ? (
-                                  <Button size="sm" className="w-full" disabled>
-                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                    Link pending
-                                  </Button>
-                                ) : null}
+                                )}
                                 {booking.reschedule_token && (
                                   <Link to={`/reschedule/${booking.reschedule_token}`}>
                                     <Button variant="outline" size="sm" className="w-full">

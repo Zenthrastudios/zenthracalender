@@ -78,35 +78,17 @@ export default function Reschedule() {
     enabled: !!booking?.host_id,
   });
 
-  // Fetch host availability based on event type's schedule
-  const scheduleId = (booking?.event_type as any)?.schedule_id;
+  // Fetch host availability
   const { data: availability = [] } = useQuery({
-    queryKey: ['host-availability', booking?.host_id, scheduleId],
+    queryKey: ['host-availability', booking?.host_id],
     queryFn: async () => {
       if (!booking?.host_id) return [];
 
-      let query = supabase
+      const { data, error } = await supabase
         .from('availability')
         .select('*')
         .eq('user_id', booking.host_id);
 
-      if (scheduleId) {
-        query = query.eq('schedule_id', scheduleId);
-      } else {
-        // Get default schedule's availability
-        const { data: defaultSchedule } = await supabase
-          .from('availability_schedules')
-          .select('id')
-          .eq('user_id', booking.host_id)
-          .eq('is_default', true)
-          .maybeSingle();
-
-        if (defaultSchedule) {
-          query = query.eq('schedule_id', defaultSchedule.id);
-        }
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },

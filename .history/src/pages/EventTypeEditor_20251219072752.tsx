@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventTypes, useCreateEventType, useUpdateEventType, EventType } from '@/hooks/useEventTypes';
-import { useAvailabilitySchedules, useScheduleAvailability } from '@/hooks/useAvailabilitySchedules';
+import { useAvailability } from '@/hooks/useAvailability';
 import { useInstructors } from '@/hooks/useInstructors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,7 +83,7 @@ export default function EventTypeEditor() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { data: eventTypes } = useEventTypes();
-  const { data: schedules } = useAvailabilitySchedules();
+  const { data: availability } = useAvailability();
   const { data: instructors } = useInstructors();
   const createEventType = useCreateEventType();
   const updateEventType = useUpdateEventType();
@@ -118,13 +118,7 @@ export default function EventTypeEditor() {
   // Instructor Assignment
   const [instructorId, setInstructorId] = useState<string | null>(null);
   
-  // Schedule Assignment
-  const [scheduleId, setScheduleId] = useState<string | null>(null);
-  
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Get availability for selected schedule
-  const { data: scheduleAvailability } = useScheduleAvailability(scheduleId);
 
   useEffect(() => {
     if (existingEvent) {
@@ -149,18 +143,8 @@ export default function EventTypeEditor() {
       setPaymentProvider((existingEvent as any).payment_provider || 'razorpay');
       // Load instructor assignment
       setInstructorId((existingEvent as any).instructor_id || null);
-      // Load schedule assignment
-      setScheduleId((existingEvent as any).schedule_id || null);
     }
   }, [existingEvent]);
-  
-  // Auto-select default schedule for new events
-  useEffect(() => {
-    if (isNew && schedules && schedules.length > 0 && !scheduleId) {
-      const defaultSchedule = schedules.find(s => s.is_default) || schedules[0];
-      setScheduleId(defaultSchedule.id);
-    }
-  }, [isNew, schedules, scheduleId]);
 
   // Auto-generate slug from title
   useEffect(() => {
@@ -238,7 +222,6 @@ export default function EventTypeEditor() {
       price: isPaid ? parseFloat(price) || 0 : 0,
       payment_provider: isPaid ? paymentProvider : null,
       instructor_id: instructorId,
-      schedule_id: scheduleId,
     };
 
     try {
@@ -269,7 +252,7 @@ export default function EventTypeEditor() {
   // Get availability for display
   const getAvailabilityByDay = () => {
     const byDay: Record<number, { start: number; end: number }[]> = {};
-    scheduleAvailability?.forEach(a => {
+    availability?.forEach(a => {
       if (!byDay[a.weekday]) byDay[a.weekday] = [];
       byDay[a.weekday].push({ start: a.start_time, end: a.end_time });
     });
@@ -316,12 +299,12 @@ export default function EventTypeEditor() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Select Instructor</Label>
-                  <Select value={instructorId || 'none'} onValueChange={(v) => setInstructorId(v === 'none' ? null : v)}>
+                  <Select value={instructorId || ''} onValueChange={(v) => setInstructorId(v || null)}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Choose an instructor..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No instructor (use my profile)</SelectItem>
+                      <SelectItem value="">No instructor (use my profile)</SelectItem>
                       {instructors.filter(i => i.is_active).map((instructor) => (
                         <SelectItem key={instructor.id} value={instructor.id}>
                           <div className="flex items-center gap-2">
@@ -657,69 +640,13 @@ export default function EventTypeEditor() {
             )}
           </div>
 
-          {/* Availability Schedule */}
-          <div className="p-6 bg-card rounded-xl border border-border space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold">Availability Schedule</h3>
-              </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/dashboard/availability">Manage Schedules</Link>
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Select Schedule</Label>
-              <Select value={scheduleId || ''} onValueChange={(v) => setScheduleId(v || null)}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Choose an availability schedule..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {schedules?.map((schedule) => (
-                    <SelectItem key={schedule.id} value={schedule.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{schedule.name}</span>
-                        {schedule.is_default && (
-                          <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">Default</span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                This schedule determines when attendees can book this event type
-              </p>
-            </div>
-            
-            {scheduleAvailability && scheduleAvailability.length > 0 && (
-              <div className="grid grid-cols-7 gap-2 text-center">
-                {DAYS.map((day, idx) => (
-                  <div key={day} className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">{day.slice(0, 3)}</p>
-                    {availabilityByDay[idx] ? (
-                      availabilityByDay[idx].map((slot, i) => (
-                        <p key={i} className="text-xs bg-primary/10 text-primary rounded px-1 py-0.5">
-                          {formatTime(slot.start)} - {formatTime(slot.end)}
-                        </p>
-                      ))
-                    ) : (
-                      <p className="text-xs text-muted-foreground/50">Off</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Payment Settings */}
           <div className="p-6 bg-card rounded-xl border border-border space-y-4">
             <div className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-primary" />
               <h3 className="font-semibold">Payment Settings</h3>
             </div>
-            
+
             <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
               <div>
                 <p className="font-medium">Paid Event</p>
@@ -769,6 +696,36 @@ export default function EventTypeEditor() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Availability Preview */}
+          <div className="p-6 bg-card rounded-xl border border-border space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold">Linked Availability</h3>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/dashboard/availability">Manage Availability</Link>
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-7 gap-2 text-center">
+              {DAYS.map((day, idx) => (
+                <div key={day} className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">{day.slice(0, 3)}</p>
+                  {availabilityByDay[idx] ? (
+                    availabilityByDay[idx].map((slot, i) => (
+                      <p key={i} className="text-xs bg-primary/10 text-primary rounded px-1 py-0.5">
+                        {formatTime(slot.start)} - {formatTime(slot.end)}
+                      </p>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground/50">Unavailable</p>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Advanced Settings */}

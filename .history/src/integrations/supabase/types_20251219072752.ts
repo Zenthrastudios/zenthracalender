@@ -19,7 +19,6 @@ export type Database = {
           created_at: string
           end_time: number
           id: string
-          schedule_id: string | null
           start_time: number
           user_id: string
           weekday: number
@@ -28,7 +27,6 @@ export type Database = {
           created_at?: string
           end_time: number
           id?: string
-          schedule_id?: string | null
           start_time: number
           user_id: string
           weekday: number
@@ -37,48 +35,9 @@ export type Database = {
           created_at?: string
           end_time?: number
           id?: string
-          schedule_id?: string | null
           start_time?: number
           user_id?: string
           weekday?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "availability_schedule_id_fkey"
-            columns: ["schedule_id"]
-            isOneToOne: false
-            referencedRelation: "availability_schedules"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      availability_schedules: {
-        Row: {
-          created_at: string
-          id: string
-          is_default: boolean
-          name: string
-          timezone: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_default?: boolean
-          name: string
-          timezone?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_default?: boolean
-          name?: string
-          timezone?: string
-          updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -201,7 +160,6 @@ export type Database = {
           minimum_notice: number
           payment_provider: string | null
           price: number | null
-          schedule_id: string | null
           slug: string
           title: string
           updated_at: string
@@ -224,7 +182,6 @@ export type Database = {
           minimum_notice?: number
           payment_provider?: string | null
           price?: number | null
-          schedule_id?: string | null
           slug: string
           title: string
           updated_at?: string
@@ -247,7 +204,6 @@ export type Database = {
           minimum_notice?: number
           payment_provider?: string | null
           price?: number | null
-          schedule_id?: string | null
           slug?: string
           title?: string
           updated_at?: string
@@ -259,13 +215,6 @@ export type Database = {
             columns: ["instructor_id"]
             isOneToOne: false
             referencedRelation: "instructors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_types_schedule_id_fkey"
-            columns: ["schedule_id"]
-            isOneToOne: false
-            referencedRelation: "availability_schedules"
             referencedColumns: ["id"]
           },
         ]

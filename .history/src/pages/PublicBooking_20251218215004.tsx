@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useEventTypeBySlug } from '@/hooks/useEventTypes';
-import { useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useAvailability';
-import { useBookingAvailability } from '@/hooks/useAvailabilitySchedules';
+import { useHostAvailabilityForBooking, useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useAvailability';
 import { useCreateBooking } from '@/hooks/useBookings';
 import { useCreateRazorpayOrder, useVerifyRazorpayPayment, useCreateCashfreeOrder, useVerifyCashfreePayment } from '@/hooks/usePayments';
 import { Button } from '@/components/ui/button';
@@ -86,10 +85,7 @@ export default function PublicBookingPage() {
   const [searchParams] = useSearchParams();
   
   const { data: eventData, isLoading } = useEventTypeBySlug(username, eventSlug);
-  
-  // Get schedule_id from event type, or use default schedule
-  const scheduleId = (eventData?.eventType as any)?.schedule_id || null;
-  const { data: availability } = useBookingAvailability(eventData?.host?.id, scheduleId);
+  const { data: availability } = useHostAvailabilityForBooking(eventData?.host?.id);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);

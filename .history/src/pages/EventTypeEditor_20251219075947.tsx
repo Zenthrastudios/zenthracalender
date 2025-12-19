@@ -316,12 +316,12 @@ export default function EventTypeEditor() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Select Instructor</Label>
-                  <Select value={instructorId || 'none'} onValueChange={(v) => setInstructorId(v === 'none' ? null : v)}>
+                  <Select value={instructorId || ''} onValueChange={(v) => setInstructorId(v || null)}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Choose an instructor..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No instructor (use my profile)</SelectItem>
+                      <SelectItem value="">No instructor (use my profile)</SelectItem>
                       {instructors.filter(i => i.is_active).map((instructor) => (
                         <SelectItem key={instructor.id} value={instructor.id}>
                           <div className="flex items-center gap-2">
@@ -657,69 +657,13 @@ export default function EventTypeEditor() {
             )}
           </div>
 
-          {/* Availability Schedule */}
-          <div className="p-6 bg-card rounded-xl border border-border space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold">Availability Schedule</h3>
-              </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/dashboard/availability">Manage Schedules</Link>
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Select Schedule</Label>
-              <Select value={scheduleId || ''} onValueChange={(v) => setScheduleId(v || null)}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Choose an availability schedule..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {schedules?.map((schedule) => (
-                    <SelectItem key={schedule.id} value={schedule.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{schedule.name}</span>
-                        {schedule.is_default && (
-                          <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">Default</span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                This schedule determines when attendees can book this event type
-              </p>
-            </div>
-            
-            {scheduleAvailability && scheduleAvailability.length > 0 && (
-              <div className="grid grid-cols-7 gap-2 text-center">
-                {DAYS.map((day, idx) => (
-                  <div key={day} className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">{day.slice(0, 3)}</p>
-                    {availabilityByDay[idx] ? (
-                      availabilityByDay[idx].map((slot, i) => (
-                        <p key={i} className="text-xs bg-primary/10 text-primary rounded px-1 py-0.5">
-                          {formatTime(slot.start)} - {formatTime(slot.end)}
-                        </p>
-                      ))
-                    ) : (
-                      <p className="text-xs text-muted-foreground/50">Off</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Payment Settings */}
           <div className="p-6 bg-card rounded-xl border border-border space-y-4">
             <div className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-primary" />
               <h3 className="font-semibold">Payment Settings</h3>
             </div>
-            
+
             <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
               <div>
                 <p className="font-medium">Paid Event</p>

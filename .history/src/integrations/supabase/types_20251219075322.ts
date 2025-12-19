@@ -201,7 +201,6 @@ export type Database = {
           minimum_notice: number
           payment_provider: string | null
           price: number | null
-          schedule_id: string | null
           slug: string
           title: string
           updated_at: string
@@ -224,7 +223,6 @@ export type Database = {
           minimum_notice?: number
           payment_provider?: string | null
           price?: number | null
-          schedule_id?: string | null
           slug: string
           title: string
           updated_at?: string
@@ -247,7 +245,6 @@ export type Database = {
           minimum_notice?: number
           payment_provider?: string | null
           price?: number | null
-          schedule_id?: string | null
           slug?: string
           title?: string
           updated_at?: string
@@ -259,13 +256,6 @@ export type Database = {
             columns: ["instructor_id"]
             isOneToOne: false
             referencedRelation: "instructors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_types_schedule_id_fkey"
-            columns: ["schedule_id"]
-            isOneToOne: false
-            referencedRelation: "availability_schedules"
             referencedColumns: ["id"]
           },
         ]

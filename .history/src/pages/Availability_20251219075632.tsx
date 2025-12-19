@@ -312,128 +312,11 @@ export default function Availability() {
         </div>
 
         <div className="space-y-4 sm:space-y-6">
-          {/* Schedule Selector */}
-          <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold">Availability Schedules</h3>
-              </div>
-              <Dialog open={newScheduleDialogOpen} onOpenChange={setNewScheduleDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Plus className="w-4 h-4 mr-1" />
-                    New Schedule
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Schedule</DialogTitle>
-                    <DialogDescription>
-                      Create a new availability schedule that you can assign to different event types.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Schedule Name</Label>
-                      <Input
-                        placeholder="e.g. Evening Hours, Weekend Only"
-                        value={newScheduleName}
-                        onChange={(e) => setNewScheduleName(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setNewScheduleDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleCreateSchedule} disabled={createSchedule.isPending}>
-                      {createSchedule.isPending ? 'Creating...' : 'Create Schedule'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {/* Schedule Tabs */}
-            <div className="flex flex-wrap gap-2">
-              {schedules?.map((schedule) => (
-                <div
-                  key={schedule.id}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors",
-                    selectedScheduleId === schedule.id
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "bg-background border-border hover:bg-muted"
-                  )}
-                  onClick={() => setSelectedScheduleId(schedule.id)}
-                >
-                  <span className="text-sm font-medium">{schedule.name}</span>
-                  {schedule.is_default && (
-                    <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">Default</span>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1">
-                        <MoreVertical className="w-3 h-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditingSchedule({ id: schedule.id, name: schedule.name })}>
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Rename
-                      </DropdownMenuItem>
-                      {!schedule.is_default && (
-                        <DropdownMenuItem onClick={() => handleSetDefault(schedule.id)}>
-                          <Check className="w-4 h-4 mr-2" />
-                          Set as Default
-                        </DropdownMenuItem>
-                      )}
-                      {schedules.length > 1 && (
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={() => handleDeleteSchedule(schedule.id)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-            </div>
-
-            {/* Rename Dialog */}
-            <Dialog open={!!editingSchedule} onOpenChange={(open) => !open && setEditingSchedule(null)}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Rename Schedule</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Schedule Name</Label>
-                    <Input
-                      value={editingSchedule?.name || ''}
-                      onChange={(e) => setEditingSchedule(prev => prev ? { ...prev, name: e.target.value } : null)}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setEditingSchedule(null)}>Cancel</Button>
-                  <Button onClick={handleUpdateScheduleName} disabled={updateScheduleMutation.isPending}>
-                    {updateScheduleMutation.isPending ? 'Saving...' : 'Save'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
           {/* Weekly Schedule */}
           <div className="bg-card rounded-xl border border-border p-4 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">
-                {selectedSchedule?.name || 'Weekly Schedule'}
-              </h3>
+              <h3 className="font-semibold">Weekly Schedule</h3>
             </div>
 
             <div className="space-y-3">
@@ -562,6 +445,87 @@ export default function Availability() {
               })}
             </div>
           </div>
+
+          {/* Advanced Settings */}
+          <Accordion type="single" collapsible className="bg-card rounded-xl border border-border">
+            <AccordionItem value="advanced" className="border-none">
+              <AccordionTrigger className="px-4 sm:px-6 hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="w-5 h-5 text-primary" />
+                  <span className="font-semibold">Advanced Settings</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm">Booking Period</Label>
+                    <Select value={bookingPeriod.toString()} onValueChange={(v) => setBookingPeriod(parseInt(v))}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[7, 14, 30, 60, 90, 180, 365].map((d) => (
+                          <SelectItem key={d} value={d.toString()}>
+                            {d} days in advance
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">How far in advance can people book</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm">Minimum Notice</Label>
+                    <Select value={minimumNotice.toString()} onValueChange={(v) => setMinimumNotice(parseInt(v))}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[0, 30, 60, 120, 240, 480, 1440].map((m) => (
+                          <SelectItem key={m} value={m.toString()}>
+                            {m === 0 ? 'No minimum' : m < 60 ? `${m} minutes` : m < 1440 ? `${m / 60} hours` : `${m / 1440} day(s)`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Minimum time before a booking can start</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm">Time Slot Increment</Label>
+                    <Select value={slotIncrement.toString()} onValueChange={(v) => setSlotIncrement(parseInt(v))}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[15, 30, 60].map((m) => (
+                          <SelectItem key={m} value={m.toString()}>{m} minutes</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Available time slots will start at these intervals</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm">Daily Booking Limit</Label>
+                    <Select value={dailyLimit.toString()} onValueChange={(v) => setDailyLimit(parseInt(v))}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[0, 1, 2, 3, 4, 5, 10].map((n) => (
+                          <SelectItem key={n} value={n.toString()}>
+                            {n === 0 ? 'Unlimited' : `${n} bookings per day`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Maximum number of bookings per day</p>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
           {/* Quick Preview */}
           <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
