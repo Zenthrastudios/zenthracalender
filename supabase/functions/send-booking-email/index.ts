@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +24,7 @@ interface EmailRequest {
   timezone: string;
   meetingLink?: string;
   notes?: string;
+  siteUrl?: string;
 }
 
 const formatDateTime = (dateStr: string, timezone: string) => {
@@ -35,21 +40,98 @@ const formatDateTime = (dateStr: string, timezone: string) => {
   });
 };
 
+const getSiteUrl = (data: EmailRequest) => {
+  const fromReq = data.siteUrl?.trim();
+  if (fromReq) return fromReq;
+
+  const fromEnv = PUBLIC_SITE_URL?.trim();
+  if (fromEnv) return fromEnv;
+
+  return "";
+};
+
+const escapeHtml = (v: string) =>
+  v
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const buildPrimaryButton = (label: string, href: string, tone: "primary" | "neutral" | "danger" = "primary") => {
+  const bg = tone === "primary" ? "#111827" : tone === "danger" ? "#DC2626" : "#F3F4F6";
+  const color = tone === "neutral" ? "#111827" : "#FFFFFF";
+  const border = tone === "neutral" ? "1px solid #E5E7EB" : "0";
+  return `
+    <a href="${href}" style="display:inline-block;text-decoration:none;background:${bg};color:${color};padding:12px 16px;border-radius:12px;font-weight:700;font-size:14px;${border ? `border:${border};` : ""}">
+      ${escapeHtml(label)}
+    </a>
+  `;
+};
+
+const buildSecondaryLink = (label: string, href: string) => {
+  return `
+    <a href="${href}" style="color:#2563EB;text-decoration:none;font-weight:600;font-size:14px;">
+      ${escapeHtml(label)}
+    </a>
+  `;
+};
+
+const wrapEmail = (opts: {
+  title: string;
+  subtitle?: string;
+  badgeText?: string;
+  accent?: string;
+  bodyHtml: string;
+  footerHtml?: string;
+}) => {
+  const accent = opts.accent || "#111827";
+  return `
+  <div style="background:#0B1220;padding:24px 0;">
+    <div style="max-width:640px;margin:0 auto;padding:0 16px;">
+      <div style="background:#0F172A;border:1px solid rgba(255,255,255,0.08);border-radius:20px;overflow:hidden;">
+        <div style="padding:22px 20px;background:linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0));">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#E5E7EB;font-weight:800;font-size:16px;">
+              CalSchedule
+            </div>
+            ${opts.badgeText ? `<div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#E5E7EB;font-size:12px;font-weight:700;background:${accent};padding:6px 10px;border-radius:999px;">${escapeHtml(opts.badgeText)}</div>` : ""}
+          </div>
+          <div style="margin-top:14px;">
+            <div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#FFFFFF;font-weight:900;font-size:24px;line-height:1.2;">${escapeHtml(opts.title)}</div>
+            ${opts.subtitle ? `<div style="margin-top:6px;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#9CA3AF;font-size:14px;line-height:1.5;">${escapeHtml(opts.subtitle)}</div>` : ""}
+          </div>
+        </div>
+        <div style="padding:22px 20px;background:#0F172A;">
+          <div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#E5E7EB;font-size:14px;line-height:1.6;">
+            ${opts.bodyHtml}
+          </div>
+          ${opts.footerHtml ? `<div style="margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#9CA3AF;font-size:12px;line-height:1.6;">${opts.footerHtml}</div>` : ""}
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:14px;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#64748B;font-size:12px;">
+        Powered by CalSchedule
+      </div>
+    </div>
+  </div>
+  `;
+};
+
 // Generate ICS calendar file content
 const generateICSContent = (data: EmailRequest, isCancellation = false): string => {
   const startDate = new Date(data.startTime);
   const endDate = new Date(data.endTime);
-  
+
   // Format date to ICS format (YYYYMMDDTHHMMSSZ)
   const formatToICS = (date: Date): string => {
     return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   };
-  
+
   const uid = `${data.bookingId}@calschedule`;
   const now = formatToICS(new Date());
   const start = formatToICS(startDate);
   const end = formatToICS(endDate);
-  
+
   const location = data.meetingLink || '';
   const description = `Meeting with ${data.hostName}${data.notes ? `\\n\\nNotes: ${data.notes}` : ''}${data.meetingLink ? `\\n\\nJoin: ${data.meetingLink}` : ''}`;
   
@@ -74,84 +156,108 @@ END:VEVENT
 END:VCALENDAR`;
 };
 
-const getEmailContent = (data: EmailRequest) => {
+const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookingsUrl?: string; rescheduleUrl?: string; cancelUrl?: string }) => {
   const startFormatted = formatDateTime(data.startTime, data.timezone);
+  const endFormatted = formatDateTime(data.endTime, data.timezone);
+  const joinUrl = links.joinUrl;
+  const myBookingsUrl = links.myBookingsUrl;
+  const rescheduleUrl = links.rescheduleUrl;
+  const cancelUrl = links.cancelUrl;
+
+  const detailsCard = `
+    <div style="margin:16px 0;padding:16px;border:1px solid rgba(255,255,255,0.08);border-radius:16px;background:rgba(255,255,255,0.03);">
+      <div style="font-weight:800;color:#FFFFFF;font-size:16px;">${escapeHtml(data.eventTitle)}</div>
+      <div style="margin-top:10px;">
+        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">When:</span> ${escapeHtml(startFormatted)}</div>
+        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Ends:</span> ${escapeHtml(endFormatted)}</div>
+        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Timezone:</span> ${escapeHtml(data.timezone)}</div>
+        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">With:</span> ${escapeHtml(data.hostName)}</div>
+      </div>
+      ${data.meetingLink ? `<div style="margin-top:10px;color:#CBD5E1;"><span style="color:#94A3B8;">Meeting link:</span> <a href="${data.meetingLink}" style="color:#60A5FA;text-decoration:none;">${escapeHtml(data.meetingLink)}</a></div>` : ""}
+      ${data.notes ? `<div style="margin-top:10px;color:#CBD5E1;"><span style="color:#94A3B8;">Notes:</span> ${escapeHtml(data.notes)}</div>` : ""}
+    </div>
+  `;
+
+  const actions = `
+    <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;">
+      ${joinUrl ? buildPrimaryButton("Join meeting", joinUrl, "primary") : ""}
+      ${myBookingsUrl ? buildPrimaryButton("View booking details", myBookingsUrl, "neutral") : ""}
+      ${rescheduleUrl ? buildSecondaryLink("Reschedule", rescheduleUrl) : ""}
+      ${cancelUrl ? `<span style="color:#475569;">•</span>${buildSecondaryLink("Cancel", cancelUrl)}` : ""}
+    </div>
+  `;
+
+  const nextSteps = `
+    <div style="margin-top:16px;">
+      <div style="font-weight:800;color:#FFFFFF;">What to do next</div>
+      <ol style="margin:8px 0 0 18px;padding:0;color:#CBD5E1;">
+        <li style="margin:6px 0;">Add the attached calendar invite to your calendar.</li>
+        <li style="margin:6px 0;">Join a few minutes early to test audio/video.</li>
+        <li style="margin:6px 0;">Use the links above if you need to reschedule or cancel.</li>
+      </ol>
+    </div>
+  `;
 
   switch (data.type) {
     case "confirmation":
       return {
         subject: `Booking Confirmed: ${data.eventTitle} with ${data.hostName}`,
-        html: `
-          <div style="font-family: 'Plus Jakarta Sans', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #F5A623, #E8941E); border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 24px;">✓</span>
-              </div>
-              <h1 style="color: #1a1a1a; font-size: 24px; margin: 0;">Booking Confirmed!</h1>
-            </div>
-            
-            <p style="color: #666; font-size: 16px; line-height: 1.6;">Hi ${data.recipientName},</p>
-            <p style="color: #666; font-size: 16px; line-height: 1.6;">Your meeting has been scheduled with ${data.hostName}.</p>
-            
-            <div style="background: #FAF8F5; border-radius: 12px; padding: 24px; margin: 24px 0;">
-              <h2 style="color: #1a1a1a; font-size: 18px; margin: 0 0 16px 0;">${data.eventTitle}</h2>
-              <p style="color: #666; margin: 8px 0;"><strong>When:</strong> ${startFormatted}</p>
-              <p style="color: #666; margin: 8px 0;"><strong>Timezone:</strong> ${data.timezone}</p>
-              ${data.meetingLink ? `<p style="color: #666; margin: 8px 0;"><strong>Meeting Link:</strong> <a href="${data.meetingLink}" style="color: #F5A623;">${data.meetingLink}</a></p>` : ""}
-              ${data.notes ? `<p style="color: #666; margin: 8px 0;"><strong>Notes:</strong> ${data.notes}</p>` : ""}
-            </div>
-            
-            <p style="color: #666; font-size: 14px; margin-top: 20px;">📅 A calendar invite is attached to this email. Add it to your calendar to stay organized!</p>
-            
-            <p style="color: #999; font-size: 14px; text-align: center; margin-top: 30px;">Powered by CalSchedule</p>
-          </div>
-        `,
+        html: wrapEmail({
+          title: "Booking confirmed",
+          subtitle: `Hi ${data.recipientName}, your meeting is scheduled with ${data.hostName}.`,
+          badgeText: "CONFIRMED",
+          accent: "#22C55E",
+          bodyHtml: `${detailsCard}${actions}${nextSteps}`,
+          footerHtml: `If you can’t find this email later, use ${myBookingsUrl ? `<a href="${myBookingsUrl}" style="color:#60A5FA;text-decoration:none;">My Bookings</a>` : "the My Bookings page"} to view your appointment details.`,
+        }),
       };
 
     case "cancellation":
       return {
         subject: `Booking Cancelled: ${data.eventTitle}`,
-        html: `
-          <div style="font-family: 'Plus Jakarta Sans', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #1a1a1a; font-size: 24px; margin: 0;">Booking Cancelled</h1>
-            </div>
-            
-            <p style="color: #666; font-size: 16px; line-height: 1.6;">Hi ${data.recipientName},</p>
-            <p style="color: #666; font-size: 16px; line-height: 1.6;">The following meeting has been cancelled:</p>
-            
-            <div style="background: #FFF5F5; border-radius: 12px; padding: 24px; margin: 24px 0;">
-              <h2 style="color: #1a1a1a; font-size: 18px; margin: 0 0 16px 0; text-decoration: line-through;">${data.eventTitle}</h2>
-              <p style="color: #666; margin: 8px 0; text-decoration: line-through;"><strong>When:</strong> ${startFormatted}</p>
-            </div>
-            
-            <p style="color: #666; font-size: 14px; margin-top: 20px;">📅 A calendar update is attached to remove this event from your calendar.</p>
-            
-            <p style="color: #999; font-size: 14px; text-align: center; margin-top: 30px;">Powered by CalSchedule</p>
-          </div>
-        `,
+        html: wrapEmail({
+          title: "Booking cancelled",
+          subtitle: `Hi ${data.recipientName}, this meeting has been cancelled.`,
+          badgeText: "CANCELLED",
+          accent: "#EF4444",
+          bodyHtml: `${detailsCard}${myBookingsUrl ? `<div style="margin-top:14px;">${buildPrimaryButton("View booking details", myBookingsUrl, "neutral")}</div>` : ""}`,
+          footerHtml: "A calendar update is attached to remove this event from your calendar.",
+        }),
       };
 
     case "reminder":
       return {
-        subject: `Reminder: ${data.eventTitle} - Tomorrow`,
-        html: `
-          <div style="font-family: 'Plus Jakarta Sans', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #1a1a1a; font-size: 24px; text-align: center;">Meeting Reminder</h1>
-            <p style="color: #666; font-size: 16px;">Hi ${data.recipientName}, reminder about your meeting with ${data.hostName}.</p>
-            <div style="background: #FAF8F5; border-radius: 12px; padding: 24px; margin: 24px 0;">
-              <h2 style="color: #1a1a1a; font-size: 18px;">${data.eventTitle}</h2>
-              <p style="color: #666;"><strong>When:</strong> ${startFormatted}</p>
-              ${data.meetingLink ? `<p style="color: #666;"><strong>Join:</strong> <a href="${data.meetingLink}" style="color: #F5A623;">${data.meetingLink}</a></p>` : ""}
-            </div>
-          </div>
-        `,
+        subject: `Reminder: ${data.eventTitle} with ${data.hostName}`,
+        html: wrapEmail({
+          title: "Reminder",
+          subtitle: `Hi ${data.recipientName}, your meeting with ${data.hostName} is coming up soon.`,
+          badgeText: "REMINDER",
+          accent: "#3B82F6",
+          bodyHtml: `${detailsCard}${actions}<div style="margin-top:14px;color:#CBD5E1;">Tip: join 2–3 minutes early so you can start on time.</div>`,
+        }),
+      };
+
+    case "reschedule":
+      return {
+        subject: `Rescheduled: ${data.eventTitle} with ${data.hostName}`,
+        html: wrapEmail({
+          title: "Booking rescheduled",
+          subtitle: `Hi ${data.recipientName}, your meeting time has been updated.`,
+          badgeText: "RESCHEDULED",
+          accent: "#F59E0B",
+          bodyHtml: `${detailsCard}${actions}${nextSteps}`,
+          footerHtml: "Your updated calendar invite is attached. Please replace the old one if needed.",
+        }),
       };
 
     default:
       return {
         subject: `Update: ${data.eventTitle}`,
-        html: `<p>Booking update for ${data.eventTitle}</p>`,
+        html: wrapEmail({
+          title: "Booking update",
+          subtitle: `Update for ${data.eventTitle}.`,
+          bodyHtml: `${detailsCard}${actions}`,
+        }),
       };
   }
 };
@@ -167,8 +273,21 @@ const handler = async (req: Request): Promise<Response> => {
     const data: EmailRequest = await req.json();
     console.log("Email request:", { type: data.type, to: data.recipientEmail });
 
-    const { subject, html } = getEmailContent(data);
-    
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: bookingRow } = await supabase
+      .from('bookings')
+      .select('cancel_token, reschedule_token')
+      .eq('id', data.bookingId)
+      .maybeSingle();
+
+    const siteUrl = getSiteUrl(data);
+    const joinUrl = data.meetingLink;
+    const myBookingsUrl = siteUrl ? `${siteUrl}/my-bookings` : undefined;
+    const rescheduleUrl = siteUrl && bookingRow?.reschedule_token ? `${siteUrl}/reschedule/${bookingRow.reschedule_token}` : undefined;
+    const cancelUrl = siteUrl && bookingRow?.cancel_token ? `${siteUrl}/cancel/${bookingRow.cancel_token}` : undefined;
+
+    const { subject, html } = getEmailContent(data, { joinUrl, myBookingsUrl, rescheduleUrl, cancelUrl });
+
     // Generate ICS calendar content
     const isCancellation = data.type === "cancellation";
     const icsContent = generateICSContent(data, isCancellation);
