@@ -11,7 +11,8 @@ import {
   LogOut,
   BarChart3,
   Menu,
-  X
+  X,
+  GraduationCap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ const navItems = [
   { icon: Calendar, label: 'Bookings', path: '/dashboard/bookings' },
   { icon: Clock, label: 'Availability', path: '/dashboard/availability' },
   { icon: BarChart3, label: 'Analytics', path: '/dashboard/analytics' },
+  { icon: GraduationCap, label: 'Instructors', path: '/dashboard/instructors' },
   { icon: Users, label: 'Teams', path: '/dashboard/teams' },
   { icon: Star, label: 'Apps', path: '/dashboard/apps' },
 ];

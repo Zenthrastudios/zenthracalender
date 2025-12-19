@@ -152,6 +152,7 @@ export type Database = {
           description: string | null
           duration: number
           id: string
+          instructor_id: string | null
           is_active: boolean
           is_paid: boolean | null
           location_type: string
@@ -173,6 +174,7 @@ export type Database = {
           description?: string | null
           duration?: number
           id?: string
+          instructor_id?: string | null
           is_active?: boolean
           is_paid?: boolean | null
           location_type?: string
@@ -194,6 +196,7 @@ export type Database = {
           description?: string | null
           duration?: number
           id?: string
+          instructor_id?: string | null
           is_active?: boolean
           is_paid?: boolean | null
           location_type?: string
@@ -203,6 +206,56 @@ export type Database = {
           price?: number | null
           slug?: string
           title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_types_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "instructors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instructors: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          created_by: string
+          email: string
+          id: string
+          is_active: boolean
+          name: string
+          specialization: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          created_by: string
+          email: string
+          id?: string
+          is_active?: boolean
+          name: string
+          specialization?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          specialization?: string | null
           updated_at?: string
           user_id?: string
         }
