@@ -202,6 +202,7 @@ export type Database = {
           payment_provider: string | null
           price: number | null
           schedule_id: string | null
+          show_testimonials: boolean
           slug: string
           title: string
           updated_at: string
@@ -225,6 +226,7 @@ export type Database = {
           payment_provider?: string | null
           price?: number | null
           schedule_id?: string | null
+          show_testimonials?: boolean
           slug: string
           title: string
           updated_at?: string
@@ -248,6 +250,7 @@ export type Database = {
           payment_provider?: string | null
           price?: number | null
           schedule_id?: string | null
+          show_testimonials?: boolean
           slug?: string
           title?: string
           updated_at?: string
@@ -311,6 +314,59 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      testimonials: {
+        Row: {
+          author_name: string
+          author_title: string | null
+          avatar_url: string | null
+          content: string
+          created_at: string
+          created_by: string
+          event_type_id: string
+          id: string
+          is_visible: boolean
+          rating: number | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          author_name: string
+          author_title?: string | null
+          avatar_url?: string | null
+          content: string
+          created_at?: string
+          created_by?: string
+          event_type_id: string
+          id?: string
+          is_visible?: boolean
+          rating?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          author_name?: string
+          author_title?: string | null
+          avatar_url?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string
+          event_type_id?: string
+          id?: string
+          is_visible?: boolean
+          rating?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "testimonials_event_type_id_fkey"
+            columns: ["event_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {

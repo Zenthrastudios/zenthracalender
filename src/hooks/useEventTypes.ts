@@ -1,24 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+ import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
-export interface EventType {
-  id: string;
-  user_id: string;
-  title: string;
-  slug: string;
-  description: string | null;
-  duration: number;
-  buffer_before: number;
-  buffer_after: number;
-  location_type: string;
-  location_value: string | null;
-  is_active: boolean;
-  minimum_notice: number;
-  color: string | null;
-  created_at: string;
-  updated_at: string;
-}
+ export type EventType = Tables<'event_types'>;
 
 export function useEventTypes() {
   const { user } = useAuth();
@@ -86,7 +71,7 @@ export function useCreateEventType() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (data: Omit<EventType, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (data: Omit<TablesInsert<'event_types'>, 'user_id'>) => {
       if (!user) throw new Error('Not authenticated');
 
       const { data: newEventType, error } = await supabase
@@ -111,7 +96,7 @@ export function useUpdateEventType() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...data }: Partial<EventType> & { id: string }) => {
+    mutationFn: async ({ id, ...data }: TablesUpdate<'event_types'> & { id: string }) => {
       const { data: updated, error } = await supabase
         .from('event_types')
         .update(data)

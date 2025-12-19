@@ -5,11 +5,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEventTypes, useCreateEventType, useUpdateEventType, EventType } from '@/hooks/useEventTypes';
 import { useAvailabilitySchedules, useScheduleAvailability } from '@/hooks/useAvailabilitySchedules';
 import { useInstructors } from '@/hooks/useInstructors';
+import { useTestimonials, useCreateTestimonial, useUpdateTestimonial, useDeleteTestimonial, Testimonial } from '@/hooks/useTestimonials';
+import type { TablesInsert, TablesUpdate, Json } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
@@ -25,9 +28,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   ChevronRight, Video, Phone, MapPin, Globe, Clock, Calendar, 
-  Settings2, User, Plus, Trash2, GripVertical, FileText, IndianRupee, CreditCard, GraduationCap 
+  Settings2, User, Plus, Trash2, GripVertical, FileText, IndianRupee, CreditCard, GraduationCap, Star, Eye, EyeOff, Edit
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -78,6 +89,17 @@ interface CustomField {
   placeholder?: string;
 }
 
+interface TestimonialFormState {
+  id?: string;
+  author_name: string;
+  author_title: string;
+  avatar_url: string;
+  rating: string;
+  content: string;
+  sort_order: string;
+  is_visible: boolean;
+}
+
 export default function EventTypeEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -118,6 +140,23 @@ export default function EventTypeEditor() {
   // Instructor Assignment
   const [instructorId, setInstructorId] = useState<string | null>(null);
   
+  // Testimonials
+  const [showTestimonials, setShowTestimonials] = useState(true);
+  const { data: testimonials } = useTestimonials(isNew ? undefined : existingEvent?.id, { includeHidden: true });
+  const createTestimonial = useCreateTestimonial();
+  const updateTestimonial = useUpdateTestimonial();
+  const deleteTestimonial = useDeleteTestimonial();
+  const [isTestimonialDialogOpen, setIsTestimonialDialogOpen] = useState(false);
+  const [testimonialForm, setTestimonialForm] = useState<TestimonialFormState>({
+    author_name: '',
+    author_title: '',
+    avatar_url: '',
+    rating: '5',
+    content: '',
+    sort_order: '0',
+    is_visible: true,
+  });
+
   // Schedule Assignment
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   
@@ -140,20 +179,99 @@ export default function EventTypeEditor() {
       setBufferAfter(existingEvent.buffer_after);
       setMinimumNotice(existingEvent.minimum_notice);
       // Load custom fields if they exist
-      if ((existingEvent as any).custom_fields) {
-        setCustomFields((existingEvent as any).custom_fields);
+      if (Array.isArray(existingEvent.custom_fields)) {
+        setCustomFields(existingEvent.custom_fields as unknown as CustomField[]);
       }
       // Load payment settings
-      setIsPaid((existingEvent as any).is_paid || false);
-      setPrice((existingEvent as any).price?.toString() || '');
-      setPaymentProvider((existingEvent as any).payment_provider || 'razorpay');
+      setIsPaid(!!existingEvent.is_paid);
+      setPrice(existingEvent.price?.toString() || '');
+      setPaymentProvider(existingEvent.payment_provider || 'razorpay');
       // Load instructor assignment
-      setInstructorId((existingEvent as any).instructor_id || null);
+      setInstructorId(existingEvent.instructor_id || null);
       // Load schedule assignment
-      setScheduleId((existingEvent as any).schedule_id || null);
+      setScheduleId(existingEvent.schedule_id || null);
+      setShowTestimonials(existingEvent.show_testimonials ?? true);
     }
   }, [existingEvent]);
-  
+
+  const openCreateTestimonial = () => {
+    setTestimonialForm({
+      author_name: '',
+      author_title: '',
+      avatar_url: '',
+      rating: '5',
+      content: '',
+      sort_order: '0',
+      is_visible: true,
+    });
+    setIsTestimonialDialogOpen(true);
+  };
+
+  const openEditTestimonial = (t: Testimonial) => {
+    setTestimonialForm({
+      id: t.id,
+      author_name: t.author_name,
+      author_title: t.author_title || '',
+      avatar_url: t.avatar_url || '',
+      rating: t.rating ? String(t.rating) : '',
+      content: t.content,
+      sort_order: String(t.sort_order ?? 0),
+      is_visible: t.is_visible,
+    });
+    setIsTestimonialDialogOpen(true);
+  };
+
+  const submitTestimonial = async () => {
+    if (isNew || !existingEvent?.id) {
+      toast.error('Please create the event type first');
+      return;
+    }
+
+    if (!testimonialForm.author_name.trim()) {
+      toast.error('Please enter author name');
+      return;
+    }
+    if (!testimonialForm.content.trim()) {
+      toast.error('Please enter testimonial');
+      return;
+    }
+
+    const rating = testimonialForm.rating.trim() === '' ? null : Math.max(1, Math.min(5, parseInt(testimonialForm.rating, 10) || 5));
+    const sortOrder = parseInt(testimonialForm.sort_order, 10);
+
+    try {
+      if (testimonialForm.id) {
+        await updateTestimonial.mutateAsync({
+          id: testimonialForm.id,
+          author_name: testimonialForm.author_name,
+          author_title: testimonialForm.author_title || null,
+          avatar_url: testimonialForm.avatar_url || null,
+          rating,
+          content: testimonialForm.content,
+          sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+          is_visible: testimonialForm.is_visible,
+        });
+        toast.success('Testimonial updated');
+      } else {
+        await createTestimonial.mutateAsync({
+          event_type_id: existingEvent.id,
+          author_name: testimonialForm.author_name,
+          author_title: testimonialForm.author_title || null,
+          avatar_url: testimonialForm.avatar_url || null,
+          rating,
+          content: testimonialForm.content,
+          sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+          is_visible: testimonialForm.is_visible,
+        });
+        toast.success('Testimonial added');
+      }
+      setIsTestimonialDialogOpen(false);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to save testimonial';
+      toast.error(message);
+    }
+  };
+
   // Auto-select default schedule for new events
   useEffect(() => {
     if (isNew && schedules && schedules.length > 0 && !scheduleId) {
@@ -221,7 +339,7 @@ export default function EventTypeEditor() {
 
     const finalDuration = DURATIONS.includes(duration) ? duration : parseInt(customDuration) || 30;
 
-    const eventData = {
+    const eventData: Omit<TablesInsert<'event_types'>, 'user_id' | 'id' | 'created_at' | 'updated_at'> = {
       title,
       slug,
       description: description || null,
@@ -233,26 +351,28 @@ export default function EventTypeEditor() {
       is_active: isActive,
       minimum_notice: minimumNotice,
       color,
-      custom_fields: customFields,
+      custom_fields: customFields as unknown as Json,
       is_paid: isPaid,
       price: isPaid ? parseFloat(price) || 0 : 0,
       payment_provider: isPaid ? paymentProvider : null,
       instructor_id: instructorId,
       schedule_id: scheduleId,
+      show_testimonials: showTestimonials,
     };
 
     try {
       if (isNew) {
-        await createEventType.mutateAsync(eventData as any);
+        await createEventType.mutateAsync(eventData);
         toast.success('Event type created!');
       } else if (existingEvent) {
-        await updateEventType.mutateAsync({ id: existingEvent.id, ...eventData } as any);
+        await updateEventType.mutateAsync({ id: existingEvent.id, ...(eventData as TablesUpdate<'event_types'>) });
         toast.success('Event type updated!');
       }
       navigate('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving event type:', error);
-      toast.error(error.message || 'Failed to save event type');
+      const message = error instanceof Error ? error.message : 'Failed to save event type';
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -305,6 +425,163 @@ export default function EventTypeEditor() {
 
         {/* Form */}
         <div className="space-y-6">
+          {/* Testimonials */}
+          <div className="p-6 bg-card rounded-xl border border-border">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="font-semibold">Testimonials</h3>
+                <p className="text-sm text-muted-foreground">Manage testimonials for this event type and choose whether to show them on the booking page.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">Show on booking page</Label>
+                  <Switch checked={showTestimonials} onCheckedChange={setShowTestimonials} />
+                </div>
+                <Button variant="outline" size="sm" onClick={openCreateTestimonial} disabled={isNew}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            {isNew ? (
+              <div className="mt-4 text-sm text-muted-foreground">
+                Save the event type first to add testimonials.
+              </div>
+            ) : (
+              <div className="mt-6 space-y-3">
+                {(testimonials || []).length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No testimonials yet.</div>
+                ) : (
+                  (testimonials || []).map((t) => (
+                    <div key={t.id} className="p-4 rounded-lg border border-border bg-background">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">{t.author_name}</p>
+                            {!t.is_visible && (
+                              <span className="text-xs text-muted-foreground">Hidden</span>
+                            )}
+                          </div>
+                          {t.author_title && (
+                            <p className="text-sm text-muted-foreground">{t.author_title}</p>
+                          )}
+                          {t.rating && (
+                            <div className="flex items-center gap-1 mt-1">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={cn(
+                                    'w-4 h-4',
+                                    i < t.rating! ? 'text-primary fill-primary' : 'text-muted-foreground/40'
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-sm mt-2 whitespace-pre-wrap">{t.content}</p>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditTestimonial(t)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={async () => {
+                              try {
+                                await updateTestimonial.mutateAsync({ id: t.id, is_visible: !t.is_visible });
+                              } catch (e: unknown) {
+                                const message = e instanceof Error ? e.message : 'Failed to update testimonial';
+                                toast.error(message);
+                              }
+                            }}
+                          >
+                            {t.is_visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={async () => {
+                              try {
+                                await deleteTestimonial.mutateAsync({ id: t.id, event_type_id: t.event_type_id });
+                                toast.success('Testimonial deleted');
+                              } catch (e: unknown) {
+                                const message = e instanceof Error ? e.message : 'Failed to delete testimonial';
+                                toast.error(message);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            <Dialog open={isTestimonialDialogOpen} onOpenChange={setIsTestimonialDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{testimonialForm.id ? 'Edit Testimonial' : 'Add Testimonial'}</DialogTitle>
+                  <DialogDescription>These testimonials can be shown on the public booking page.</DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Author Name</Label>
+                      <Input value={testimonialForm.author_name} onChange={(e) => setTestimonialForm(s => ({ ...s, author_name: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Author Title</Label>
+                      <Input value={testimonialForm.author_title} onChange={(e) => setTestimonialForm(s => ({ ...s, author_title: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Avatar URL</Label>
+                      <Input value={testimonialForm.avatar_url} onChange={(e) => setTestimonialForm(s => ({ ...s, avatar_url: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Rating (1-5)</Label>
+                      <Input value={testimonialForm.rating} onChange={(e) => setTestimonialForm(s => ({ ...s, rating: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Testimonial</Label>
+                    <Textarea value={testimonialForm.content} onChange={(e) => setTestimonialForm(s => ({ ...s, content: e.target.value }))} className="min-h-[120px]" />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm">Visible</Label>
+                      <Switch checked={testimonialForm.is_visible} onCheckedChange={(v) => setTestimonialForm(s => ({ ...s, is_visible: v }))} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm">Sort Order</Label>
+                      <Input className="w-24" value={testimonialForm.sort_order} onChange={(e) => setTestimonialForm(s => ({ ...s, sort_order: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsTestimonialDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={submitTestimonial} disabled={createTestimonial.isPending || updateTestimonial.isPending}>
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
           {/* Instructor Assignment */}
           <div className="p-6 bg-card rounded-xl border border-border">
             <div className="flex items-center gap-2 mb-4">
@@ -588,7 +865,7 @@ export default function EventTypeEditor() {
                           <Label>Field Type</Label>
                           <Select
                             value={field.type}
-                            onValueChange={(v) => updateCustomField(field.id, { type: v as any })}
+                            onValueChange={(v) => updateCustomField(field.id, { type: v as CustomField['type'] })}
                           >
                             <SelectTrigger className="bg-card">
                               <SelectValue />

@@ -4,12 +4,14 @@ import { useEventTypeBySlug } from '@/hooks/useEventTypes';
 import { useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useAvailability';
 import { useBookingAvailability } from '@/hooks/useAvailabilitySchedules';
 import { useCreateBooking } from '@/hooks/useBookings';
+import { useTestimonials } from '@/hooks/useTestimonials';
 import { useCreateRazorpayOrder, useVerifyRazorpayPayment, useCreateCashfreeOrder, useVerifyCashfreePayment } from '@/hooks/usePayments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
@@ -18,15 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2 } from 'lucide-react';
+import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2, Star } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 declare global {
   interface Window {
-    Razorpay: any;
-    Cashfree: any;
+    Razorpay?: unknown;
+    Cashfree?: unknown;
   }
 }
 
@@ -84,13 +86,13 @@ export default function PublicBookingPage() {
   const { username, eventSlug } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   const { data: eventData, isLoading } = useEventTypeBySlug(username, eventSlug);
-  
+
   // Get schedule_id from event type, or use default schedule
-  const scheduleId = (eventData?.eventType as any)?.schedule_id || null;
+  const scheduleId = eventData?.eventType?.schedule_id || null;
   const { data: availability } = useBookingAvailability(eventData?.host?.id, scheduleId);
-  
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
@@ -106,7 +108,7 @@ export default function PublicBookingPage() {
   const { data: existingBookings } = useHostBookingsForDate(eventData?.host?.id, selectedDate);
   const { data: googleCalendarConflicts } = useGoogleCalendarConflicts(eventData?.host?.id, selectedDate);
   const createBooking = useCreateBooking();
-  
+
   // Payment hooks
   const createRazorpayOrder = useCreateRazorpayOrder();
   const verifyRazorpayPayment = useVerifyRazorpayPayment();
@@ -114,10 +116,15 @@ export default function PublicBookingPage() {
   const verifyCashfreePayment = useVerifyCashfreePayment();
 
   // Get custom fields and payment info from event type
-  const customFields: CustomField[] = (eventData?.eventType as any)?.custom_fields || [];
-  const isPaidEvent = (eventData?.eventType as any)?.is_paid || false;
-  const eventPrice = (eventData?.eventType as any)?.price || 0;
-  const paymentProvider = (eventData?.eventType as any)?.payment_provider || 'razorpay';
+  const customFields: CustomField[] = Array.isArray(eventData?.eventType?.custom_fields)
+    ? (eventData?.eventType?.custom_fields as unknown as CustomField[])
+    : [];
+  const isPaidEvent = !!eventData?.eventType?.is_paid;
+  const eventPrice = eventData?.eventType?.price || 0;
+  const paymentProvider = eventData?.eventType?.payment_provider || 'razorpay';
+
+  const showTestimonials = eventData?.eventType?.show_testimonials ?? true;
+  const { data: testimonials } = useTestimonials(eventData?.eventType?.id, { includeHidden: false });
 
   // Load Razorpay/Cashfree script dynamically
   useEffect(() => {
@@ -153,7 +160,7 @@ export default function PublicBookingPage() {
 
   const timeSlots = useMemo<TimeSlot[]>(() => {
     if (!selectedDate || !eventData?.eventType || !availability) return [];
-    
+
     const dayOfWeek = selectedDate.getDay();
     const dayAvailability = availability.filter(a => a.weekday === dayOfWeek);
     if (dayAvailability.length === 0) return [];
@@ -167,9 +174,9 @@ export default function PublicBookingPage() {
         const slotStart = new Date(selectedDate);
         slotStart.setHours(Math.floor(currentTime / 60), currentTime % 60, 0, 0);
         const slotEnd = addMinutes(slotStart, eventData.eventType.duration);
-        
+
         const isAvailable = slotStart > now;
-        
+
         // Check existing bookings conflict
         const hasBookingConflict = existingBookings?.some(booking => {
           const bookingStart = new Date(booking.start_time);
@@ -266,12 +273,12 @@ export default function PublicBookingPage() {
 
   const handleRazorpayPayment = async () => {
     if (!selectedSlot || !eventData) return;
-    
+
     setIsProcessingPayment(true);
     try {
       const tempBookingId = `temp_${Date.now()}`;
       const amountInPaise = Math.round(eventPrice * 100);
-      
+
       const orderResult = await createRazorpayOrder.mutateAsync({
         bookingId: tempBookingId,
         amount: amountInPaise,
@@ -279,6 +286,7 @@ export default function PublicBookingPage() {
         customerEmail: attendeeEmail,
       });
 
+      const RazorpayCtor = window.Razorpay as unknown as (new (opts: unknown) => { open: () => void });
       const options = {
         key: orderResult.keyId,
         amount: orderResult.amount,
@@ -286,12 +294,13 @@ export default function PublicBookingPage() {
         name: eventData.eventType.title,
         description: `Booking with ${eventData.host.name}`,
         order_id: orderResult.orderId,
-        handler: async function (response: any) {
+        handler: async function (response: unknown) {
           try {
+            const r = response as { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string };
             const verifyResult = await verifyRazorpayPayment.mutateAsync({
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
+              razorpayOrderId: r.razorpay_order_id || '',
+              razorpayPaymentId: r.razorpay_payment_id || '',
+              razorpaySignature: r.razorpay_signature || '',
             });
 
             if (verifyResult.verified) {
@@ -319,7 +328,7 @@ export default function PublicBookingPage() {
         },
       };
 
-      const razorpay = new window.Razorpay(options);
+      const razorpay = new RazorpayCtor(options);
       razorpay.open();
     } catch (error) {
       console.error('Razorpay payment error:', error);
@@ -330,11 +339,11 @@ export default function PublicBookingPage() {
 
   const handleCashfreePayment = async () => {
     if (!selectedSlot || !eventData) return;
-    
+
     setIsProcessingPayment(true);
     try {
       const tempBookingId = `temp_${Date.now()}`;
-      
+
       const orderResult = await createCashfreeOrder.mutateAsync({
         bookingId: tempBookingId,
         amount: eventPrice,
@@ -344,20 +353,23 @@ export default function PublicBookingPage() {
       });
 
       // Use Cashfree Drop-in checkout
-      const cashfree = window.Cashfree({
+      const cashfreeFactory = window.Cashfree as unknown as (opts: { mode: string }) => {
+        checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<{ error?: unknown }>;
+      };
+      const cashfree = cashfreeFactory({
         mode: 'sandbox', // Change to 'production' for live
       });
 
       cashfree.checkout({
         paymentSessionId: orderResult.paymentSessionId,
         redirectTarget: '_modal',
-      }).then(async (result: any) => {
+      }).then(async (result: { error?: unknown }) => {
         if (result.error) {
           toast.error('Payment failed. Please try again.');
           setIsProcessingPayment(false);
           return;
         }
-        
+
         // Verify payment
         const verifyResult = await verifyCashfreePayment.mutateAsync(orderResult.orderId);
         if (verifyResult.isPaid) {
@@ -469,7 +481,9 @@ export default function PublicBookingPage() {
               onValueChange={(v) => updateCustomFieldValue(field.id, v)}
             >
               <SelectTrigger className="bg-background">
-                <SelectValue placeholder={field.placeholder || 'Select an option'} />
+                <div className="flex items-center gap-2">
+                  <SelectValue placeholder={field.placeholder || 'Select an option'} />
+                </div>
               </SelectTrigger>
               <SelectContent>
                 {field.options?.map((option) => (
@@ -526,6 +540,7 @@ export default function PublicBookingPage() {
               </Avatar>
               <p className="text-sm text-muted-foreground mb-1">{eventData.host?.name || username}</p>
               <h1 className="text-xl font-bold mb-4">{eventData.eventType.title}</h1>
+
               <div className="space-y-3 text-sm">
                 <div className="flex items-center gap-3 text-muted-foreground">
                   <Clock className="w-4 h-4" />
@@ -546,6 +561,43 @@ export default function PublicBookingPage() {
                 <p className="text-sm text-muted-foreground mt-6 border-t border-border pt-4">
                   {eventData.eventType.description}
                 </p>
+              )}
+
+              {showTestimonials && (testimonials || []).length > 0 && (
+                <div className="mt-6 border-t border-border pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-semibold">Testimonials</h2>
+                    <span className="text-xs text-muted-foreground">{(testimonials || []).length}</span>
+                  </div>
+                  <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+                    {(testimonials || []).map((t) => (
+                      <div key={t.id} className="rounded-lg border border-border bg-background p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{t.author_name}</p>
+                            {t.author_title && (
+                              <p className="text-xs text-muted-foreground truncate">{t.author_title}</p>
+                            )}
+                          </div>
+                          {t.rating && (
+                            <div className="flex items-center gap-0.5">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={cn(
+                                    'w-3.5 h-3.5',
+                                    i < t.rating! ? 'text-primary fill-primary' : 'text-muted-foreground/40'
+                                  )}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{t.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 

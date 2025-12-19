@@ -38,10 +38,37 @@ export default function Dashboard() {
 
   const recentBookings = upcomingBookings?.slice(0, 5) || [];
 
-  const copyLink = (slug: string) => {
-    const url = `${window.location.origin}/book/${profile?.username || 'user'}/${slug}`;
-    navigator.clipboard.writeText(url);
-    toast.success('Link copied to clipboard!');
+  const copyLink = async (slug: string) => {
+    const username = profile?.username;
+    if (!username) {
+      toast.error('Please set a username in settings before copying links.');
+      return;
+    }
+
+    const url = `${window.location.origin}/book/${username}/${slug}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied to clipboard!');
+        return;
+      }
+
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      toast.success('Link copied to clipboard!');
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      toast.error('Failed to copy link. Please copy it manually.');
+    }
   };
 
   const toggleEventType = async (id: string, isActive: boolean) => {
@@ -151,10 +178,10 @@ export default function Dashboard() {
 
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-semibold text-lg">{eventType.title}</h3>
-                      {(eventType as any).is_paid && (eventType as any).price > 0 && (
+                      {eventType.is_paid && (eventType.price || 0) > 0 && (
                         <Badge variant="secondary" className="text-xs">
                           <IndianRupee className="w-3 h-3 mr-0.5" />
-                          {(eventType as any).price}
+                          {eventType.price}
                         </Badge>
                       )}
                     </div>
@@ -167,7 +194,7 @@ export default function Dashboard() {
                         onClick={() => copyLink(eventType.slug)}
                         className="text-sm text-primary hover:underline font-medium"
                       >
-                        /{profile?.username || 'user'}/{eventType.slug}
+                        /book/{profile?.username || 'user'}/{eventType.slug}
                       </button>
                       <Switch
                         checked={eventType.is_active}
@@ -249,8 +276,42 @@ export default function Dashboard() {
                     </p>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/book/${profile?.username || 'user'}`);
-                        toast.success('Link copied!');
+                        const username = profile?.username;
+                        if (!username) {
+                          toast.error('Please set a username in settings before copying links.');
+                          return;
+                        }
+
+                        const url = `${window.location.origin}/book/${username}`;
+
+                        if (navigator.clipboard?.writeText) {
+                          navigator.clipboard
+                            .writeText(url)
+                            .then(() => toast.success('Link copied!'))
+                            .catch((error: unknown) => {
+                              console.error('Failed to copy link:', error);
+                              toast.error('Failed to copy link. Please copy it manually.');
+                            });
+                          return;
+                        }
+
+                        try {
+                          const textarea = document.createElement('textarea');
+                          textarea.value = url;
+                          textarea.setAttribute('readonly', '');
+                          textarea.style.position = 'fixed';
+                          textarea.style.top = '0';
+                          textarea.style.left = '0';
+                          textarea.style.opacity = '0';
+                          document.body.appendChild(textarea);
+                          textarea.select();
+                          document.execCommand('copy');
+                          document.body.removeChild(textarea);
+                          toast.success('Link copied!');
+                        } catch (error) {
+                          console.error('Failed to copy link:', error);
+                          toast.error('Failed to copy link. Please copy it manually.');
+                        }
                       }}
                       className="text-xs text-primary hover:underline font-medium mt-2"
                     >
