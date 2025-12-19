@@ -15,6 +15,7 @@ export interface Booking {
   host_id: string;
   attendee_name: string;
   attendee_email: string;
+  attendee_phone?: string | null;
   attendee_timezone: string;
   start_time: string;
   end_time: string;
@@ -109,6 +110,7 @@ export function useCreateBooking() {
       host_id: string;
       attendee_name: string;
       attendee_email: string;
+      attendee_phone?: string;
       attendee_timezone: string;
       start_time: string;
       end_time: string;
@@ -173,6 +175,7 @@ export function useCreateBooking() {
           host_id: data.host_id,
           attendee_name: data.attendee_name,
           attendee_email: data.attendee_email,
+          attendee_phone: data.attendee_phone,
           attendee_timezone: data.attendee_timezone,
           start_time: data.start_time,
           end_time: data.end_time,

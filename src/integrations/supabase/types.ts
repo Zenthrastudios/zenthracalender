@@ -116,6 +116,7 @@ export type Database = {
         Row: {
           attendee_email: string
           attendee_name: string
+          attendee_phone: string | null
           attendee_timezone: string
           cancel_token: string | null
           created_at: string
@@ -136,6 +137,7 @@ export type Database = {
         Insert: {
           attendee_email: string
           attendee_name: string
+          attendee_phone?: string | null
           attendee_timezone?: string
           cancel_token?: string | null
           created_at?: string
@@ -156,6 +158,7 @@ export type Database = {
         Update: {
           attendee_email?: string
           attendee_name?: string
+          attendee_phone?: string | null
           attendee_timezone?: string
           cancel_token?: string | null
           created_at?: string

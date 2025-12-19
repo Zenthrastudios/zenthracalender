@@ -24,6 +24,7 @@ import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as 
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { COUNTRY_DIAL_CODES } from '@/lib/countryDialCodes';
 
 declare global {
   interface Window {
@@ -107,6 +108,8 @@ export default function PublicBookingPage() {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [attendeeName, setAttendeeName] = useState('');
   const [attendeeEmail, setAttendeeEmail] = useState('');
+  const [attendeeCountryCode, setAttendeeCountryCode] = useState('+91');
+  const [attendeePhoneNational, setAttendeePhoneNational] = useState('');
   const [notes, setNotes] = useState('');
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -240,6 +243,16 @@ export default function PublicBookingPage() {
       return false;
     }
 
+    const phoneDigits = attendeePhoneNational.replace(/\D/g, '');
+    if (!phoneDigits) {
+      toast.error('Please enter your phone number');
+      return false;
+    }
+    if (phoneDigits.length < 6) {
+      toast.error('Please enter a valid phone number');
+      return false;
+    }
+
     // Validate required custom fields
     for (const field of customFields) {
       if (field.required) {
@@ -259,6 +272,14 @@ export default function PublicBookingPage() {
     }
 
     return true;
+  };
+
+  const buildAttendeePhone = () => {
+    const dial = attendeeCountryCode.replace(/[^\d+]/g, '');
+    const national = attendeePhoneNational.replace(/\D/g, '');
+    if (!dial || !national) return undefined;
+    const normalizedDial = dial.startsWith('+') ? dial : `+${dial}`;
+    return `${normalizedDial}${national}`;
   };
 
   const createBookingAfterPayment = async () => {
@@ -282,6 +303,7 @@ export default function PublicBookingPage() {
       host_id: eventData.host.id,
       attendee_name: attendeeName,
       attendee_email: attendeeEmail,
+      attendee_phone: buildAttendeePhone(),
       attendee_timezone: timezone,
       start_time: selectedSlot.startTime.toISOString(),
       end_time: selectedSlot.endTime.toISOString(),
@@ -827,6 +849,36 @@ export default function PublicBookingPage() {
                       className="bg-background"
                       placeholder="john@example.com"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Phone Number <span className="text-destructive">*</span></Label>
+                    <div className="flex gap-2">
+                      <Select value={attendeeCountryCode} onValueChange={setAttendeeCountryCode}>
+                        <SelectTrigger className="w-[150px] bg-background">
+                          <SelectValue placeholder="Code" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COUNTRY_DIAL_CODES.map((c) => (
+                            <SelectItem key={`${c.iso2}-${c.dialCode}`} value={c.dialCode}>
+                              {c.iso2} {c.dialCode}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="tel"
+                        value={attendeePhoneNational}
+                        onChange={(e) => setAttendeePhoneNational(e.target.value)}
+                        required
+                        className="bg-background flex-1"
+                        placeholder="9876543210"
+                        inputMode="tel"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      We’ll use this only if the host needs to contact you.
+                    </p>
                   </div>
 
                   {/* Custom Fields */}

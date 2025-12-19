@@ -19,6 +19,7 @@ interface Booking {
   status: string;
   attendee_name: string;
   attendee_email: string;
+  attendee_phone?: string | null;
   attendee_timezone: string;
   notes: string | null;
   meet_link: string | null;
@@ -35,6 +36,10 @@ interface Booking {
     username: string | null;
   } | null;
 }
+
+type BookingQueryRow = Omit<Booking, 'event_type' | 'host'> & {
+  event_type: Booking['event_type'] | Booking['event_type'][];
+};
 
 export default function MyBookings() {
   const { user, profile } = useAuth();
@@ -78,6 +83,7 @@ export default function MyBookings() {
           status,
           attendee_name,
           attendee_email,
+          attendee_phone,
           attendee_timezone,
           notes,
           meet_link,
@@ -92,13 +98,13 @@ export default function MyBookings() {
       if (error) throw error;
 
       // Transform data to handle the joined relations
-      const rows = (data || []).map((booking: any) => ({
+      const rows = ((data || []) as unknown as BookingQueryRow[]).map((booking) => ({
         ...booking,
         event_type: Array.isArray(booking.event_type) ? booking.event_type[0] : booking.event_type,
       }));
 
-      const hostIds = Array.from(new Set(rows.map((b: any) => b.host_id).filter(Boolean)));
-      let hostByUserId = new Map<string, { name: string; username: string | null }>();
+      const hostIds = Array.from(new Set(rows.map((b) => b.host_id).filter(Boolean)));
+      const hostByUserId = new Map<string, { name: string; username: string | null }>();
 
       if (hostIds.length > 0) {
         const { data: hostProfiles, error: hostError } = await supabase
@@ -108,18 +114,18 @@ export default function MyBookings() {
 
         if (hostError) throw hostError;
 
-        (hostProfiles || []).forEach((p: any) => {
+        (hostProfiles || []).forEach((p: { user_id: string; name: string; username: string | null }) => {
           hostByUserId.set(p.user_id, { name: p.name, username: p.username });
         });
       }
 
-      const transformedBookings = rows.map((b: any) => ({
+      const transformedBookings = rows.map((b) => ({
         ...b,
         host: hostByUserId.get(b.host_id) || null,
       }));
 
       setBookings(transformedBookings as Booking[]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching bookings:', error);
       toast.error('Failed to fetch bookings');
     } finally {

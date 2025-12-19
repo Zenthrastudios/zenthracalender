@@ -199,6 +199,9 @@ END:VCALENDAR`;
               </p>
               <p className="font-semibold">{booking.attendee_name}</p>
               <p className="text-sm text-muted-foreground">{booking.attendee_email}</p>
+              {booking.attendee_phone && (
+                <p className="text-sm text-muted-foreground">{booking.attendee_phone}</p>
+              )}
             </div>
           </div>
 

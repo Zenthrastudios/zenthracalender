@@ -326,6 +326,9 @@ export default function Bookings() {
                       <div className="flex-1">
                         <p className="font-medium">{selectedBooking.attendee_name}</p>
                         <p className="text-sm text-muted-foreground">{selectedBooking.attendee_email}</p>
+                        {selectedBooking.attendee_phone && (
+                          <p className="text-sm text-muted-foreground">{selectedBooking.attendee_phone}</p>
+                        )}
                       </div>
                       <Button variant="ghost" size="icon" onClick={() => copyToClipboard(selectedBooking.attendee_email, 'Email')}>
                         <Copy className="w-4 h-4" />
@@ -351,24 +354,19 @@ export default function Bookings() {
                           <Copy className="w-4 h-4" />
                         </Button>
                         <Button variant="outline" size="icon" className="shrink-0" asChild>
-                          <a href={selectedBooking.meet_link} target="_blank" rel="noopener noreferrer">
+                          <a
+                            href={selectedBooking.meet_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Open meeting link"
+                            title="Open meeting link"
+                          >
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         </Button>
                       </div>
                     )}
                   </div>
-
-                  {/* Notes */}
-                  {selectedBooking.notes && !selectedBooking.notes.includes('--- Custom Responses ---') && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Notes</h4>
-                      <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                        <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
-                        <p className="text-sm">{selectedBooking.notes}</p>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Legacy notes with custom responses (for old bookings) */}
                   {selectedBooking.notes && selectedBooking.notes.includes('--- Custom Responses ---') && (
