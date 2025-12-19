@@ -16,6 +16,7 @@ import Bookings from "./pages/Bookings";
 import EventTypeEditor from "./pages/EventTypeEditor";
 import Availability from "./pages/Availability";
 import Team from "./pages/Team";
+import Instructors from "./pages/Instructors";
 import Apps from "./pages/Apps";
 import Settings from "./pages/Settings";
 import Analytics from "./pages/Analytics";
@@ -173,6 +174,11 @@ function AppRoutes() {
       <Route path="/dashboard/teams" element={
         <AdminRoute>
           <Team />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/instructors" element={
+        <AdminRoute>
+          <Instructors />
         </AdminRoute>
       } />
       <Route path="/dashboard/apps" element={

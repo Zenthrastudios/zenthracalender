@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventTypes, useCreateEventType, useUpdateEventType, EventType } from '@/hooks/useEventTypes';
 import { useAvailability } from '@/hooks/useAvailability';
+import { useInstructors } from '@/hooks/useInstructors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,7 +27,7 @@ import {
 } from '@/components/ui/accordion';
 import { 
   ChevronRight, Video, Phone, MapPin, Globe, Clock, Calendar, 
-  Settings2, User, Plus, Trash2, GripVertical, FileText, IndianRupee, CreditCard 
+  Settings2, User, Plus, Trash2, GripVertical, FileText, IndianRupee, CreditCard, GraduationCap 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -83,6 +84,7 @@ export default function EventTypeEditor() {
   const { profile } = useAuth();
   const { data: eventTypes } = useEventTypes();
   const { data: availability } = useAvailability();
+  const { data: instructors } = useInstructors();
   const createEventType = useCreateEventType();
   const updateEventType = useUpdateEventType();
   
@@ -112,6 +114,9 @@ export default function EventTypeEditor() {
   const [isPaid, setIsPaid] = useState(false);
   const [price, setPrice] = useState('');
   const [paymentProvider, setPaymentProvider] = useState<string>('razorpay');
+
+  // Instructor Assignment
+  const [instructorId, setInstructorId] = useState<string | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -136,6 +141,8 @@ export default function EventTypeEditor() {
       setIsPaid((existingEvent as any).is_paid || false);
       setPrice((existingEvent as any).price?.toString() || '');
       setPaymentProvider((existingEvent as any).payment_provider || 'razorpay');
+      // Load instructor assignment
+      setInstructorId((existingEvent as any).instructor_id || null);
     }
   }, [existingEvent]);
 
@@ -214,6 +221,7 @@ export default function EventTypeEditor() {
       is_paid: isPaid,
       price: isPaid ? parseFloat(price) || 0 : 0,
       payment_provider: isPaid ? paymentProvider : null,
+      instructor_id: instructorId,
     };
 
     try {
@@ -280,28 +288,95 @@ export default function EventTypeEditor() {
 
         {/* Form */}
         <div className="space-y-6">
-          {/* Instructor Profile Card */}
+          {/* Instructor Assignment */}
           <div className="p-6 bg-card rounded-xl border border-border">
             <div className="flex items-center gap-2 mb-4">
-              <User className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Instructor Profile</h3>
+              <GraduationCap className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold">Assign Instructor</h3>
             </div>
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={profile?.avatar_url || ''} />
-                <AvatarFallback className="text-lg bg-primary/10 text-primary">
-                  {profile?.name?.charAt(0) || profile?.username?.charAt(0) || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-medium text-lg">{profile?.name || 'Your Name'}</p>
-                <p className="text-sm text-muted-foreground">@{profile?.username || 'username'}</p>
-                <p className="text-sm text-muted-foreground">{profile?.timezone || 'America/Los_Angeles'}</p>
+            
+            {instructors && instructors.length > 0 ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Select Instructor</Label>
+                  <Select value={instructorId || ''} onValueChange={(v) => setInstructorId(v || null)}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Choose an instructor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No instructor (use my profile)</SelectItem>
+                      {instructors.filter(i => i.is_active).map((instructor) => (
+                        <SelectItem key={instructor.id} value={instructor.id}>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={instructor.avatar_url || ''} />
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {instructor.name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>{instructor.name}</span>
+                            {instructor.specialization && (
+                              <span className="text-muted-foreground">({instructor.specialization})</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {instructorId && (
+                  <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
+                    {(() => {
+                      const selected = instructors.find(i => i.id === instructorId);
+                      return selected ? (
+                        <>
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src={selected.avatar_url || ''} />
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              {selected.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{selected.name}</p>
+                            <p className="text-sm text-muted-foreground">{selected.email}</p>
+                            {selected.specialization && (
+                              <p className="text-sm text-primary">{selected.specialization}</p>
+                            )}
+                          </div>
+                        </>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
               </div>
-              <Button variant="outline" size="sm" className="ml-auto" asChild>
-                <Link to="/dashboard/settings">Edit Profile</Link>
-              </Button>
-            </div>
+            ) : (
+              <div className="text-center py-6">
+                <GraduationCap className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
+                <p className="text-sm text-muted-foreground mb-3">No instructors added yet</p>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/dashboard/instructors">Add Instructors</Link>
+                </Button>
+              </div>
+            )}
+            
+            {!instructorId && (
+              <div className="mt-4 flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={profile?.avatar_url || ''} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {profile?.name?.charAt(0) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium">{profile?.name || 'Your Name'}</p>
+                  <p className="text-sm text-muted-foreground">Using your profile as host</p>
+                </div>
+                <Button variant="outline" size="sm" className="ml-auto" asChild>
+                  <Link to="/dashboard/settings">Edit Profile</Link>
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Basic Info */}
