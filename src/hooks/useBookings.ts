@@ -129,19 +129,11 @@ export function useCreateBooking() {
         .eq('user_id', data.host_id)
         .single();
 
-      // Check if host has Google Calendar integration
-      const { data: integration } = await supabase
-        .from('user_integrations')
-        .select('id')
-        .eq('user_id', data.host_id)
-        .eq('provider', 'google')
-        .maybeSingle();
-
       let googleEventId: string | null = null;
       let meetLink: string | null = null;
 
       // Create Google Calendar event with Meet link if integrated
-      if (integration && eventType?.location_type === 'google_meet') {
+      if (eventType?.location_type === 'google_meet') {
         try {
           const { data: calendarResult, error: calendarError } = await supabase.functions.invoke('google-calendar', {
             body: {
@@ -161,7 +153,12 @@ export function useCreateBooking() {
 
           if (!calendarError && calendarResult?.event) {
             googleEventId = calendarResult.event.id;
-            meetLink = calendarResult.event.hangoutLink;
+            meetLink =
+              calendarResult.event.hangoutLink ||
+              calendarResult.event.conferenceData?.entryPoints?.find(
+                (ep: { entryPointType?: string; uri?: string }) => ep.entryPointType === 'video' && !!ep.uri
+              )?.uri ||
+              null;
           }
         } catch (err) {
           console.error('Failed to create Google Calendar event:', err);
