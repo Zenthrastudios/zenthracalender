@@ -66,11 +66,11 @@ const escapeHtml = (v: string) =>
     .replaceAll("'", "&#039;");
 
 const buildPrimaryButton = (label: string, href: string, tone: "primary" | "neutral" | "danger" = "primary") => {
-  const bg = tone === "primary" ? "#111827" : tone === "danger" ? "#DC2626" : "#F3F4F6";
+  const bg = tone === "primary" ? "#000000" : tone === "danger" ? "#DC2626" : "#FFFFFF";
   const color = tone === "neutral" ? "#111827" : "#FFFFFF";
   const border = tone === "neutral" ? "1px solid #E5E7EB" : "0";
   return `
-    <a href="${href}" style="display:inline-block;text-decoration:none;background:${bg};color:${color};padding:12px 16px;border-radius:12px;font-weight:700;font-size:14px;${border ? `border:${border};` : ""}">
+    <a href="${href}" style="display:inline-block;text-decoration:none;background:${bg};color:${color};padding:14px 24px;border-radius:12px;font-weight:600;font-size:15px;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.05);${border ? `border:${border};` : ""}">
       ${escapeHtml(label)}
     </a>
   `;
@@ -78,7 +78,7 @@ const buildPrimaryButton = (label: string, href: string, tone: "primary" | "neut
 
 const buildSecondaryLink = (label: string, href: string) => {
   return `
-    <a href="${href}" style="color:#2563EB;text-decoration:none;font-weight:600;font-size:14px;">
+    <a href="${href}" style="color:#6B7280;text-decoration:underline;font-size:14px;font-weight:500;">
       ${escapeHtml(label)}
     </a>
   `;
@@ -94,36 +94,67 @@ const wrapEmail = (opts: {
   brandName: string;
   brandLogoUrl?: string;
 }) => {
-  const accent = opts.accent || "#111827";
+  const accent = opts.accent || "#000000";
+
+  // Use user's accent color for the button if primary, but here we just pass it to the badge or headers if needed
+  // For this design, we keep the main UI clean (White/Gray).
+
   return `
-  <div style="background:#0B1220;padding:24px 0;">
-    <div style="max-width:640px;margin:0 auto;padding:0 16px;">
-      <div style="background:#0F172A;border:1px solid rgba(255,255,255,0.08);border-radius:20px;overflow:hidden;">
-        <div style="padding:22px 20px;background:linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0));">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#E5E7EB;font-weight:800;font-size:16px;display:flex;align-items:center;gap:8px;">
-              ${opts.brandLogoUrl ? `<img src="${opts.brandLogoUrl}" alt="" style="height:24px;width:auto;object-contain:contain;"/>` : ""}
-              ${escapeHtml(opts.brandName)}
-            </div>
-            ${opts.badgeText ? `<div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#E5E7EB;font-size:12px;font-weight:700;background:${accent};padding:6px 10px;border-radius:999px;">${escapeHtml(opts.badgeText)}</div>` : ""}
-          </div>
-          <div style="margin-top:14px;">
-            <div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#FFFFFF;font-weight:900;font-size:24px;line-height:1.2;">${escapeHtml(opts.title)}</div>
-            ${opts.subtitle ? `<div style="margin-top:6px;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#9CA3AF;font-size:14px;line-height:1.5;">${escapeHtml(opts.subtitle)}</div>` : ""}
-          </div>
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #F3F4F6; }
+    </style>
+  </head>
+  <body style="background-color:#F3F4F6;padding:40px 0;">
+    <div style="max-width:560px;margin:0 auto;padding:0 16px;">
+      
+      <!-- Main Card -->
+      <div style="background:#FFFFFF;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px -10px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.02);">
+        
+        <!-- Header -->
+        <div style="padding:32px 40px 0;text-align:center;">
+          ${opts.brandLogoUrl
+      ? `<img src="${opts.brandLogoUrl}" alt="${escapeHtml(opts.brandName)}" style="height:40px;width:auto;object-fit:contain;margin-bottom:24px;">`
+      : `<div style="font-size:20px;font-weight:700;color:#111827;margin-bottom:24px;">${escapeHtml(opts.brandName)}</div>`
+    }
+          
+          ${opts.badgeText ? `
+          <div style="display:inline-block;background:${accent}15;color:${accent};font-size:12px;font-weight:700;padding:6px 16px;border-radius:999px;margin-bottom:24px;letter-spacing:0.5px;text-transform:uppercase;">
+            ${escapeHtml(opts.badgeText)}
+          </div>` : ""}
+
+          <h1 style="margin:0 0 12px;font-size:28px;font-weight:800;color:#111827;letter-spacing:-0.5px;line-height:1.2;">
+            ${escapeHtml(opts.title)}
+          </h1>
+          
+          ${opts.subtitle ? `<p style="margin:0;font-size:16px;line-height:1.6;color:#6B7280;">${escapeHtml(opts.subtitle)}</p>` : ""}
         </div>
-        <div style="padding:22px 20px;background:#0F172A;">
-          <div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#E5E7EB;font-size:14px;line-height:1.6;">
-            ${opts.bodyHtml}
-          </div>
-          ${opts.footerHtml ? `<div style="margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#9CA3AF;font-size:12px;line-height:1.6;">${opts.footerHtml}</div>` : ""}
+
+        <!-- Body -->
+        <div style="padding:40px;">
+          ${opts.bodyHtml}
+          
+          ${opts.footerHtml ? `
+          <div style="margin-top:32px;padding-top:24px;border-top:1px dashed #E5E7EB;text-align:center;">
+            <p style="margin:0;font-size:13px;color:#9CA3AF;line-height:1.5;">${opts.footerHtml}</p>
+          </div>` : ""}
         </div>
+
       </div>
-      <div style="text-align:center;margin-top:14px;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#64748B;font-size:12px;">
-        Powered by ${escapeHtml(opts.brandName)}
+
+      <!-- Footer -->
+      <div style="text-align:center;margin-top:24px;">
+        <p style="font-size:13px;color:#9CA3AF;margin:0;">
+          Powered by <span style="font-weight:600;color:#6B7280;">${escapeHtml(opts.brandName)}</span>
+        </p>
       </div>
+
     </div>
-  </div>
+  </body>
+  </html>
   `;
 };
 
@@ -174,39 +205,69 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
   const rescheduleUrl = links.rescheduleUrl;
   const cancelUrl = links.cancelUrl;
 
+  /* Details Card */
   const detailsCard = `
-    <div style="margin:16px 0;padding:16px;border:1px solid rgba(255,255,255,0.08);border-radius:16px;background:rgba(255,255,255,0.03);">
-      <div style="font-weight:800;color:#FFFFFF;font-size:16px;">${escapeHtml(data.eventTitle)}</div>
-      <div style="margin-top:10px;">
-        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">When:</span> ${escapeHtml(startFormatted)}</div>
-        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Ends:</span> ${escapeHtml(endFormatted)}</div>
-        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Timezone:</span> ${escapeHtml(data.timezone)}</div>
-        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">With:</span> ${escapeHtml(data.hostName)}</div>
-      </div>
-      ${data.meetingLink ? `<div style="margin-top:10px;color:#CBD5E1;"><span style="color:#94A3B8;">Meeting link:</span> <a href="${data.meetingLink}" style="color:#60A5FA;text-decoration:none;">${escapeHtml(data.meetingLink)}</a></div>` : ""}
-      ${data.notes ? `<div style="margin-top:10px;color:#CBD5E1;"><span style="color:#94A3B8;">Notes:</span> ${escapeHtml(data.notes)}</div>` : ""}
+    <div style="background:#F9FAFB;border:1px solid #F3F4F6;border-radius:16px;padding:24px;margin-bottom:32px;">
+      <div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:20px;">${escapeHtml(data.eventTitle)}</div>
+      
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding-bottom:16px;width:24px;vertical-align:top;">
+            <div style="height:8px;width:8px;border-radius:50%;background:#3B82F6;margin-top:6px;"></div>
+          </td>
+          <td style="padding-bottom:16px;padding-right:24px;vertical-align:top;">
+            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">When</div>
+            <div style="font-size:15px;color:#111827;font-weight:500;">
+              ${escapeHtml(startFormatted)} - ${escapeHtml(endFormatted.split(',')[1] || endFormatted)}
+              <div style="color:#6B7280;font-weight:400;margin-top:2px;">${escapeHtml(data.timezone)}</div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-bottom:16px;width:24px;vertical-align:top;">
+            <div style="height:8px;width:8px;border-radius:50%;background:#8B5CF6;margin-top:6px;"></div>
+          </td>
+          <td style="padding-bottom:16px;vertical-align:top;">
+            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">With</div>
+            <div style="font-size:15px;color:#111827;font-weight:500;">${escapeHtml(data.hostName)}</div>
+          </td>
+        </tr>
+        ${data.meetingLink ? `
+        <tr>
+          <td style="width:24px;vertical-align:top;">
+            <div style="height:8px;width:8px;border-radius:50%;background:#10B981;margin-top:6px;"></div>
+          </td>
+          <td style="vertical-align:top;">
+            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Where</div>
+            <div style="font-size:15px;color:#111827;font-weight:500;">
+              <a href="${data.meetingLink}" style="color:#2563EB;text-decoration:none;">Join Meeting</a>
+            </div>
+          </td>
+        </tr>
+        ` : ""}
+      </table>
+
+      ${data.notes ? `
+        <div style="margin-top:20px;padding-top:20px;border-top:1px dashed #E5E7EB;">
+          <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Notes</div>
+          <div style="font-size:14px;color:#4B5563;line-height:1.6;font-style:italic;">"${escapeHtml(data.notes)}"</div>
+        </div>
+      ` : ""}
     </div>
   `;
 
   const actions = `
-    <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;">
-      ${joinUrl ? buildPrimaryButton("Join meeting", joinUrl, "primary") : ""}
-      ${myBookingsUrl ? buildPrimaryButton("View booking details", myBookingsUrl, "neutral") : ""}
-      ${rescheduleUrl ? buildSecondaryLink("Reschedule", rescheduleUrl) : ""}
-      ${cancelUrl ? `<span style="color:#475569;">•</span>${buildSecondaryLink("Cancel", cancelUrl)}` : ""}
+    <div style="display:flex;flex-direction:column;gap:12px;align-items:center;">
+      ${joinUrl ? buildPrimaryButton("Join Meeting", joinUrl, "primary") : ""}
+      <div style="display:flex;gap:20px;margin-top:8px;">
+        ${myBookingsUrl ? buildSecondaryLink("View Details", myBookingsUrl) : ""}
+        ${rescheduleUrl ? buildSecondaryLink("Reschedule", rescheduleUrl) : ""}
+        ${cancelUrl ? buildSecondaryLink("Cancel", cancelUrl) : ""}
+      </div>
     </div>
   `;
 
-  const nextSteps = `
-    <div style="margin-top:16px;">
-      <div style="font-weight:800;color:#FFFFFF;">What to do next</div>
-      <ol style="margin:8px 0 0 18px;padding:0;color:#CBD5E1;">
-        <li style="margin:6px 0;">Add the attached calendar invite to your calendar.</li>
-        <li style="margin:6px 0;">Join a few minutes early to test audio/video.</li>
-        <li style="margin:6px 0;">Use the links above if you need to reschedule or cancel.</li>
-      </ol>
-    </div>
-  `;
+  const nextSteps = ``; // Removed next steps text to keep it cleaner, as the card is self-explanatory
 
   const brandName = (data.branding?.isEnabled ? data.branding.brandName : 'CalSchedule') || 'CalSchedule';
   const brandLogoUrl = data.branding?.isEnabled ? data.branding.brandLogoUrl : undefined;
@@ -296,21 +357,44 @@ const getHostEmailContent = (
   const endFormatted = formatDateTime(data.endTime, data.timezone);
 
   const detailsCard = `
-    <div style="margin:16px 0;padding:16px;border:1px solid rgba(255,255,255,0.08);border-radius:16px;background:rgba(255,255,255,0.03);">
-      <div style="font-weight:800;color:#FFFFFF;font-size:16px;">${escapeHtml(data.eventTitle)}</div>
-      <div style="margin-top:10px;">
-        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">When:</span> ${escapeHtml(startFormatted)}</div>
-        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Ends:</span> ${escapeHtml(endFormatted)}</div>
-        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Timezone:</span> ${escapeHtml(data.timezone)}</div>
-        <div style="color:#CBD5E1;"><span style="color:#94A3B8;">Attendee:</span> ${escapeHtml(attendee.name)} (${escapeHtml(attendee.email)})</div>
-      </div>
-      ${data.meetingLink ? `<div style="margin-top:10px;color:#CBD5E1;"><span style="color:#94A3B8;">Meeting link:</span> <a href="${data.meetingLink}" style="color:#60A5FA;text-decoration:none;">${escapeHtml(data.meetingLink)}</a></div>` : ""}
-      ${data.notes ? `<div style="margin-top:10px;color:#CBD5E1;"><span style="color:#94A3B8;">Attendee notes:</span> ${escapeHtml(data.notes)}</div>` : ""}
+    <div style="background:#F9FAFB;border:1px solid #F3F4F6;border-radius:16px;padding:24px;margin-bottom:32px;">
+      <div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:20px;">${escapeHtml(data.eventTitle)}</div>
+      
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding-bottom:16px;width:24px;vertical-align:top;">
+            <div style="height:8px;width:8px;border-radius:50%;background:#3B82F6;margin-top:6px;"></div>
+          </td>
+          <td style="padding-bottom:16px;padding-right:24px;vertical-align:top;">
+            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">When</div>
+            <div style="font-size:15px;color:#111827;font-weight:500;">
+              ${escapeHtml(startFormatted)}
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-bottom:16px;width:24px;vertical-align:top;">
+            <div style="height:8px;width:8px;border-radius:50%;background:#8B5CF6;margin-top:6px;"></div>
+          </td>
+          <td style="padding-bottom:16px;vertical-align:top;">
+            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Attendee</div>
+            <div style="font-size:15px;color:#111827;font-weight:500;">${escapeHtml(attendee.name)}</div>
+            <div style="font-size:14px;color:#6B7280;">${escapeHtml(attendee.email)}</div>
+          </td>
+        </tr>
+      </table>
+
+      ${data.notes ? `
+        <div style="margin-top:20px;padding-top:20px;border-top:1px dashed #E5E7EB;">
+          <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Attendee Notes</div>
+          <div style="font-size:14px;color:#4B5563;line-height:1.6;font-style:italic;">"${escapeHtml(data.notes)}"</div>
+        </div>
+      ` : ""}
     </div>
   `;
 
   const actions = links.joinUrl
-    ? `<div style="margin-top:14px;">${buildPrimaryButton('Join meeting', links.joinUrl, 'primary')}</div>`
+    ? `<div style="text-align:center;margin-top:24px;">${buildPrimaryButton('Join meeting', links.joinUrl, 'primary')}</div>`
     : '';
 
   const brandName = (data.branding?.isEnabled ? data.branding.brandName : 'CalSchedule') || 'CalSchedule';
