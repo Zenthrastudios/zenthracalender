@@ -42,11 +42,12 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const uploadAvatar = useUploadAvatar();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [timezone, setTimezone] = useState('America/Los_Angeles');
   const [bio, setBio] = useState('');
+  const [phone, setPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -55,6 +56,7 @@ export default function Settings() {
       setName(profile.name || '');
       setUsername(profile.username || '');
       setTimezone(profile.timezone || 'America/Los_Angeles');
+      setPhone(profile.phone || '');
     }
   }, [profile]);
 
@@ -107,6 +109,7 @@ export default function Settings() {
         name,
         username,
         timezone,
+        phone,
       });
       toast.success('Profile updated!');
     } catch (error: any) {
@@ -145,7 +148,7 @@ export default function Settings() {
                     {name?.charAt(0) || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <button 
+                <button
                   onClick={handleAvatarClick}
                   disabled={isUploading}
                   className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
@@ -178,7 +181,7 @@ export default function Settings() {
           {/* Basic Info */}
           <div className="p-6 bg-card rounded-xl border border-border space-y-4">
             <h3 className="font-semibold">Basic Information</h3>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
@@ -206,6 +209,18 @@ export default function Settings() {
                   Your booking URL: yoursite.com/{username}
                 </p>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                placeholder="+1234567890"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="bg-background"
+              />
+              <p className="text-xs text-muted-foreground">Used for WhatsApp notifications</p>
             </div>
 
             <div className="space-y-2">
@@ -238,7 +253,7 @@ export default function Settings() {
               <Globe className="w-5 h-5 text-primary" />
               <h3 className="font-semibold">Timezone</h3>
             </div>
-            
+
             <div className="space-y-2">
               <Label>Your Timezone</Label>
               <Select value={timezone} onValueChange={setTimezone}>
@@ -265,7 +280,7 @@ export default function Settings() {
               <Moon className="w-5 h-5 text-primary" />
               <h3 className="font-semibold">Appearance</h3>
             </div>
-            
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>

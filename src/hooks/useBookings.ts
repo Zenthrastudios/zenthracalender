@@ -120,7 +120,7 @@ export function useCreateBooking() {
       // Get event type details
       const { data: eventType } = await supabase
         .from('event_types')
-        .select('title, duration, location_type')
+        .select('title, duration, location_type, instructor_id')
         .eq('id', data.event_type_id)
         .single();
 
@@ -212,8 +212,74 @@ export function useCreateBooking() {
         console.error('Failed to send confirmation email:', emailError);
       }
 
-      return { 
-        ...newBooking, 
+      // Send WhatsApp messages if enabled
+      try {
+        const { data: whatsappSettings } = await (supabase as any)
+          .from('whatsapp_settings')
+          .select('*')
+          .eq('user_id', data.host_id)
+          .eq('is_enabled', true)
+          .maybeSingle();
+
+        if (whatsappSettings && whatsappSettings.api_key) {
+          // Fetch instructor/host phone
+          let instructorPhone = null;
+          if (eventType?.instructor_id) {
+            const { data: instr } = await supabase
+              .from('instructors')
+              .select('phone')
+              .eq('id', eventType.instructor_id)
+              .maybeSingle();
+            instructorPhone = instr?.phone;
+          }
+
+          if (!instructorPhone) {
+            const { data: hostProfileDetails } = await supabase
+              .from('profiles')
+              .select('phone')
+              .eq('user_id', data.host_id)
+              .maybeSingle();
+            instructorPhone = hostProfileDetails?.phone;
+          }
+
+          // Send to Customer
+          if (data.attendee_phone) {
+            await supabase.functions.invoke('send-whatsapp-message', {
+              body: {
+                type: 'customer',
+                recipient_phone: data.attendee_phone,
+                settings: whatsappSettings,
+                booking: {
+                  ...newBooking,
+                  host_name: hostProfile?.name || 'Host',
+                  meet_link: meetLink
+                }
+              }
+            });
+          }
+
+          // Send to Instructor/Host
+          if (instructorPhone) {
+            await supabase.functions.invoke('send-whatsapp-message', {
+              body: {
+                type: 'instructor',
+                recipient_phone: instructorPhone,
+                settings: whatsappSettings,
+                booking: {
+                  ...newBooking,
+                  host_name: hostProfile?.name || 'Host',
+                  meet_link: meetLink
+                }
+              }
+            });
+          }
+        }
+      } catch (waError) {
+        console.error('Failed to send WhatsApp messages:', waError);
+      }
+
+      return {
+        ...newBooking,
         meet_link: meetLink,
         custom_responses: (newBooking.custom_responses as unknown as CustomResponse[]) || [],
       } as Booking;

@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { name, email, password, bio, specialization, created_by } = await req.json();
+    const { name, email, password, phone, bio, specialization, created_by } = await req.json();
 
     if (!name || !email || !password || !created_by) {
       return new Response(
@@ -67,6 +67,7 @@ serve(async (req) => {
         email,
         bio: bio || null,
         specialization: specialization || null,
+        phone: phone || null,
         created_by,
       })
       .select()

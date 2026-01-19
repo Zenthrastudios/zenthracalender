@@ -108,7 +108,7 @@ export default function PublicBookingPage() {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [attendeeName, setAttendeeName] = useState('');
   const [attendeeEmail, setAttendeeEmail] = useState('');
-  const [attendeeCountryCode, setAttendeeCountryCode] = useState('+91');
+  const [attendeeCountryCode, setAttendeeCountryCode] = useState('IN');
   const [attendeePhoneNational, setAttendeePhoneNational] = useState('');
   const [notes, setNotes] = useState('');
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
@@ -275,9 +275,11 @@ export default function PublicBookingPage() {
   };
 
   const buildAttendeePhone = () => {
-    const dial = attendeeCountryCode.replace(/[^\d+]/g, '');
+    const country = COUNTRY_DIAL_CODES.find(c => c.iso2 === attendeeCountryCode);
+    if (!country || !attendeePhoneNational) return undefined;
+
+    const dial = country.dialCode.replace(/[^\d+]/g, '');
     const national = attendeePhoneNational.replace(/\D/g, '');
-    if (!dial || !national) return undefined;
     const normalizedDial = dial.startsWith('+') ? dial : `+${dial}`;
     return `${normalizedDial}${national}`;
   };
@@ -774,10 +776,10 @@ export default function PublicBookingPage() {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-semibold">{format(currentMonth, 'MMMM yyyy')}</h2>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous Month">
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next Month">
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -794,9 +796,9 @@ export default function PublicBookingPage() {
                   const isSelected = selectedDate && isSameDay(date, selectedDate);
                   const isPast = isBefore(date, new Date()) && !isToday(date);
                   return (
-                    <button 
-                      key={date.toISOString()} 
-                      onClick={() => isAvailable && !isPast && (setSelectedDate(date), setSelectedSlot(null), setShowBookingForm(false))} 
+                    <button
+                      key={date.toISOString()}
+                      onClick={() => isAvailable && !isPast && (setSelectedDate(date), setSelectedSlot(null), setShowBookingForm(false))}
                       disabled={!isAvailable || isPast}
                       className={cn(
                         "aspect-square rounded-full flex items-center justify-center text-sm transition-all",
@@ -831,21 +833,21 @@ export default function PublicBookingPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Your Name <span className="text-destructive">*</span></Label>
-                    <Input 
-                      value={attendeeName} 
-                      onChange={(e) => setAttendeeName(e.target.value)} 
-                      required 
-                      className="bg-background" 
+                    <Input
+                      value={attendeeName}
+                      onChange={(e) => setAttendeeName(e.target.value)}
+                      required
+                      className="bg-background"
                       placeholder="John Doe"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Email Address <span className="text-destructive">*</span></Label>
-                    <Input 
-                      type="email" 
-                      value={attendeeEmail} 
-                      onChange={(e) => setAttendeeEmail(e.target.value)} 
-                      required 
+                    <Input
+                      type="email"
+                      value={attendeeEmail}
+                      onChange={(e) => setAttendeeEmail(e.target.value)}
+                      required
                       className="bg-background"
                       placeholder="john@example.com"
                     />
@@ -860,8 +862,8 @@ export default function PublicBookingPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {COUNTRY_DIAL_CODES.map((c) => (
-                            <SelectItem key={`${c.iso2}-${c.dialCode}`} value={c.dialCode}>
-                              {c.iso2} {c.dialCode}
+                            <SelectItem key={c.iso2} value={c.iso2}>
+                              {c.iso2} ({c.dialCode})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -886,9 +888,9 @@ export default function PublicBookingPage() {
 
                   <div className="space-y-2">
                     <Label>Additional Notes</Label>
-                    <Textarea 
-                      value={notes} 
-                      onChange={(e) => setNotes(e.target.value)} 
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
                       className="bg-background min-h-[80px]"
                       placeholder="Any additional information..."
                     />
@@ -916,9 +918,9 @@ export default function PublicBookingPage() {
                     <Button type="button" variant="outline" onClick={() => setShowBookingForm(false)} className="flex-1">
                       Back
                     </Button>
-                    <Button 
-                      type="submit" 
-                      className="flex-1" 
+                    <Button
+                      type="submit"
+                      className="flex-1"
                       disabled={createBooking.isPending || isProcessingPayment}
                     >
                       {isProcessingPayment ? (
@@ -945,12 +947,12 @@ export default function PublicBookingPage() {
                   <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                     {timeSlots.filter(s => s.available).map((slot) => (
                       <div key={slot.time} className="flex gap-2">
-                        <button 
-                          onClick={() => setSelectedSlot(slot)} 
+                        <button
+                          onClick={() => setSelectedSlot(slot)}
                           className={cn(
                             "flex-1 py-3 px-4 rounded-lg text-sm font-medium border transition-all",
-                            selectedSlot?.time === slot.time 
-                              ? "bg-foreground text-background border-foreground" 
+                            selectedSlot?.time === slot.time
+                              ? "bg-foreground text-background border-foreground"
                               : "bg-background border-border hover:border-primary text-primary"
                           )}
                         >

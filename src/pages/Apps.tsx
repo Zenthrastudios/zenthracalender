@@ -14,19 +14,199 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { 
-  Calendar, 
-  Video, 
-  Mail, 
-  Zap, 
+import {
+  Calendar,
+  Video,
+  Mail,
+  Zap,
   ExternalLink,
   Check,
   AlertCircle,
   Settings,
   ChevronRight,
-  Loader2
+  Loader2,
+  Phone,
+  MessageSquare,
+  Lock,
+  Globe,
+  Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { useWhatsappSettings, useUpdateWhatsappSettings } from '@/hooks/useWhatsapp';
+
+interface WhatsAppConfigProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
+  const { data: settings, isLoading } = useWhatsappSettings();
+  const updateSettings = useUpdateWhatsappSettings();
+
+  const [formData, setFormData] = useState({
+    api_key: '',
+    phone_number_id: '',
+    business_account_id: '',
+    customer_template_name: 'booking_confirmation',
+    instructor_template_name: 'new_booking_instructor',
+    template_language: 'en',
+    is_enabled: true
+  });
+
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        api_key: settings.api_key || '',
+        phone_number_id: settings.phone_number_id || '',
+        business_account_id: settings.business_account_id || '',
+        customer_template_name: settings.customer_template_name || 'booking_confirmation',
+        instructor_template_name: settings.instructor_template_name || 'new_booking_instructor',
+        template_language: settings.template_language || 'en',
+        is_enabled: settings.is_enabled ?? true
+      });
+    }
+  }, [settings]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateSettings.mutateAsync(formData);
+      toast.success('WhatsApp settings updated successfully!');
+      onClose();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update settings');
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg overflow-y-auto max-h-[90vh]">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+              <MessageSquare className="w-6 h-6" />
+            </div>
+            <div>
+              <DialogTitle>WhatsApp Configuration</DialogTitle>
+              <DialogDescription>
+                Connect your WhatsApp Business API account
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Lock className="w-4 h-4 text-muted-foreground" />
+              API Credentials
+            </h4>
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="api_key">System User Access Token</Label>
+                <Input
+                  id="api_key"
+                  type="password"
+                  placeholder="EAAB..."
+                  value={formData.api_key}
+                  onChange={e => setFormData(prev => ({ ...prev, api_key: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone_id">Phone Number ID</Label>
+                  <Input
+                    id="phone_id"
+                    placeholder="1029384..."
+                    value={formData.phone_number_id}
+                    onChange={e => setFormData(prev => ({ ...prev, phone_number_id: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="account_id">Business Account ID</Label>
+                  <Input
+                    id="account_id"
+                    placeholder="0918273..."
+                    value={formData.business_account_id}
+                    onChange={e => setFormData(prev => ({ ...prev, business_account_id: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Globe className="w-4 h-4 text-muted-foreground" />
+              Message Templates
+            </h4>
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="customer_template">Customer Confirmation Template</Label>
+                <Input
+                  id="customer_template"
+                  placeholder="booking_confirmation"
+                  value={formData.customer_template_name}
+                  onChange={e => setFormData(prev => ({ ...prev, customer_template_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="instructor_template">Instructor Alert Template</Label>
+                <Input
+                  id="instructor_template"
+                  placeholder="new_booking_instructor"
+                  value={formData.instructor_template_name}
+                  onChange={e => setFormData(prev => ({ ...prev, instructor_template_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="template_language">Template Language Code</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="template_language"
+                    placeholder="en, en_US, etc."
+                    value={formData.template_language}
+                    onChange={e => setFormData(prev => ({ ...prev, template_language: e.target.value }))}
+                    className="flex-1"
+                  />
+                  <div className="text-xs text-muted-foreground bg-muted p-2 rounded border border-border flex-1">
+                    Use <strong>en</strong> for English, <strong>en_US</strong> for US English, etc. Match this exactly with your Meta dashboard.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+            <div className="space-y-1">
+              <Label className="text-base">Enable WhatsApp Notifications</Label>
+              <p className="text-xs text-muted-foreground">Automatically send messages when bookings are made</p>
+            </div>
+            <Switch
+              checked={formData.is_enabled}
+              onCheckedChange={checked => setFormData(prev => ({ ...prev, is_enabled: checked }))}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={updateSettings.isPending}>
+              {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save Settings
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 interface AppIntegration {
   id: string;
@@ -39,7 +219,18 @@ interface AppIntegration {
   popular?: boolean;
   features: string[];
   connectedEmail?: string | null;
+  requiresConfig?: boolean;
 }
+
+const WHATSAPP_ICON = (
+  <svg
+    viewBox="0 0 24 24"
+    className="w-6 h-6 fill-[#25D366]"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.634 1.437h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+  </svg>
+);
 
 const BASE_INTEGRATIONS: Omit<AppIntegration, 'connected' | 'connectedEmail'>[] = [
   {
@@ -129,6 +320,22 @@ const BASE_INTEGRATIONS: Omit<AppIntegration, 'connected' | 'connectedEmail'>[] 
       'Custom workflows',
     ],
   },
+  {
+    id: 'whatsapp',
+    name: 'WhatsApp Business',
+    description: 'Send automated booking confirmations and reminders via WhatsApp to customers and instructors.',
+    icon: WHATSAPP_ICON,
+    category: 'automation',
+    provider: 'whatsapp',
+    popular: true,
+    requiresConfig: true,
+    features: [
+      'Automated confirmation messages',
+      'Reminders to both parties',
+      'Custom message templates',
+      'Higher open rates than email',
+    ],
+  },
 ];
 
 const CATEGORIES = [
@@ -145,7 +352,7 @@ export default function Apps() {
   const { data: integrations, isLoading } = useIntegrations();
   const connectGoogle = useConnectGoogle();
   const disconnectIntegration = useDisconnectIntegration();
-  
+
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedApp, setSelectedApp] = useState<AppIntegration | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -154,7 +361,7 @@ export default function Apps() {
   useEffect(() => {
     const connected = searchParams.get('connected');
     const error = searchParams.get('error');
-    
+
     if (connected === 'google') {
       toast.success('Google connected successfully!');
       // Clear params from URL
@@ -175,8 +382,8 @@ export default function Apps() {
     };
   });
 
-  const filteredApps = selectedCategory === 'all' 
-    ? apps 
+  const filteredApps = selectedCategory === 'all'
+    ? apps
     : apps.filter(app => app.category === selectedCategory);
 
   const connectedApps = apps.filter(app => app.connected);
@@ -233,8 +440,8 @@ export default function Apps() {
             </div>
             <div className="flex flex-wrap gap-2">
               {connectedApps.map(app => (
-                <div 
-                  key={app.id} 
+                <div
+                  key={app.id}
                   className="flex items-center gap-2 py-1.5 px-3 rounded-lg bg-muted/50 border border-border text-sm"
                 >
                   <span className="shrink-0">{app.icon}</span>
@@ -277,8 +484,8 @@ export default function Apps() {
                 key={app.id}
                 className={cn(
                   "p-4 sm:p-5 bg-card rounded-xl border transition-all hover:shadow-md cursor-pointer group",
-                  app.connected 
-                    ? "border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20" 
+                  app.connected
+                    ? "border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20"
                     : "border-border hover:border-primary/30",
                   !app.provider && "opacity-70"
                 )}
@@ -287,8 +494,8 @@ export default function Apps() {
                 <div className="flex items-start gap-3 sm:gap-4">
                   <div className={cn(
                     "p-2.5 sm:p-3 rounded-lg border shrink-0",
-                    app.connected 
-                      ? "bg-white dark:bg-background border-emerald-200 dark:border-emerald-800/50" 
+                    app.connected
+                      ? "bg-white dark:bg-background border-emerald-200 dark:border-emerald-800/50"
                       : "bg-background border-border"
                   )}>
                     {app.icon}
@@ -329,9 +536,9 @@ export default function Apps() {
         )}
 
         {/* App Detail Dialog */}
-        <Dialog open={!!selectedApp} onOpenChange={() => setSelectedApp(null)}>
+        <Dialog open={!!selectedApp && selectedApp.id !== 'whatsapp'} onOpenChange={() => setSelectedApp(null)}>
           <DialogContent className="max-w-md">
-            {selectedApp && (
+            {selectedApp && selectedApp.id !== 'whatsapp' && (
               <>
                 <DialogHeader>
                   <div className="flex items-center gap-3">
@@ -349,7 +556,7 @@ export default function Apps() {
                     </div>
                   </div>
                 </DialogHeader>
-                
+
                 <DialogDescription className="text-foreground">
                   {selectedApp.description}
                 </DialogDescription>
@@ -400,8 +607,8 @@ export default function Apps() {
                         <Settings className="w-4 h-4 mr-2" />
                         Settings
                       </Button>
-                      <Button 
-                        variant="destructive" 
+                      <Button
+                        variant="destructive"
                         className="flex-1"
                         onClick={() => handleDisconnect(selectedApp)}
                         disabled={disconnectIntegration.isPending}
@@ -414,8 +621,8 @@ export default function Apps() {
                       </Button>
                     </>
                   ) : (
-                    <Button 
-                      className="w-full" 
+                    <Button
+                      className="w-full"
                       onClick={() => handleConnect(selectedApp)}
                       disabled={isConnecting || !selectedApp.provider}
                     >
@@ -439,6 +646,14 @@ export default function Apps() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* WhatsApp Config Dialog */}
+        <WhatsAppConfigDialog
+          isOpen={!!selectedApp && selectedApp.id === 'whatsapp'}
+          onClose={() => setSelectedApp(null)}
+        />
+
+        {/* Help Section */}
 
         {/* Help Section */}
         <div className="mt-8 p-6 bg-card rounded-xl border border-border">

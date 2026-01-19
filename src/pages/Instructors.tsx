@@ -58,6 +58,7 @@ export default function Instructors() {
   const [bio, setBio] = useState('');
   const [specialization, setSpecialization] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [phone, setPhone] = useState('');
   const [editIsActive, setEditIsActive] = useState(true);
   const [addAvatarFile, setAddAvatarFile] = useState<File | null>(null);
   const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null);
@@ -71,6 +72,7 @@ export default function Instructors() {
     setPassword('');
     setBio('');
     setSpecialization('');
+    setPhone('');
     setAvatarUrl('');
     setEditIsActive(true);
     setAddAvatarFile(null);
@@ -106,6 +108,7 @@ export default function Instructors() {
     setBio(instructor.bio || '');
     setSpecialization(instructor.specialization || '');
     setAvatarUrl(instructor.avatar_url || '');
+    setPhone(instructor.phone || '');
     setEditIsActive(instructor.is_active);
     setEditAvatarFile(null);
     setIsEditOpen(true);
@@ -131,6 +134,7 @@ export default function Instructors() {
         name,
         bio: bio || null,
         specialization: specialization || null,
+        phone: phone || null,
         avatar_url: finalAvatarUrl,
         is_active: editIsActive,
       });
@@ -167,6 +171,7 @@ export default function Instructors() {
         name,
         email,
         password,
+        phone: phone || undefined,
         bio: bio || undefined,
         specialization: specialization || undefined,
       });
@@ -190,7 +195,7 @@ export default function Instructors() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    
+
     try {
       await deleteInstructor.mutateAsync(deleteId);
       toast.success('Instructor removed');
@@ -324,6 +329,15 @@ export default function Instructors() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    placeholder="+1234567890"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="bio">Bio (Optional)</Label>
                   <Textarea
                     id="bio"
@@ -397,6 +411,12 @@ export default function Instructors() {
                       <Mail className="w-3 h-3" />
                       {instructor.email}
                     </p>
+                    {instructor.phone && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <span className="w-3 h-3">📞</span>
+                        {instructor.phone}
+                      </p>
+                    )}
                     {instructor.specialization && (
                       <p className="text-sm text-primary">{instructor.specialization}</p>
                     )}
@@ -406,7 +426,7 @@ export default function Instructors() {
                     <div className="text-right text-sm text-muted-foreground hidden sm:block">
                       Added {format(new Date(instructor.created_at), 'MMM d, yyyy')}
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <Switch
                         checked={instructor.is_active}
@@ -516,6 +536,15 @@ export default function Instructors() {
                   id="edit-specialization"
                   value={specialization}
                   onChange={(e) => setSpecialization(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone Number</Label>
+                <Input
+                  id="edit-phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                 />
               </div>
 

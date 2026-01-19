@@ -10,6 +10,7 @@ export interface Instructor {
   avatar_url: string | null;
   bio: string | null;
   specialization: string | null;
+  phone: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -43,6 +44,7 @@ export function useCreateInstructor() {
       name: string;
       email: string;
       password: string;
+      phone?: string;
       bio?: string;
       specialization?: string;
     }) => {
@@ -52,6 +54,7 @@ export function useCreateInstructor() {
           name: instructorData.name,
           email: instructorData.email,
           password: instructorData.password,
+          phone: instructorData.phone,
           bio: instructorData.bio,
           specialization: instructorData.specialization,
           created_by: user?.id,
@@ -60,7 +63,7 @@ export function useCreateInstructor() {
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      
+
       return data.instructor as Instructor;
     },
     onSuccess: () => {
