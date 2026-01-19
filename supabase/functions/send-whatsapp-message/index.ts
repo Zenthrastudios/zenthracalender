@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface WhatsAppRequest {
-    type: "customer" | "instructor";
+    type: "customer" | "instructor" | "cancellation" | "reschedule" | "payment_failed";
     recipient_phone: string;
     booking: any;
     settings: {
@@ -14,6 +14,9 @@ interface WhatsAppRequest {
         phone_number_id: string;
         customer_template_name?: string;
         instructor_template_name?: string;
+        cancelled_template_name?: string;
+        rescheduled_template_name?: string;
+        payment_failed_template_name?: string;
         template_language?: string;
     };
 }
@@ -44,9 +47,26 @@ serve(async (req) => {
             throw new Error("Missing required WhatsApp configuration");
         }
 
-        const templateName = type === "customer"
-            ? (settings.customer_template_name || "booking_confirmation")
-            : (settings.instructor_template_name || "new_booking_instructor");
+        let templateName = "";
+        switch (type) {
+            case "customer":
+                templateName = settings.customer_template_name || "booking_confirmation";
+                break;
+            case "instructor":
+                templateName = settings.instructor_template_name || "new_booking_instructor";
+                break;
+            case "cancellation":
+                templateName = settings.cancelled_template_name || "booking_cancelled";
+                break;
+            case "reschedule":
+                templateName = settings.rescheduled_template_name || "booking_rescheduled";
+                break;
+            case "payment_failed":
+                templateName = settings.payment_failed_template_name || "payment_failed";
+                break;
+            default:
+                templateName = settings.customer_template_name || "booking_confirmation";
+        }
 
         const templateLanguage = settings.template_language || "en";
 
@@ -56,7 +76,7 @@ serve(async (req) => {
         // Construct parameters based on template type
         let parameters: any[] = [];
         if (type === "customer") {
-            // 1. Customer Name, 2. Event Title, 3. Date/Time, 4. Host Name, 5. Link
+            // New Booking (Customer)
             parameters = [
                 { type: "text", text: booking.attendee_name },
                 { type: "text", text: booking.event_type?.title || "Session" },
@@ -64,14 +84,38 @@ serve(async (req) => {
                 { type: "text", text: booking.host?.name || "the host" },
                 { type: "text", text: `${siteUrl}/booking/confirmed/${booking.id}` }
             ];
-        } else {
-            // 1. Instructor Name, 2. Event Title, 3. Date/Time, 4. Customer Name, 5. Link
+        } else if (type === "instructor") {
+            // New Booking (Instructor)
             parameters = [
                 { type: "text", text: "Instructor" },
                 { type: "text", text: booking.event_type?.title || "Session" },
                 { type: "text", text: formattedDate },
                 { type: "text", text: booking.attendee_name },
                 { type: "text", text: `${siteUrl}/dashboard/bookings` }
+            ];
+        } else if (type === "cancellation") {
+            // Cancellation (1. Name, 2. Event Title, 3. Date/Time, 4. Host Name)
+            parameters = [
+                { type: "text", text: booking.attendee_name },
+                { type: "text", text: booking.event_type?.title || "Session" },
+                { type: "text", text: formattedDate },
+                { type: "text", text: booking.host?.name || "the host" }
+            ];
+        } else if (type === "reschedule") {
+            // Reschedule (1. Name, 2. Event Title, 3. New Date/Time, 4. Link)
+            parameters = [
+                { type: "text", text: booking.attendee_name },
+                { type: "text", text: booking.event_type?.title || "Session" },
+                { type: "text", text: formattedDate },
+                { type: "text", text: `${siteUrl}/booking/confirmed/${booking.id}` }
+            ];
+        } else if (type === "payment_failed") {
+            // Payment Failed (1. Name, 2. Event Title, 3. Date/Time, 4. Link to retry)
+            parameters = [
+                { type: "text", text: booking.attendee_name },
+                { type: "text", text: booking.event_type?.title || "Session" },
+                { type: "text", text: formattedDate },
+                { type: "text", text: `${siteUrl}/booking/${booking.host?.username}/${booking.event_type?.slug}` }
             ];
         }
 

@@ -5,6 +5,7 @@ import { useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useA
 import { useBookingAvailability } from '@/hooks/useAvailabilitySchedules';
 import { useCreateBooking } from '@/hooks/useBookings';
 import { useTestimonials } from '@/hooks/useTestimonials';
+import { sendWhatsAppNotification } from '@/utils/whatsapp';
 import { useCreateRazorpayOrder, useVerifyRazorpayPayment, useCreateCashfreeOrder, useVerifyCashfreePayment } from '@/hooks/usePayments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -354,6 +355,14 @@ export default function PublicBookingPage() {
               await createBookingAfterPayment();
             } else {
               toast.error('Payment verification failed. Please try again.');
+              if (buildAttendeePhone()) {
+                await sendWhatsAppNotification(eventData.host.id, 'payment_failed', buildAttendeePhone()!, {
+                  attendee_name: attendeeName,
+                  event_type: { title: eventData.eventType.title },
+                  start_time: selectedSlot.startTime.toISOString(),
+                  host: { username: username, name: eventData.host.name }
+                });
+              }
             }
           } catch (error) {
             toast.error('Payment verification failed.');
@@ -412,6 +421,14 @@ export default function PublicBookingPage() {
       }).then(async (result: { error?: unknown }) => {
         if (result.error) {
           toast.error('Payment failed. Please try again.');
+          if (buildAttendeePhone()) {
+            await sendWhatsAppNotification(eventData.host.id, 'payment_failed', buildAttendeePhone()!, {
+              attendee_name: attendeeName,
+              event_type: { title: eventData.eventType.title, slug: eventSlug },
+              start_time: selectedSlot.startTime.toISOString(),
+              host: { username: username, name: eventData.host.name }
+            });
+          }
           setIsProcessingPayment(false);
           return;
         }
@@ -423,10 +440,26 @@ export default function PublicBookingPage() {
           await createBookingAfterPayment();
         } else {
           toast.error('Payment not completed. Please try again.');
+          if (buildAttendeePhone()) {
+            await sendWhatsAppNotification(eventData.host.id, 'payment_failed', buildAttendeePhone()!, {
+              attendee_name: attendeeName,
+              event_type: { title: eventData.eventType.title, slug: eventSlug },
+              start_time: selectedSlot.startTime.toISOString(),
+              host: { username: username, name: eventData.host.name }
+            });
+          }
         }
         setIsProcessingPayment(false);
-      }).catch(() => {
+      }).catch(async () => {
         toast.error('Payment was cancelled.');
+        if (buildAttendeePhone()) {
+          await sendWhatsAppNotification(eventData.host.id, 'payment_failed', buildAttendeePhone()!, {
+            attendee_name: attendeeName,
+            event_type: { title: eventData.eventType.title, slug: eventSlug },
+            start_time: selectedSlot.startTime.toISOString(),
+            host: { username: username, name: eventData.host.name }
+          });
+        }
         setIsProcessingPayment(false);
       });
     } catch (error) {

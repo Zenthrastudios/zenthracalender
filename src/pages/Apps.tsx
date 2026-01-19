@@ -13,6 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { toast } from 'sonner';
 import {
   Calendar,
@@ -29,7 +35,9 @@ import {
   MessageSquare,
   Lock,
   Globe,
-  Plus
+  Plus,
+  Copy,
+  Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -52,6 +60,9 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
     business_account_id: '',
     customer_template_name: 'booking_confirmation',
     instructor_template_name: 'new_booking_instructor',
+    cancelled_template_name: 'booking_cancelled',
+    rescheduled_template_name: 'booking_rescheduled',
+    payment_failed_template_name: 'payment_failed',
     template_language: 'en',
     is_enabled: true
   });
@@ -64,6 +75,9 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
         business_account_id: settings.business_account_id || '',
         customer_template_name: settings.customer_template_name || 'booking_confirmation',
         instructor_template_name: settings.instructor_template_name || 'new_booking_instructor',
+        cancelled_template_name: settings.cancelled_template_name || 'booking_cancelled',
+        rescheduled_template_name: settings.rescheduled_template_name || 'booking_rescheduled',
+        payment_failed_template_name: settings.payment_failed_template_name || 'payment_failed',
         template_language: settings.template_language || 'en',
         is_enabled: settings.is_enabled ?? true
       });
@@ -81,128 +95,253 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
     }
   };
 
+  const [activeTab, setActiveTab] = useState('config');
+
+  const TEMPLATE_GUIDES = [
+    {
+      id: 'customer',
+      name: 'Booking Confirmation (Customer)',
+      content: 'Hi {{1}}, your booking for {{2}} is confirmed on {{3}} with {{4}}. Link: {{5}}',
+      params: ['Customer Name', 'Event Title', 'Date/Time', 'Host Name', 'Confirmation Link']
+    },
+    {
+      id: 'instructor',
+      name: 'New Booking Alert (Instructor)',
+      content: 'Hi {{1}}, you have a new booking! Event: {{2}} Scheduled for: {{3}} Client: {{4}} Link: {{5}}',
+      params: ['Instructor/Host Name', 'Event Title', 'Date/Time', 'Customer Name', 'Dashboard Link']
+    },
+    {
+      id: 'cancellation',
+      name: 'Booking Cancelled',
+      content: 'Hi {{1}}, your booking for {{2}} on {{3}} has been cancelled by {{4}}.',
+      params: ['Attendee Name', 'Event Title', 'Date/Time', 'Canceller Name']
+    },
+    {
+      id: 'reschedule',
+      name: 'Booking Rescheduled',
+      content: 'Hi {{1}}, your booking for {{2}} has been rescheduled to {{3}}. Link: {{4}}',
+      params: ['Attendee Name', 'Event Title', 'New Date/Time', 'Confirmation Link']
+    },
+    {
+      id: 'payment_failed',
+      name: 'Payment Failed',
+      content: 'Hi {{1}}, the payment for your booking {{2}} on {{3}} failed. Please retry here: {{4}}',
+      params: ['Attendee Name', 'Event Title', 'Date/Time', 'Retry Link']
+    }
+  ];
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Template copied to clipboard!');
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg overflow-y-auto max-h-[90vh]">
+      <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
               <MessageSquare className="w-6 h-6" />
             </div>
             <div>
-              <DialogTitle>WhatsApp Configuration</DialogTitle>
+              <DialogTitle>WhatsApp Business API</DialogTitle>
               <DialogDescription>
-                Connect your WhatsApp Business API account
+                Configure credentials and message templates
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold flex items-center gap-2">
-              <Lock className="w-4 h-4 text-muted-foreground" />
-              API Credentials
-            </h4>
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="api_key">System User Access Token</Label>
-                <Input
-                  id="api_key"
-                  type="password"
-                  placeholder="EAAB..."
-                  value={formData.api_key}
-                  onChange={e => setFormData(prev => ({ ...prev, api_key: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone_id">Phone Number ID</Label>
-                  <Input
-                    id="phone_id"
-                    placeholder="1029384..."
-                    value={formData.phone_number_id}
-                    onChange={e => setFormData(prev => ({ ...prev, phone_number_id: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="account_id">Business Account ID</Label>
-                  <Input
-                    id="account_id"
-                    placeholder="0918273..."
-                    value={formData.business_account_id}
-                    onChange={e => setFormData(prev => ({ ...prev, business_account_id: e.target.value }))}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="config">Configuration</TabsTrigger>
+            <TabsTrigger value="templates">Templates Content</TabsTrigger>
+          </TabsList>
 
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold flex items-center gap-2">
-              <Globe className="w-4 h-4 text-muted-foreground" />
-              Message Templates
-            </h4>
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="customer_template">Customer Confirmation Template</Label>
-                <Input
-                  id="customer_template"
-                  placeholder="booking_confirmation"
-                  value={formData.customer_template_name}
-                  onChange={e => setFormData(prev => ({ ...prev, customer_template_name: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="instructor_template">Instructor Alert Template</Label>
-                <Input
-                  id="instructor_template"
-                  placeholder="new_booking_instructor"
-                  value={formData.instructor_template_name}
-                  onChange={e => setFormData(prev => ({ ...prev, instructor_template_name: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="template_language">Template Language Code</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="template_language"
-                    placeholder="en, en_US, etc."
-                    value={formData.template_language}
-                    onChange={e => setFormData(prev => ({ ...prev, template_language: e.target.value }))}
-                    className="flex-1"
-                  />
-                  <div className="text-xs text-muted-foreground bg-muted p-2 rounded border border-border flex-1">
-                    Use <strong>en</strong> for English, <strong>en_US</strong> for US English, etc. Match this exactly with your Meta dashboard.
+          <TabsContent value="config">
+            <form onSubmit={handleSubmit} className="space-y-6 py-4">
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-muted-foreground" />
+                  API Credentials
+                </h4>
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="api_key">System User Access Token</Label>
+                    <Input
+                      id="api_key"
+                      type="password"
+                      placeholder="EAAB..."
+                      value={formData.api_key}
+                      onChange={e => setFormData(prev => ({ ...prev, api_key: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone_id">Phone Number ID</Label>
+                      <Input
+                        id="phone_id"
+                        placeholder="1029384..."
+                        value={formData.phone_number_id}
+                        onChange={e => setFormData(prev => ({ ...prev, phone_number_id: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="account_id">Business Account ID</Label>
+                      <Input
+                        id="account_id"
+                        placeholder="0918273..."
+                        value={formData.business_account_id}
+                        onChange={e => setFormData(prev => ({ ...prev, business_account_id: e.target.value }))}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-            <div className="space-y-1">
-              <Label className="text-base">Enable WhatsApp Notifications</Label>
-              <p className="text-xs text-muted-foreground">Automatically send messages when bookings are made</p>
-            </div>
-            <Switch
-              checked={formData.is_enabled}
-              onCheckedChange={checked => setFormData(prev => ({ ...prev, is_enabled: checked }))}
-            />
-          </div>
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  Message Templates
+                </h4>
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="customer_template">Customer Confirmation Template</Label>
+                    <Input
+                      id="customer_template"
+                      placeholder="booking_confirmation"
+                      value={formData.customer_template_name}
+                      onChange={e => setFormData(prev => ({ ...prev, customer_template_name: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="instructor_template">Instructor Alert Template</Label>
+                    <Input
+                      id="instructor_template"
+                      placeholder="new_booking_instructor"
+                      value={formData.instructor_template_name}
+                      onChange={e => setFormData(prev => ({ ...prev, instructor_template_name: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cancelled_template">Booking Cancelled Template</Label>
+                    <Input
+                      id="cancelled_template"
+                      placeholder="booking_cancelled"
+                      value={formData.cancelled_template_name}
+                      onChange={e => setFormData(prev => ({ ...prev, cancelled_template_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rescheduled_template">Booking Rescheduled Template</Label>
+                    <Input
+                      id="rescheduled_template"
+                      placeholder="booking_rescheduled"
+                      value={formData.rescheduled_template_name}
+                      onChange={e => setFormData(prev => ({ ...prev, rescheduled_template_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_failed_template">Payment Failed Template</Label>
+                    <Input
+                      id="payment_failed_template"
+                      placeholder="payment_failed"
+                      value={formData.payment_failed_template_name}
+                      onChange={e => setFormData(prev => ({ ...prev, payment_failed_template_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="template_language">Template Language Code</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="template_language"
+                        placeholder="en, en_US, etc."
+                        value={formData.template_language}
+                        onChange={e => setFormData(prev => ({ ...prev, template_language: e.target.value }))}
+                        className="flex-1"
+                      />
+                      <div className="text-xs text-muted-foreground bg-muted p-2 rounded border border-border flex-1">
+                        Use <strong>en</strong> for English, <strong>en_US</strong> for US English, etc. Match this exactly with your Meta dashboard.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={updateSettings.isPending}>
-              {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Save Settings
-            </Button>
-          </DialogFooter>
-        </form>
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="space-y-1">
+                  <Label className="text-base">Enable WhatsApp Notifications</Label>
+                  <p className="text-xs text-muted-foreground">Automatically send messages when bookings are made</p>
+                </div>
+                <Switch
+                  checked={formData.is_enabled}
+                  onCheckedChange={checked => setFormData(prev => ({ ...prev, is_enabled: checked }))}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                <Button type="submit" disabled={updateSettings.isPending}>
+                  {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Settings
+                </Button>
+              </DialogFooter>
+            </form>
+          </TabsContent>
+
+          <TabsContent value="templates" className="py-4 space-y-6">
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 p-4 rounded-lg flex gap-3">
+              <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-amber-900 dark:text-amber-400">Important Meta Requirement</p>
+                <p className="text-amber-800/80 dark:text-amber-500/80">
+                  You must create these templates in your Meta Business Suite dashboard exactly as shown below for them to work correctly.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {TEMPLATE_GUIDES.map((guide) => (
+                <div key={guide.id} className="border border-border rounded-xl overflow-hidden bg-card">
+                  <div className="bg-muted/50 px-4 py-2 border-b border-border flex justify-between items-center">
+                    <span className="text-sm font-semibold">{guide.name}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-2"
+                      onClick={() => copyToClipboard(guide.content)}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy
+                    </Button>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    <div className="bg-muted p-3 rounded-lg font-mono text-sm break-words border border-border">
+                      {guide.content}
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Parameters Mapping:</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {guide.params.map((param, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs">
+                            <span className="w-4 h-4 flex items-center justify-center bg-primary/10 text-primary rounded-full shrink-0 font-bold">
+                              {i + 1}
+                            </span>
+                            <span className="text-muted-foreground">{param}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
@@ -214,7 +353,7 @@ interface AppIntegration {
   description: string;
   icon: React.ReactNode;
   category: 'calendar' | 'conferencing' | 'email' | 'automation';
-  provider: string | null; // Maps to database provider
+  provider: string | null;
   connected: boolean;
   popular?: boolean;
   features: string[];
@@ -254,7 +393,7 @@ const BASE_INTEGRATIONS: Omit<AppIntegration, 'connected' | 'connectedEmail'>[] 
     description: 'Automatically create Google Meet video conferencing links for your bookings.',
     icon: <Video className="w-6 h-6 text-green-500" />,
     category: 'conferencing',
-    provider: 'google', // Uses same Google OAuth
+    provider: 'google',
     popular: true,
     features: [
       'Auto-generate meeting links',
@@ -269,7 +408,7 @@ const BASE_INTEGRATIONS: Omit<AppIntegration, 'connected' | 'connectedEmail'>[] 
     description: 'Send booking confirmations and reminders through your Gmail account.',
     icon: <Mail className="w-6 h-6 text-red-500" />,
     category: 'email',
-    provider: 'google', // Uses same Google OAuth
+    provider: 'google',
     features: [
       'Custom email templates',
       'Send from your email address',
@@ -283,7 +422,7 @@ const BASE_INTEGRATIONS: Omit<AppIntegration, 'connected' | 'connectedEmail'>[] 
     description: 'Create Zoom meeting links automatically when attendees book a video call.',
     icon: <Video className="w-6 h-6 text-blue-600" />,
     category: 'conferencing',
-    provider: null, // Not yet implemented
+    provider: null,
     popular: true,
     features: [
       'Auto-generate Zoom links',
@@ -298,7 +437,7 @@ const BASE_INTEGRATIONS: Omit<AppIntegration, 'connected' | 'connectedEmail'>[] 
     description: 'Connect your Microsoft Outlook calendar for seamless scheduling.',
     icon: <Calendar className="w-6 h-6 text-blue-700" />,
     category: 'calendar',
-    provider: null, // Not yet implemented
+    provider: null,
     features: [
       'Two-way sync with Outlook',
       'Microsoft 365 integration',
@@ -312,7 +451,7 @@ const BASE_INTEGRATIONS: Omit<AppIntegration, 'connected' | 'connectedEmail'>[] 
     description: 'Connect to 5000+ apps with automated workflows triggered by your bookings.',
     icon: <Zap className="w-6 h-6 text-orange-500" />,
     category: 'automation',
-    provider: null, // Not yet implemented
+    provider: null,
     features: [
       'Connect to 5000+ apps',
       'Trigger on new bookings',
@@ -357,14 +496,12 @@ export default function Apps() {
   const [selectedApp, setSelectedApp] = useState<AppIntegration | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Handle OAuth callback
   useEffect(() => {
     const connected = searchParams.get('connected');
     const error = searchParams.get('error');
 
     if (connected === 'google') {
       toast.success('Google connected successfully!');
-      // Clear params from URL
       window.history.replaceState({}, '', '/dashboard/apps');
     } else if (error) {
       toast.error('Failed to connect. Please try again.');
@@ -372,7 +509,6 @@ export default function Apps() {
     }
   }, [searchParams]);
 
-  // Build apps list with connection status
   const apps: AppIntegration[] = BASE_INTEGRATIONS.map(app => {
     const integration = integrations?.find(i => i.provider === app.provider);
     return {
@@ -398,7 +534,6 @@ export default function Apps() {
       setIsConnecting(true);
       try {
         const authUrl = await connectGoogle.mutateAsync();
-        // Redirect to Google OAuth
         window.location.href = authUrl;
       } catch (error: any) {
         console.error('Connect error:', error);
@@ -423,13 +558,11 @@ export default function Apps() {
   return (
     <DashboardLayout>
       <div className="px-4 py-6 sm:p-8 max-w-5xl">
-        {/* Header */}
         <div className="mb-6 sm:mb-8">
           <h1 className="text-xl sm:text-2xl font-bold">Apps & Integrations</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Connect your favorite tools to enhance your scheduling</p>
         </div>
 
-        {/* Connected Apps Summary */}
         {connectedApps.length > 0 && (
           <div className="mb-6 sm:mb-8 p-4 bg-card rounded-xl border border-border">
             <div className="flex items-center gap-2 mb-3">
@@ -457,7 +590,6 @@ export default function Apps() {
           </div>
         )}
 
-        {/* Category Filter */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {CATEGORIES.map(cat => (
             <Button
@@ -472,7 +604,6 @@ export default function Apps() {
           ))}
         </div>
 
-        {/* Apps Grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -535,7 +666,6 @@ export default function Apps() {
           </div>
         )}
 
-        {/* App Detail Dialog */}
         <Dialog open={!!selectedApp && selectedApp.id !== 'whatsapp'} onOpenChange={() => setSelectedApp(null)}>
           <DialogContent className="max-w-md">
             {selectedApp && selectedApp.id !== 'whatsapp' && (
@@ -647,15 +777,11 @@ export default function Apps() {
           </DialogContent>
         </Dialog>
 
-        {/* WhatsApp Config Dialog */}
         <WhatsAppConfigDialog
           isOpen={!!selectedApp && selectedApp.id === 'whatsapp'}
           onClose={() => setSelectedApp(null)}
         />
 
-        {/* Help Section */}
-
-        {/* Help Section */}
         <div className="mt-8 p-6 bg-card rounded-xl border border-border">
           <h3 className="font-semibold mb-2">Need a different integration?</h3>
           <p className="text-sm text-muted-foreground mb-4">

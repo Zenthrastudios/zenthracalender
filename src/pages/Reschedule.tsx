@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { format, addDays, isBefore, startOfDay, isToday } from 'date-fns';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { sendWhatsAppNotification } from '@/utils/whatsapp';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -239,6 +240,16 @@ export default function Reschedule() {
         });
       } catch (emailError) {
         console.error('Failed to send email:', emailError);
+      }
+
+      // Send WhatsApp reschedule
+      if (booking.attendee_phone) {
+        await sendWhatsAppNotification(booking.host_id, 'reschedule', booking.attendee_phone, {
+          ...booking,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          host_name: hostProfile?.name || 'Host'
+        });
       }
 
       setIsRescheduled(true);

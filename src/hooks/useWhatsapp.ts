@@ -10,6 +10,9 @@ export interface WhatsappSettings {
     business_account_id: string | null;
     customer_template_name: string;
     instructor_template_name: string;
+    cancelled_template_name: string;
+    rescheduled_template_name: string;
+    payment_failed_template_name: string;
     template_language: string;
     is_enabled: boolean;
     created_at: string;

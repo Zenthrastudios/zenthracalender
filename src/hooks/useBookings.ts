@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendWhatsAppNotification } from '@/utils/whatsapp';
 
 export interface CustomResponse {
   fieldId: string;
@@ -213,69 +214,40 @@ export function useCreateBooking() {
       }
 
       // Send WhatsApp messages if enabled
-      try {
-        const { data: whatsappSettings } = await (supabase as any)
-          .from('whatsapp_settings')
-          .select('*')
-          .eq('user_id', data.host_id)
-          .eq('is_enabled', true)
+      if (data.attendee_phone) {
+        await sendWhatsAppNotification(data.host_id, 'customer', data.attendee_phone, {
+          ...newBooking,
+          host_name: hostProfile?.name || 'Host',
+          meet_link: meetLink
+        });
+      }
+
+      // Send to Instructor/Host
+      let instructorPhone = null;
+      if (eventType?.instructor_id) {
+        const { data: instr } = await supabase
+          .from('instructors')
+          .select('phone')
+          .eq('id', eventType.instructor_id)
           .maybeSingle();
+        instructorPhone = instr?.phone;
+      }
 
-        if (whatsappSettings && whatsappSettings.api_key) {
-          // Fetch instructor/host phone
-          let instructorPhone = null;
-          if (eventType?.instructor_id) {
-            const { data: instr } = await supabase
-              .from('instructors')
-              .select('phone')
-              .eq('id', eventType.instructor_id)
-              .maybeSingle();
-            instructorPhone = instr?.phone;
-          }
+      if (!instructorPhone) {
+        const { data: hostProfileDetails } = await supabase
+          .from('profiles')
+          .select('phone')
+          .eq('user_id', data.host_id)
+          .maybeSingle();
+        instructorPhone = hostProfileDetails?.phone;
+      }
 
-          if (!instructorPhone) {
-            const { data: hostProfileDetails } = await supabase
-              .from('profiles')
-              .select('phone')
-              .eq('user_id', data.host_id)
-              .maybeSingle();
-            instructorPhone = hostProfileDetails?.phone;
-          }
-
-          // Send to Customer
-          if (data.attendee_phone) {
-            await supabase.functions.invoke('send-whatsapp-message', {
-              body: {
-                type: 'customer',
-                recipient_phone: data.attendee_phone,
-                settings: whatsappSettings,
-                booking: {
-                  ...newBooking,
-                  host_name: hostProfile?.name || 'Host',
-                  meet_link: meetLink
-                }
-              }
-            });
-          }
-
-          // Send to Instructor/Host
-          if (instructorPhone) {
-            await supabase.functions.invoke('send-whatsapp-message', {
-              body: {
-                type: 'instructor',
-                recipient_phone: instructorPhone,
-                settings: whatsappSettings,
-                booking: {
-                  ...newBooking,
-                  host_name: hostProfile?.name || 'Host',
-                  meet_link: meetLink
-                }
-              }
-            });
-          }
-        }
-      } catch (waError) {
-        console.error('Failed to send WhatsApp messages:', waError);
+      if (instructorPhone) {
+        await sendWhatsAppNotification(data.host_id, 'instructor', instructorPhone, {
+          ...newBooking,
+          host_name: hostProfile?.name || 'Host',
+          meet_link: meetLink
+        });
       }
 
       return {
@@ -325,6 +297,21 @@ export function useCancelBooking() {
         });
       } catch (emailError) {
         console.error('Failed to send cancellation email:', emailError);
+      }
+
+      // Send WhatsApp cancellation
+      if (booking.attendee_phone) {
+        // Fetch host profile if not already fetched
+        const { data: hostProfile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('user_id', booking.host_id)
+          .single();
+
+        await sendWhatsAppNotification(booking.host_id, 'cancellation', booking.attendee_phone, {
+          ...booking,
+          host_name: hostProfile?.name || 'Host'
+        });
       }
     },
     onSuccess: () => {
