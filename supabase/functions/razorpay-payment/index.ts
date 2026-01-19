@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const RAZORPAY_KEY_ID = Deno.env.get("RAZORPAY_KEY_ID");
-const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -16,11 +14,12 @@ const corsHeaders = {
 interface CreateOrderRequest {
   action: "create-order";
   bookingId: string;
-  amount: number; // Amount in paise (e.g., 50000 for ₹500)
+  amount: number; // Amount in paise
   currency?: string;
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
+  hostId: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -35,13 +34,27 @@ const handler = async (req: Request): Promise<Response> => {
     const body = await req.json();
 
     if (body.action === "create-order") {
-      const { bookingId, amount, currency = "INR", customerName, customerEmail } = body as CreateOrderRequest;
+      const { bookingId, amount, currency = "INR", customerName, customerEmail, hostId } = body as CreateOrderRequest;
 
-      if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-        throw new Error("Razorpay credentials not configured");
+      // Fetch user-specific Razorpay settings
+      const { data: settings, error: settingsError } = await supabase
+        .from("payment_settings")
+        .select("razorpay_key_id, razorpay_key_secret, is_razorpay_enabled")
+        .eq("user_id", hostId)
+        .maybeSingle();
+
+      if (settingsError || !settings || !settings.is_razorpay_enabled) {
+        throw new Error("Razorpay is not enabled or configured for this host");
       }
 
-      const authHeader = btoa(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`);
+      const keyId = settings.razorpay_key_id;
+      const keySecret = settings.razorpay_key_secret;
+
+      if (!keyId || !keySecret) {
+        throw new Error("Razorpay credentials not configured for this host");
+      }
+
+      const authHeader = btoa(`${keyId}:${keySecret}`);
 
       const orderPayload = {
         amount: amount, // Amount in paise
@@ -51,6 +64,7 @@ const handler = async (req: Request): Promise<Response> => {
           booking_id: bookingId,
           customer_name: customerName,
           customer_email: customerEmail,
+          host_id: hostId,
         },
       };
 
@@ -74,12 +88,13 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Store payment record
       await supabase.from("payments").insert({
-        booking_id: bookingId,
+        booking_id: bookingId.startsWith('temp_') ? null : bookingId,
         provider: "razorpay",
         order_id: orderResult.id,
         amount: amount / 100, // Convert paise to rupees
         currency: currency,
         status: "pending",
+        metadata: { host_id: hostId }
       });
 
       return new Response(JSON.stringify({
@@ -87,7 +102,7 @@ const handler = async (req: Request): Promise<Response> => {
         orderId: orderResult.id,
         amount: orderResult.amount,
         currency: orderResult.currency,
-        keyId: RAZORPAY_KEY_ID,
+        keyId: keyId,
       }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -96,14 +111,36 @@ const handler = async (req: Request): Promise<Response> => {
     } else if (body.action === "verify-payment") {
       const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
 
-      if (!RAZORPAY_KEY_SECRET) {
-        throw new Error("Razorpay credentials not configured");
+      // Fetch the host ID from the payment record
+      const { data: payment, error: paymentError } = await supabase
+        .from("payments")
+        .select("metadata")
+        .eq("order_id", razorpayOrderId)
+        .single();
+
+      if (paymentError || !payment || !payment.metadata || typeof payment.metadata !== 'object') {
+        throw new Error("Payment record not found");
       }
+
+      const hostId = (payment.metadata as any).host_id;
+
+      // Fetch host-specific secret
+      const { data: settings, error: settingsError } = await supabase
+        .from("payment_settings")
+        .select("razorpay_key_secret")
+        .eq("user_id", hostId)
+        .maybeSingle();
+
+      if (settingsError || !settings || !settings.razorpay_key_secret) {
+        throw new Error("Razorpay credentials not configured for this host");
+      }
+
+      const keySecret = settings.razorpay_key_secret;
 
       // Verify signature
       const generatedSignature = await generateSignature(
         `${razorpayOrderId}|${razorpayPaymentId}`,
-        RAZORPAY_KEY_SECRET
+        keySecret
       );
 
       const isValid = generatedSignature === razorpaySignature;
@@ -113,10 +150,10 @@ const handler = async (req: Request): Promise<Response> => {
         // Update payment record
         await supabase
           .from("payments")
-          .update({ 
+          .update({
             status: "completed",
             payment_id: razorpayPaymentId,
-            metadata: { razorpayOrderId, razorpayPaymentId, razorpaySignature },
+            metadata: { ...((payment.metadata as object) || {}), razorpayOrderId, razorpayPaymentId, razorpaySignature },
           })
           .eq("order_id", razorpayOrderId);
 
@@ -144,7 +181,7 @@ const handler = async (req: Request): Promise<Response> => {
         });
       }
 
-    } else if (body.action === "webhook" || body.event) {
+    } else if (body.action === "webhook") {
       // Handle Razorpay webhook
       console.log("Received Razorpay webhook:", JSON.stringify(body));
 
@@ -158,7 +195,7 @@ const handler = async (req: Request): Promise<Response> => {
         if (orderId) {
           await supabase
             .from("payments")
-            .update({ 
+            .update({
               status: "completed",
               payment_id: paymentId,
               metadata: payload,
@@ -173,7 +210,7 @@ const handler = async (req: Request): Promise<Response> => {
         if (orderId) {
           await supabase
             .from("payments")
-            .update({ 
+            .update({
               status: "failed",
               metadata: payload,
             })

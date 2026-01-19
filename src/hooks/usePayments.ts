@@ -50,6 +50,7 @@ export function useCreateCashfreeOrder() {
       customerEmail: string;
       customerPhone?: string;
       returnUrl: string;
+      hostId: string;
     }) => {
       const { data: result, error } = await supabase.functions.invoke('cashfree-payment', {
         body: {
@@ -98,6 +99,7 @@ export function useCreateRazorpayOrder() {
       customerName: string;
       customerEmail: string;
       customerPhone?: string;
+      hostId: string;
     }) => {
       const { data: result, error } = await supabase.functions.invoke('razorpay-payment', {
         body: {

@@ -325,12 +325,12 @@ export default function PublicBookingPage() {
     try {
       const tempBookingId = `temp_${Date.now()}`;
       const amountInPaise = Math.round(eventPrice * 100);
-
       const orderResult = await createRazorpayOrder.mutateAsync({
         bookingId: tempBookingId,
         amount: amountInPaise,
         customerName: attendeeName,
         customerEmail: attendeeEmail,
+        hostId: eventData.host.id,
       });
 
       const RazorpayCtor = window.Razorpay as unknown as (new (opts: unknown) => { open: () => void });
@@ -398,13 +398,13 @@ export default function PublicBookingPage() {
     setIsProcessingPayment(true);
     try {
       const tempBookingId = `temp_${Date.now()}`;
-
       const orderResult = await createCashfreeOrder.mutateAsync({
         bookingId: tempBookingId,
         amount: eventPrice,
         customerName: attendeeName,
         customerEmail: attendeeEmail,
         returnUrl: window.location.href,
+        hostId: eventData.host.id,
       });
 
       // Use Cashfree Drop-in checkout

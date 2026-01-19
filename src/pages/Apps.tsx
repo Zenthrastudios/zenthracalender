@@ -44,6 +44,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useWhatsappSettings, useUpdateWhatsappSettings } from '@/hooks/useWhatsapp';
+import { usePaymentSettings, useUpdatePaymentSettings } from '@/hooks/usePaymentSettings';
+import { CreditCard, Wallet, IndianRupee } from 'lucide-react';
 
 interface WhatsAppConfigProps {
   isOpen: boolean;
@@ -101,31 +103,36 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
     {
       id: 'customer',
       name: 'Booking Confirmation (Customer)',
-      content: 'Hi {{1}}, your booking for {{2}} is confirmed on {{3}} with {{4}}. Link: {{5}}',
+      refName: 'booking_confirmation',
+      content: 'Hello {{1}}! We are happy to confirm your booking for {{2}} scheduled for {{3}} with {{4}}. You can view your booking details and access the meeting link here: {{5}}. Thank you for your booking!',
       params: ['Customer Name', 'Event Title', 'Date/Time', 'Host Name', 'Confirmation Link']
     },
     {
       id: 'instructor',
       name: 'New Booking Alert (Instructor)',
-      content: 'Hi {{1}}, you have a new booking! Event: {{2}} Scheduled for: {{3}} Client: {{4}} Link: {{5}}',
+      refName: 'new_booking_instructor',
+      content: 'New Booking Alert! Hello {{1}}, a new session for {{2}} has been scheduled by a client for {{3}} with {{4}}. Please check your dashboard for further details and to prepare for the session here: {{5}}. Have a great day!',
       params: ['Instructor/Host Name', 'Event Title', 'Date/Time', 'Customer Name', 'Dashboard Link']
     },
     {
       id: 'cancellation',
       name: 'Booking Cancelled',
-      content: 'Hi {{1}}, your booking for {{2}} on {{3}} has been cancelled by {{4}}.',
+      refName: 'booking_cancelled',
+      content: 'Booking Cancellation: Hello {{1}}, we are writing to inform you that your upcoming booking for {{2}} on {{3}} has been cancelled by {{4}}. If you believe this is an error or need further assistance, please contact our support team. We apologize for any inconvenience caused.',
       params: ['Attendee Name', 'Event Title', 'Date/Time', 'Canceller Name']
     },
     {
       id: 'reschedule',
       name: 'Booking Rescheduled',
-      content: 'Hi {{1}}, your booking for {{2}} has been rescheduled to {{3}}. Link: {{4}}',
+      refName: 'booking_rescheduled',
+      content: 'Booking Rescheduled: Hello {{1}}, your booking for {{2}} has been successfully rescheduled to a new time: {{3}}. You can view the updated confirmation and details using this link: {{4}}. We look forward to seeing you then!',
       params: ['Attendee Name', 'Event Title', 'New Date/Time', 'Confirmation Link']
     },
     {
       id: 'payment_failed',
       name: 'Payment Failed',
-      content: 'Hi {{1}}, the payment for your booking {{2}} on {{3}} failed. Please retry here: {{4}}',
+      refName: 'payment_failed',
+      content: 'Important: Payment Failed. Hello {{1}}, we were unable to process the payment for your booking for {{2}} on {{3}}. To secure your spot, please retry the payment using this link: {{4}}. If the issue persists, please contact your bank or reach out to us for support.',
       params: ['Attendee Name', 'Event Title', 'Date/Time', 'Retry Link']
     }
   ];
@@ -308,7 +315,10 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
               {TEMPLATE_GUIDES.map((guide) => (
                 <div key={guide.id} className="border border-border rounded-xl overflow-hidden bg-card">
                   <div className="bg-muted/50 px-4 py-2 border-b border-border flex justify-between items-center">
-                    <span className="text-sm font-semibold">{guide.name}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold">{guide.name}</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">Meta Template Name: <span className="text-primary font-bold">{guide.refName}</span></span>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -347,12 +357,206 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
   );
 }
 
+function RazorpayConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { data: settings } = usePaymentSettings();
+  const updateSettings = useUpdatePaymentSettings();
+
+  const [formData, setFormData] = useState({
+    razorpay_key_id: '',
+    razorpay_key_secret: '',
+    is_razorpay_enabled: true
+  });
+
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        razorpay_key_id: settings.razorpay_key_id || '',
+        razorpay_key_secret: settings.razorpay_key_secret || '',
+        is_razorpay_enabled: settings.is_razorpay_enabled ?? true
+      });
+    }
+  }, [settings]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateSettings.mutateAsync(formData);
+      toast.success('Razorpay settings updated successfully!');
+      onClose();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update settings');
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+              <IndianRupee className="w-6 h-6" />
+            </div>
+            <div>
+              <DialogTitle>Razorpay Integration</DialogTitle>
+              <DialogDescription>
+                Configure your Razorpay API keys to accept payments
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="rzp_key">Key ID</Label>
+              <Input
+                id="rzp_key"
+                placeholder="rzp_live_..."
+                value={formData.razorpay_key_id}
+                onChange={e => setFormData(prev => ({ ...prev, razorpay_key_id: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="rzp_secret">Key Secret</Label>
+              <Input
+                id="rzp_secret"
+                type="password"
+                placeholder="••••••••••••"
+                value={formData.razorpay_key_secret}
+                onChange={e => setFormData(prev => ({ ...prev, razorpay_key_secret: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+            <div className="space-y-1">
+              <Label className="text-base">Enable Razorpay</Label>
+              <p className="text-xs text-muted-foreground">Accept payments via Razorpay on your booking pages</p>
+            </div>
+            <Switch
+              checked={formData.is_razorpay_enabled}
+              onCheckedChange={checked => setFormData(prev => ({ ...prev, is_razorpay_enabled: checked }))}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={updateSettings.isPending}>
+              {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save Settings
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CashfreeConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { data: settings } = usePaymentSettings();
+  const updateSettings = useUpdatePaymentSettings();
+
+  const [formData, setFormData] = useState({
+    cashfree_app_id: '',
+    cashfree_secret_key: '',
+    is_cashfree_enabled: true
+  });
+
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        cashfree_app_id: settings.cashfree_app_id || '',
+        cashfree_secret_key: settings.cashfree_secret_key || '',
+        is_cashfree_enabled: settings.is_cashfree_enabled ?? true
+      });
+    }
+  }, [settings]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateSettings.mutateAsync(formData);
+      toast.success('Cashfree settings updated successfully!');
+      onClose();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update settings');
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-cyan-50 text-cyan-600 rounded-lg">
+              <CreditCard className="w-6 h-6" />
+            </div>
+            <div>
+              <DialogTitle>Cashfree Integration</DialogTitle>
+              <DialogDescription>
+                Configure your Cashfree App ID and Secret Key
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cf_id">App ID</Label>
+              <Input
+                id="cf_id"
+                placeholder="Enter App ID"
+                value={formData.cashfree_app_id}
+                onChange={e => setFormData(prev => ({ ...prev, cashfree_app_id: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cf_secret">Secret Key</Label>
+              <Input
+                id="cf_secret"
+                type="password"
+                placeholder="••••••••••••"
+                value={formData.cashfree_secret_key}
+                onChange={e => setFormData(prev => ({ ...prev, cashfree_secret_key: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+            <div className="space-y-1">
+              <Label className="text-base">Enable Cashfree</Label>
+              <p className="text-xs text-muted-foreground">Accept payments via Cashfree on your booking pages</p>
+            </div>
+            <Switch
+              checked={formData.is_cashfree_enabled}
+              onCheckedChange={checked => setFormData(prev => ({ ...prev, is_cashfree_enabled: checked }))}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={updateSettings.isPending}>
+              {updateSettings.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save Settings
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface AppIntegration {
   id: string;
   name: string;
   description: string;
   icon: React.ReactNode;
-  category: 'calendar' | 'conferencing' | 'email' | 'automation';
+  category: 'calendar' | 'conferencing' | 'email' | 'automation' | 'payments';
   provider: string | null;
   connected: boolean;
   popular?: boolean;
@@ -475,6 +679,37 @@ const BASE_INTEGRATIONS: Omit<AppIntegration, 'connected' | 'connectedEmail'>[] 
       'Higher open rates than email',
     ],
   },
+  {
+    id: 'razorpay',
+    name: 'Razorpay',
+    description: 'Accept payments in INR with Razorpay. Supports UPI, Cards, and Netbanking.',
+    icon: <IndianRupee className="w-6 h-6 text-blue-500" />,
+    category: 'payments',
+    provider: 'razorpay',
+    popular: true,
+    requiresConfig: true,
+    features: [
+      'Accept UPI payments',
+      'Card & Netbanking support',
+      'Automatic refund handling',
+      'Payment analytics',
+    ],
+  },
+  {
+    id: 'cashfree',
+    name: 'Cashfree Payments',
+    description: 'Fastest way to collect payments in India. Supports 120+ payment modes.',
+    icon: <CreditCard className="w-6 h-6 text-cyan-600" />,
+    category: 'payments',
+    provider: 'cashfree',
+    requiresConfig: true,
+    features: [
+      '120+ payment modes',
+      'Instant settlements',
+      'Low transaction fees',
+      'Mobile SDK support',
+    ],
+  },
 ];
 
 const CATEGORIES = [
@@ -482,6 +717,7 @@ const CATEGORIES = [
   { id: 'calendar', label: 'Calendars' },
   { id: 'conferencing', label: 'Video Conferencing' },
   { id: 'email', label: 'Email' },
+  { id: 'payments', label: 'Payments' },
   { id: 'automation', label: 'Automation' },
 ];
 
@@ -489,6 +725,8 @@ export default function Apps() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const { data: integrations, isLoading } = useIntegrations();
+  const { data: whatsappSettings } = useWhatsappSettings();
+  const { data: paymentSettings } = usePaymentSettings();
   const connectGoogle = useConnectGoogle();
   const disconnectIntegration = useDisconnectIntegration();
 
@@ -510,11 +748,29 @@ export default function Apps() {
   }, [searchParams]);
 
   const apps: AppIntegration[] = BASE_INTEGRATIONS.map(app => {
-    const integration = integrations?.find(i => i.provider === app.provider);
+    let connected = false;
+    let connectedEmail = null;
+
+    if (app.provider === 'google') {
+      const gIntegration = integrations?.find(i => i.provider === 'google');
+      connected = !!gIntegration;
+      connectedEmail = gIntegration?.provider_email;
+    } else if (app.id === 'whatsapp') {
+      connected = !!whatsappSettings?.is_enabled && !!whatsappSettings?.api_key;
+    } else if (app.id === 'razorpay') {
+      connected = !!paymentSettings?.is_razorpay_enabled && !!paymentSettings?.razorpay_key_id;
+    } else if (app.id === 'cashfree') {
+      connected = !!paymentSettings?.is_cashfree_enabled && !!paymentSettings?.cashfree_app_id;
+    } else {
+      const integration = integrations?.find(i => i.provider === app.provider);
+      connected = !!integration;
+      connectedEmail = integration?.provider_email;
+    }
+
     return {
       ...app,
-      connected: !!integration,
-      connectedEmail: integration?.provider_email,
+      connected,
+      connectedEmail,
     };
   });
 
@@ -543,11 +799,22 @@ export default function Apps() {
     }
   };
 
+  const updateWhatsapp = useUpdateWhatsappSettings();
+  const updatePayment = useUpdatePaymentSettings();
+
   const handleDisconnect = async (app: AppIntegration) => {
     if (!app.provider) return;
 
     try {
-      await disconnectIntegration.mutateAsync(app.provider);
+      if (app.id === 'whatsapp') {
+        await updateWhatsapp.mutateAsync({ is_enabled: false });
+      } else if (app.id === 'razorpay') {
+        await updatePayment.mutateAsync({ is_razorpay_enabled: false });
+      } else if (app.id === 'cashfree') {
+        await updatePayment.mutateAsync({ is_cashfree_enabled: false });
+      } else {
+        await disconnectIntegration.mutateAsync(app.provider);
+      }
       setSelectedApp(null);
       toast.success(`${app.name} disconnected`);
     } catch (error: any) {
@@ -666,9 +933,12 @@ export default function Apps() {
           </div>
         )}
 
-        <Dialog open={!!selectedApp && selectedApp.id !== 'whatsapp'} onOpenChange={() => setSelectedApp(null)}>
+        <Dialog
+          open={!!selectedApp && !['whatsapp', 'razorpay', 'cashfree'].includes(selectedApp.id)}
+          onOpenChange={() => setSelectedApp(null)}
+        >
           <DialogContent className="max-w-md">
-            {selectedApp && selectedApp.id !== 'whatsapp' && (
+            {selectedApp && !['whatsapp', 'razorpay', 'cashfree'].includes(selectedApp.id) && (
               <>
                 <DialogHeader>
                   <div className="flex items-center gap-3">
@@ -779,6 +1049,16 @@ export default function Apps() {
 
         <WhatsAppConfigDialog
           isOpen={!!selectedApp && selectedApp.id === 'whatsapp'}
+          onClose={() => setSelectedApp(null)}
+        />
+
+        <RazorpayConfigDialog
+          isOpen={!!selectedApp && selectedApp.id === 'razorpay'}
+          onClose={() => setSelectedApp(null)}
+        />
+
+        <CashfreeConfigDialog
+          isOpen={!!selectedApp && selectedApp.id === 'cashfree'}
           onClose={() => setSelectedApp(null)}
         />
 

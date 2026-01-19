@@ -1,8 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const CASHFREE_APP_ID = Deno.env.get("CASHFREE_APP_ID");
-const CASHFREE_SECRET_KEY = Deno.env.get("CASHFREE_SECRET_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -23,10 +21,7 @@ interface CreateOrderRequest {
   customerEmail: string;
   customerPhone?: string;
   returnUrl: string;
-}
-
-interface WebhookRequest {
-  action: "webhook";
+  hostId: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -41,10 +36,24 @@ const handler = async (req: Request): Promise<Response> => {
     const body = await req.json();
 
     if (body.action === "create-order") {
-      const { bookingId, amount, currency = "INR", customerName, customerEmail, customerPhone, returnUrl } = body as CreateOrderRequest;
+      const { bookingId, amount, currency = "INR", customerName, customerEmail, customerPhone, returnUrl, hostId } = body as CreateOrderRequest;
 
-      if (!CASHFREE_APP_ID || !CASHFREE_SECRET_KEY) {
-        throw new Error("Cashfree credentials not configured");
+      // Fetch user-specific Cashfree settings
+      const { data: settings, error: settingsError } = await supabase
+        .from("payment_settings")
+        .select("cashfree_app_id, cashfree_secret_key, is_cashfree_enabled")
+        .eq("user_id", hostId)
+        .maybeSingle();
+
+      if (settingsError || !settings || !settings.is_cashfree_enabled) {
+        throw new Error("Cashfree is not enabled or configured for this host");
+      }
+
+      const appId = settings.cashfree_app_id;
+      const secretKey = settings.cashfree_secret_key;
+
+      if (!appId || !secretKey) {
+        throw new Error("Cashfree credentials not configured for this host");
       }
 
       const orderId = `order_${bookingId}_${Date.now()}`;
@@ -73,8 +82,8 @@ const handler = async (req: Request): Promise<Response> => {
         headers: {
           "Content-Type": "application/json",
           "x-api-version": "2023-08-01",
-          "x-client-id": CASHFREE_APP_ID,
-          "x-client-secret": CASHFREE_SECRET_KEY,
+          "x-client-id": appId,
+          "x-client-secret": secretKey,
         },
         body: JSON.stringify(orderPayload),
       });
@@ -88,12 +97,13 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Store payment record
       await supabase.from("payments").insert({
-        booking_id: bookingId,
+        booking_id: bookingId.startsWith('temp_') ? null : bookingId,
         provider: "cashfree",
         order_id: orderId,
         amount: amount,
         currency: currency,
         status: "pending",
+        metadata: { host_id: hostId }
       });
 
       return new Response(JSON.stringify({
@@ -106,21 +116,20 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
 
-    } else if (body.action === "webhook" || body.data?.order?.order_id) {
+    } else if (body.action === "webhook") {
       // Handle webhook from Cashfree
       console.log("Received Cashfree webhook:", JSON.stringify(body));
 
       const orderId = body.data?.order?.order_id;
-      const orderStatus = body.data?.order?.order_status;
       const paymentStatus = body.data?.payment?.payment_status;
 
       if (orderId) {
-        const status = paymentStatus === "SUCCESS" ? "completed" : 
-                       paymentStatus === "FAILED" ? "failed" : "pending";
+        const status = paymentStatus === "SUCCESS" ? "completed" :
+          paymentStatus === "FAILED" ? "failed" : "pending";
 
         await supabase
           .from("payments")
-          .update({ 
+          .update({
             status: status,
             payment_id: body.data?.payment?.cf_payment_id,
             metadata: body.data,
@@ -138,12 +147,36 @@ const handler = async (req: Request): Promise<Response> => {
     } else if (body.action === "verify-payment") {
       const { orderId } = body;
 
+      // Fetch the host ID from the payment record
+      const { data: payment, error: paymentError } = await supabase
+        .from("payments")
+        .select("metadata")
+        .eq("order_id", orderId)
+        .single();
+
+      if (paymentError || !payment || !payment.metadata || typeof payment.metadata !== 'object') {
+        throw new Error("Payment record not found");
+      }
+
+      const hostId = (payment.metadata as any).host_id;
+
+      // Fetch host-specific settings
+      const { data: settings, error: settingsError } = await supabase
+        .from("payment_settings")
+        .select("cashfree_app_id, cashfree_secret_key")
+        .eq("user_id", hostId)
+        .maybeSingle();
+
+      if (settingsError || !settings || !settings.cashfree_app_id || !settings.cashfree_secret_key) {
+        throw new Error("Cashfree credentials not configured for this host");
+      }
+
       const response = await fetch(`${CASHFREE_API_URL}/orders/${orderId}`, {
         method: "GET",
         headers: {
           "x-api-version": "2023-08-01",
-          "x-client-id": CASHFREE_APP_ID!,
-          "x-client-secret": CASHFREE_SECRET_KEY!,
+          "x-client-id": settings.cashfree_app_id,
+          "x-client-secret": settings.cashfree_secret_key,
         },
       });
 
