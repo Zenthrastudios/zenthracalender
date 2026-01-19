@@ -12,7 +12,8 @@ import {
   BarChart3,
   Menu,
   X,
-  GraduationCap
+  GraduationCap,
+  Layout,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ const navItems = [
   { icon: GraduationCap, label: 'Instructors', path: '/dashboard/instructors' },
   { icon: Users, label: 'Teams', path: '/dashboard/teams' },
   { icon: Star, label: 'Apps', path: '/dashboard/apps' },
+  { icon: Layout, label: 'Branding', path: '/dashboard/branding' },
 ];
 
 interface DashboardLayoutProps {

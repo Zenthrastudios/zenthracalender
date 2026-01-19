@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useBrandingSettings } from '@/hooks/useBrandingSettings';
 
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -97,6 +98,7 @@ export default function PublicBookingPage() {
   const [searchParams] = useSearchParams();
 
   const { data: eventData, isLoading } = useEventTypeBySlug(username, eventSlug);
+  const { data: branding } = useBrandingSettings(eventData?.host?.id);
 
   // Get schedule_id from event type, or use default schedule
   const scheduleId = eventData?.eventType?.schedule_id || null;
@@ -598,10 +600,14 @@ export default function PublicBookingPage() {
     <div className="min-h-screen bg-background">
       <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-foreground flex items-center justify-center">
-            <span className="text-background text-sm font-bold">C</span>
-          </div>
-          <span className="font-semibold">CalSchedule</span>
+          {branding?.is_enabled && branding?.brand_logo_url ? (
+            <img src={branding.brand_logo_url} alt={branding.brand_name} className="w-8 h-8 object-contain" />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-foreground flex items-center justify-center">
+              <span className="text-background text-sm font-bold">C</span>
+            </div>
+          )}
+          <span className="font-semibold">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
         </Link>
         <span className="text-sm text-muted-foreground">Powered by CalSchedule</span>
       </header>
@@ -835,10 +841,11 @@ export default function PublicBookingPage() {
                       disabled={!isAvailable || isPast}
                       className={cn(
                         "aspect-square rounded-full flex items-center justify-center text-sm transition-all",
-                        isSelected && "bg-primary text-primary-foreground",
+                        isSelected && "text-primary-foreground",
                         !isSelected && isAvailable && !isPast && "hover:bg-accent",
                         (!isAvailable || isPast) && "text-muted-foreground/50 cursor-not-allowed"
                       )}
+                      style={isSelected ? { backgroundColor: branding?.is_enabled ? branding.brand_color : 'hsl(var(--primary))' } : {}}
                     >
                       {format(date, 'd')}
                     </button>
@@ -955,6 +962,7 @@ export default function PublicBookingPage() {
                       type="submit"
                       className="flex-1"
                       disabled={createBooking.isPending || isProcessingPayment}
+                      style={{ backgroundColor: branding?.is_enabled ? branding.brand_color : undefined }}
                     >
                       {isProcessingPayment ? (
                         <>
@@ -992,7 +1000,11 @@ export default function PublicBookingPage() {
                           {slot.time}
                         </button>
                         {selectedSlot?.time === slot.time && (
-                          <Button onClick={() => setShowBookingForm(true)} className="animate-scale-in">
+                          <Button
+                            onClick={() => setShowBookingForm(true)}
+                            className="animate-scale-in"
+                            style={{ backgroundColor: branding?.is_enabled ? branding.brand_color : undefined }}
+                          >
                             Next
                           </Button>
                         )}

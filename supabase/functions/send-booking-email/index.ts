@@ -25,6 +25,13 @@ interface EmailRequest {
   meetingLink?: string;
   notes?: string;
   siteUrl?: string;
+  hostId?: string;
+  branding?: {
+    brandName?: string;
+    brandLogoUrl?: string;
+    brandColor?: string;
+    isEnabled: boolean;
+  };
 }
 
 const formatDateTime = (dateStr: string, timezone: string) => {
@@ -84,6 +91,8 @@ const wrapEmail = (opts: {
   accent?: string;
   bodyHtml: string;
   footerHtml?: string;
+  brandName: string;
+  brandLogoUrl?: string;
 }) => {
   const accent = opts.accent || "#111827";
   return `
@@ -92,8 +101,9 @@ const wrapEmail = (opts: {
       <div style="background:#0F172A;border:1px solid rgba(255,255,255,0.08);border-radius:20px;overflow:hidden;">
         <div style="padding:22px 20px;background:linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0));">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#E5E7EB;font-weight:800;font-size:16px;">
-              CalSchedule
+            <div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#E5E7EB;font-weight:800;font-size:16px;display:flex;align-items:center;gap:8px;">
+              ${opts.brandLogoUrl ? `<img src="${opts.brandLogoUrl}" alt="" style="height:24px;width:auto;object-contain:contain;"/>` : ""}
+              ${escapeHtml(opts.brandName)}
             </div>
             ${opts.badgeText ? `<div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#E5E7EB;font-size:12px;font-weight:700;background:${accent};padding:6px 10px;border-radius:999px;">${escapeHtml(opts.badgeText)}</div>` : ""}
           </div>
@@ -110,7 +120,7 @@ const wrapEmail = (opts: {
         </div>
       </div>
       <div style="text-align:center;margin-top:14px;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial;color:#64748B;font-size:12px;">
-        Powered by CalSchedule
+        Powered by ${escapeHtml(opts.brandName)}
       </div>
     </div>
   </div>
@@ -134,7 +144,7 @@ const generateICSContent = (data: EmailRequest, isCancellation = false): string 
 
   const location = data.meetingLink || '';
   const description = `Meeting with ${data.hostName}${data.notes ? `\\n\\nNotes: ${data.notes}` : ''}${data.meetingLink ? `\\n\\nJoin: ${data.meetingLink}` : ''}`;
-  
+
   return `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CalSchedule//EN
@@ -198,6 +208,10 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
     </div>
   `;
 
+  const brandName = (data.branding?.isEnabled ? data.branding.brandName : 'CalSchedule') || 'CalSchedule';
+  const brandLogoUrl = data.branding?.isEnabled ? data.branding.brandLogoUrl : undefined;
+  const brandAccent = data.branding?.isEnabled ? data.branding.brandColor : undefined;
+
   switch (data.type) {
     case "confirmation":
       return {
@@ -206,9 +220,11 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
           title: "Booking confirmed",
           subtitle: `Hi ${data.recipientName}, your meeting is scheduled with ${data.hostName}.`,
           badgeText: "CONFIRMED",
-          accent: "#22C55E",
+          accent: brandAccent || "#22C55E",
           bodyHtml: `${detailsCard}${actions}${nextSteps}`,
           footerHtml: `If you can’t find this email later, use ${myBookingsUrl ? `<a href="${myBookingsUrl}" style="color:#60A5FA;text-decoration:none;">My Bookings</a>` : "the My Bookings page"} to view your appointment details.`,
+          brandName,
+          brandLogoUrl,
         }),
       };
 
@@ -219,9 +235,11 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
           title: "Booking cancelled",
           subtitle: `Hi ${data.recipientName}, this meeting has been cancelled.`,
           badgeText: "CANCELLED",
-          accent: "#EF4444",
+          accent: brandAccent || "#EF4444",
           bodyHtml: `${detailsCard}${myBookingsUrl ? `<div style="margin-top:14px;">${buildPrimaryButton("View booking details", myBookingsUrl, "neutral")}</div>` : ""}`,
           footerHtml: "A calendar update is attached to remove this event from your calendar.",
+          brandName,
+          brandLogoUrl,
         }),
       };
 
@@ -232,8 +250,10 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
           title: "Reminder",
           subtitle: `Hi ${data.recipientName}, your meeting with ${data.hostName} is coming up soon.`,
           badgeText: "REMINDER",
-          accent: "#3B82F6",
+          accent: brandAccent || "#3B82F6",
           bodyHtml: `${detailsCard}${actions}<div style="margin-top:14px;color:#CBD5E1;">Tip: join 2–3 minutes early so you can start on time.</div>`,
+          brandName,
+          brandLogoUrl,
         }),
       };
 
@@ -244,9 +264,11 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
           title: "Booking rescheduled",
           subtitle: `Hi ${data.recipientName}, your meeting time has been updated.`,
           badgeText: "RESCHEDULED",
-          accent: "#F59E0B",
+          accent: brandAccent || "#F59E0B",
           bodyHtml: `${detailsCard}${actions}${nextSteps}`,
           footerHtml: "Your updated calendar invite is attached. Please replace the old one if needed.",
+          brandName,
+          brandLogoUrl,
         }),
       };
 
@@ -257,6 +279,8 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
           title: "Booking update",
           subtitle: `Update for ${data.eventTitle}.`,
           bodyHtml: `${detailsCard}${actions}`,
+          brandName,
+          brandLogoUrl,
         }),
       };
   }
@@ -289,6 +313,10 @@ const getHostEmailContent = (
     ? `<div style="margin-top:14px;">${buildPrimaryButton('Join meeting', links.joinUrl, 'primary')}</div>`
     : '';
 
+  const brandName = (data.branding?.isEnabled ? data.branding.brandName : 'CalSchedule') || 'CalSchedule';
+  const brandLogoUrl = data.branding?.isEnabled ? data.branding.brandLogoUrl : undefined;
+  const brandAccent = data.branding?.isEnabled ? data.branding.brandColor : undefined;
+
   switch (data.type) {
     case 'confirmation':
       return {
@@ -297,8 +325,10 @@ const getHostEmailContent = (
           title: 'New booking',
           subtitle: `Hi ${host.name}, you have a new booking.`,
           badgeText: 'NEW BOOKING',
-          accent: '#22C55E',
+          accent: brandAccent || '#22C55E',
           bodyHtml: `${detailsCard}${actions}`,
+          brandName,
+          brandLogoUrl,
         }),
       };
     case 'cancellation':
@@ -308,8 +338,10 @@ const getHostEmailContent = (
           title: 'Booking cancelled',
           subtitle: `Hi ${host.name}, this booking has been cancelled.`,
           badgeText: 'CANCELLED',
-          accent: '#EF4444',
+          accent: brandAccent || '#EF4444',
           bodyHtml: `${detailsCard}${actions}`,
+          brandName,
+          brandLogoUrl,
         }),
       };
     case 'reschedule':
@@ -319,8 +351,10 @@ const getHostEmailContent = (
           title: 'Booking rescheduled',
           subtitle: `Hi ${host.name}, the booking time has been updated.`,
           badgeText: 'RESCHEDULED',
-          accent: '#F59E0B',
+          accent: brandAccent || '#F59E0B',
           bodyHtml: `${detailsCard}${actions}`,
+          brandName,
+          brandLogoUrl,
         }),
       };
     case 'reminder':
@@ -330,8 +364,10 @@ const getHostEmailContent = (
           title: 'Reminder',
           subtitle: `Hi ${host.name}, your meeting is coming up soon.`,
           badgeText: 'REMINDER',
-          accent: '#3B82F6',
+          accent: brandAccent || '#3B82F6',
           bodyHtml: `${detailsCard}${actions}<div style="margin-top:14px;color:#CBD5E1;">Tip: join 2–3 minutes early so you can start on time.</div>`,
+          brandName,
+          brandLogoUrl,
         }),
       };
     default:
@@ -341,6 +377,8 @@ const getHostEmailContent = (
           title: 'Booking update',
           subtitle: `Update for ${data.eventTitle}.`,
           bodyHtml: `${detailsCard}${actions}`,
+          brandName,
+          brandLogoUrl,
         }),
       };
   }
@@ -372,6 +410,26 @@ const handler = async (req: Request): Promise<Response> => {
       .select('cancel_token, reschedule_token, host_id')
       .eq('id', data.bookingId)
       .maybeSingle();
+
+    const requestedHostId = bookingRow?.host_id || data.hostId;
+
+    // Fetch branding settings if not provided
+    if (!data.branding && requestedHostId) {
+      const { data: brandData } = await supabase
+        .from('branding_settings')
+        .select('brand_name, brand_logo_url, brand_color, is_enabled')
+        .eq('user_id', requestedHostId)
+        .maybeSingle();
+
+      if (brandData) {
+        data.branding = {
+          brandName: brandData.brand_name,
+          brandLogoUrl: brandData.brand_logo_url,
+          brandColor: brandData.brand_color,
+          isEnabled: brandData.is_enabled,
+        };
+      }
+    }
 
     const siteUrl = getSiteUrl(data);
     const joinUrl = data.meetingLink;
@@ -415,9 +473,8 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Send separate host notification email
-    const hostId = bookingRow?.host_id;
-    if (hostId) {
-      const resolvedHostEmail = data.hostEmail?.trim() || (await getHostEmail(supabase, hostId));
+    if (requestedHostId) {
+      const resolvedHostEmail = data.hostEmail?.trim() || (await getHostEmail(supabase, requestedHostId));
       if (resolvedHostEmail) {
         const hostContent = getHostEmailContent(
           data,

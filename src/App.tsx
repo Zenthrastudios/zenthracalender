@@ -20,6 +20,7 @@ import Instructors from "./pages/Instructors";
 import Apps from "./pages/Apps";
 import Settings from "./pages/Settings";
 import Analytics from "./pages/Analytics";
+import Branding from "./pages/Branding";
 import PublicBooking from "./pages/PublicBooking";
 import PublicProfile from "./pages/PublicProfile";
 import BookingConfirmation from "./pages/BookingConfirmation";
@@ -33,7 +34,7 @@ const queryClient = new QueryClient();
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const { role, isLoading: roleLoading } = useRole();
-  
+
   if (isLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -41,7 +42,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
@@ -50,7 +51,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (role === 'guest') {
     return <Navigate to="/guest" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -58,7 +59,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useRole();
-  
+
   if (isLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -66,15 +67,15 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
-  
+
   if (!isAdmin) {
     return <Navigate to="/guest" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -82,7 +83,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function GuestRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const { role, isLoading: roleLoading } = useRole();
-  
+
   if (isLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -90,16 +91,16 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
-  
+
   // Admins go to admin dashboard
   if (role === 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -107,7 +108,7 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const { role, isLoading: roleLoading } = useRole();
-  
+
   if (isLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -115,7 +116,7 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (user) {
     // Redirect based on role
     if (role === 'admin') {
@@ -123,7 +124,7 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
     }
     return <Navigate to="/guest" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -142,14 +143,14 @@ function AppRoutes() {
       <Route path="/booking/confirmed/:bookingId" element={<BookingConfirmation />} />
       <Route path="/reschedule/:token" element={<Reschedule />} />
       <Route path="/my-bookings" element={<MyBookings />} />
-      
+
       {/* Guest Route */}
       <Route path="/guest" element={
         <GuestRoute>
           <GuestDashboard />
         </GuestRoute>
       } />
-      
+
       {/* Admin Protected Routes */}
       <Route path="/dashboard" element={
         <AdminRoute>
@@ -196,7 +197,12 @@ function AppRoutes() {
           <Settings />
         </AdminRoute>
       } />
-      
+      <Route path="/dashboard/branding" element={
+        <AdminRoute>
+          <Branding />
+        </AdminRoute>
+      } />
+
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
     </Routes>
