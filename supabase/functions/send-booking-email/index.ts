@@ -468,13 +468,22 @@ const getHostEmailContent = (
   }
 };
 
-const getHostEmail = async (supabase: ReturnType<typeof createClient>, hostId: string) => {
+const getHostDetails = async (supabase: ReturnType<typeof createClient>, hostId: string) => {
   const { data, error } = await supabase.auth.admin.getUserById(hostId);
   if (error) {
     console.error('Failed to load host auth user:', error);
     return null;
   }
-  return data.user?.email || null;
+  const meta = data.user?.user_metadata || {};
+  // Try to find a name in metadata, fallback to profile name if we could fetch it (but we don't have access to profile table easily here without potentially circular ref deps if not careful, so stick to auth meta or email)
+  // Actually, we can try to query the public.profiles table too if auth meta is empty, but auth meta is usually reliable for name if synced.
+  // Let's stick to auth meta > email username > 'Host'
+  const name = meta.full_name || meta.name || meta.display_name || data.user?.email?.split('@')[0] || 'Host';
+
+  return {
+    email: data.user?.email || null,
+    name: name
+  };
 };
 
 const handler = async (req: Request): Promise<Response> => {
@@ -496,6 +505,8 @@ const handler = async (req: Request): Promise<Response> => {
       .maybeSingle();
 
     const requestedHostId = bookingRow?.host_id || data.hostId;
+    let resolvedHostName = data.hostName;
+    let resolvedHostEmail = data.hostEmail?.trim();
 
     // Fetch branding settings if not provided
     if (!data.branding && requestedHostId) {
@@ -507,13 +518,30 @@ const handler = async (req: Request): Promise<Response> => {
 
       if (brandData) {
         data.branding = {
-          brandName: brandData.brand_name,
+          brandName: brandData.brand_name, // If brand name is available, we *could* use it as host name if truly missing, but let's prefer personal name first.
           brandLogoUrl: brandData.brand_logo_url,
           brandColor: brandData.brand_color,
           isEnabled: brandData.is_enabled,
         };
       }
     }
+
+    // Attempt to resolve real host name if generic "Host" or missing
+    if (requestedHostId && (!resolvedHostName || resolvedHostName === 'Host' || !resolvedHostEmail)) {
+      const details = await getHostDetails(supabase, requestedHostId);
+      if (details) {
+        if (!resolvedHostName || resolvedHostName === 'Host') {
+          resolvedHostName = details.name;
+        }
+        if (!resolvedHostEmail) {
+          resolvedHostEmail = details.email || undefined;
+        }
+      }
+    }
+
+    // Update data object with resolved name for consistency in templates
+    data.hostName = resolvedHostName;
+    data.hostEmail = resolvedHostEmail;
 
     const siteUrl = getSiteUrl(data);
     const joinUrl = data.meetingLink;
@@ -558,11 +586,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send separate host notification email
     if (requestedHostId) {
-      const resolvedHostEmail = data.hostEmail?.trim() || (await getHostEmail(supabase, requestedHostId));
+      // resolvedHostEmail is already resolved above if possible
       if (resolvedHostEmail) {
         const hostContent = getHostEmailContent(
           data,
-          { name: data.hostName, email: resolvedHostEmail },
+          { name: resolvedHostName, email: resolvedHostEmail },
           { name: data.recipientName, email: data.recipientEmail },
           { joinUrl },
         );
