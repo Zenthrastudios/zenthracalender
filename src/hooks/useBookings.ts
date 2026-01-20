@@ -193,6 +193,13 @@ export function useCreateBooking() {
 
       if (error) throw error;
 
+      // Fetch branding settings for email
+      const { data: branding } = await (supabase as any)
+        .from('branding_settings')
+        .select('primary_domain, brand_name, brand_logo_url, brand_color, is_enabled')
+        .eq('user_id', data.host_id)
+        .maybeSingle();
+
       // Send confirmation email
       try {
         await supabase.functions.invoke('send-booking-email', {
@@ -206,7 +213,14 @@ export function useCreateBooking() {
             startTime: data.start_time,
             endTime: data.end_time,
             timezone: data.attendee_timezone,
-            meetLink: meetLink,
+            meetingLink: meetLink,
+            siteUrl: branding?.primary_domain ? `https://${branding.primary_domain}` : undefined,
+            branding: branding?.is_enabled ? {
+              brandName: branding.brand_name,
+              brandLogoUrl: branding.brand_logo_url,
+              brandColor: branding.brand_color,
+              isEnabled: branding.is_enabled
+            } : undefined
           }
         });
       } catch (emailError) {
@@ -282,6 +296,13 @@ export function useCancelBooking() {
           .eq('user_id', booking.host_id)
           .single();
 
+        // Fetch branding settings
+        const { data: branding } = await (supabase as any)
+          .from('branding_settings')
+          .select('primary_domain, brand_name, brand_logo_url, brand_color, is_enabled')
+          .eq('user_id', booking.host_id)
+          .maybeSingle();
+
         await supabase.functions.invoke('send-booking-email', {
           body: {
             type: 'cancellation',
@@ -293,6 +314,13 @@ export function useCancelBooking() {
             startTime: booking.start_time,
             endTime: booking.end_time,
             timezone: booking.attendee_timezone,
+            siteUrl: branding?.primary_domain ? `https://${branding.primary_domain}` : undefined,
+            branding: branding?.is_enabled ? {
+              brandName: branding.brand_name,
+              brandLogoUrl: branding.brand_logo_url,
+              brandColor: branding.brand_color,
+              isEnabled: branding.is_enabled
+            } : undefined
           }
         });
       } catch (emailError) {
