@@ -10,40 +10,27 @@ export async function sendWhatsAppNotification(
     bookingData: any
 ) {
     try {
-        // Fetch WhatsApp settings
-        const { data: settings } = await (supabase as any)
-            .from('whatsapp_settings')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('is_enabled', true)
-            .maybeSingle();
+        // We no longer fetch settings on the client side to avoid exposing API keys 
+        // and to bypass RLS issues for guest users.
+        // The edge function will fetch the settings securely using the Service Role key.
 
-        if (!settings || !settings.api_key || !settings.phone_number_id) {
-            console.warn('WhatsApp settings not found or incomplete for user:', userId);
-            return;
-        }
+        console.log('Triggering WhatsApp notification via Edge Function for user:', userId);
 
-        // Fetch branding settings to get the primary domain
-        const { data: branding } = await (supabase as any)
-            .from('branding_settings')
-            .select('site_url')
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        // Add branding domain to settings
-        const settingsWithDomain = {
-            ...settings,
-            site_url: branding?.site_url
-        };
-
-        await supabase.functions.invoke('send-whatsapp-message', {
+        const { data, error } = await supabase.functions.invoke('send-whatsapp-message', {
             body: {
                 type,
                 recipient_phone: recipientPhone,
-                settings: settingsWithDomain,
+                userId: userId, // Pass userId so the function can fetch settings
                 booking: bookingData
             }
         });
+
+        if (error) {
+            console.error('Edge Function returned error:', error);
+        } else {
+            console.log('WhatsApp notification request sent successfully:', data);
+        }
+
     } catch (error) {
         console.error('Failed to send WhatsApp notification:', error);
     }
