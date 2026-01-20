@@ -19,6 +19,7 @@ export async function sendWhatsAppNotification(
             .maybeSingle();
 
         if (!settings || !settings.api_key || !settings.phone_number_id) {
+            console.warn('WhatsApp settings not found or incomplete for user:', userId);
             return;
         }
 

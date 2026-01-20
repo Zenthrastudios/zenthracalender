@@ -200,9 +200,12 @@ export function useCreateBooking() {
         .eq('user_id', data.host_id)
         .maybeSingle();
 
-      // Send confirmation email
-      try {
-        await supabase.functions.invoke('send-booking-email', {
+      // Prepare notification promises
+      const notifications = [];
+
+      // 1. Email Notification
+      notifications.push(
+        supabase.functions.invoke('send-booking-email', {
           body: {
             type: 'confirmation',
             bookingId: newBooking.id,
@@ -222,47 +225,58 @@ export function useCreateBooking() {
               isEnabled: branding.is_enabled
             } : undefined
           }
-        });
-      } catch (emailError) {
-        console.error('Failed to send confirmation email:', emailError);
-      }
+        }).catch(err => console.error('Failed to send confirmation email:', err))
+      );
 
-      // Send WhatsApp messages if enabled
+      // 2. Customer WhatsApp
       if (data.attendee_phone) {
-        await sendWhatsAppNotification(data.host_id, 'customer', data.attendee_phone, {
-          ...newBooking,
-          host_name: hostProfile?.name || 'Host',
-          meet_link: meetLink
-        });
+        notifications.push(
+          sendWhatsAppNotification(data.host_id, 'customer', data.attendee_phone, {
+            ...newBooking,
+            host_name: hostProfile?.name || 'Host',
+            meet_link: meetLink
+          }).catch(err => console.error('Failed to send customer WhatsApp:', err))
+        );
       }
 
-      // Send to Instructor/Host
-      let instructorPhone = null;
-      if (eventType?.instructor_id) {
-        const { data: instr } = await supabase
-          .from('instructors')
-          .select('phone')
-          .eq('id', eventType.instructor_id)
-          .maybeSingle();
-        instructorPhone = instr?.phone;
-      }
+      // 3. Instructor/Host WhatsApp
+      // Fetch phone number first
+      const getInstructorPhone = async () => {
+        let instructorPhone = null;
+        if (eventType?.instructor_id) {
+          const { data: instr } = await supabase
+            .from('instructors')
+            .select('phone')
+            .eq('id', eventType.instructor_id)
+            .maybeSingle();
+          instructorPhone = instr?.phone;
+        }
 
-      if (!instructorPhone) {
-        const { data: hostProfileDetails } = await supabase
-          .from('profiles')
-          .select('phone')
-          .eq('user_id', data.host_id)
-          .maybeSingle();
-        instructorPhone = hostProfileDetails?.phone;
-      }
+        if (!instructorPhone) {
+          const { data: hostProfileDetails } = await supabase
+            .from('profiles')
+            .select('phone')
+            .eq('user_id', data.host_id)
+            .maybeSingle();
+          instructorPhone = hostProfileDetails?.phone;
+        }
+        return instructorPhone;
+      };
 
-      if (instructorPhone) {
-        await sendWhatsAppNotification(data.host_id, 'instructor', instructorPhone, {
-          ...newBooking,
-          host_name: hostProfile?.name || 'Host',
-          meet_link: meetLink
-        });
-      }
+      notifications.push(
+        getInstructorPhone().then(phone => {
+          if (phone) {
+            return sendWhatsAppNotification(data.host_id, 'instructor', phone, {
+              ...newBooking,
+              host_name: hostProfile?.name || 'Host',
+              meet_link: meetLink
+            });
+          }
+        }).catch(err => console.error('Failed to send instructor WhatsApp:', err))
+      );
+
+      // Execute all notifications in parallel without blocking response
+      await Promise.allSettled(notifications);
 
       return {
         ...newBooking,
