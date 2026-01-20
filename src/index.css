@@ -70,54 +70,56 @@
   }
 
   .dark {
-    /* Modern Dark Theme - Rich & Elegant */
-    --background: 222 25% 6%;
-    --foreground: 210 15% 95%;
+    /* Bento-Inspired Deep Dark Theme */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
 
-    --card: 222 25% 9%;
-    --card-foreground: 210 15% 95%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 222 25% 9%;
-    --popover-foreground: 210 15% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 98%;
 
-    /* Vibrant Orange in Dark */
-    --primary: 30 95% 55%;
-    --primary-foreground: 222 25% 8%;
+    /* Vibrant Orange Primary */
+    --primary: 38 95% 55%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 222 20% 16%;
-    --secondary-foreground: 210 15% 90%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 222 20% 14%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 63%;
 
-    --accent: 222 20% 14%;
-    --accent-foreground: 30 95% 65%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 38 95% 65%;
 
-    --destructive: 0 75% 50%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 222 20% 16%;
-    --input: 222 20% 16%;
-    --ring: 30 95% 55%;
+    --border: 0 0% 15%;
+    --input: 0 0% 12%;
+    --ring: 38 95% 55%;
 
-    /* Sidebar - Dark Glass */
-    --sidebar-background: 222 25% 8%;
-    --sidebar-foreground: 210 15% 85%;
-    --sidebar-primary: 30 95% 55%;
-    --sidebar-primary-foreground: 222 25% 8%;
-    --sidebar-accent: 222 20% 14%;
-    --sidebar-accent-foreground: 30 95% 65%;
-    --sidebar-border: 222 20% 14%;
-    --sidebar-ring: 30 95% 55%;
+    --radius: 1.25rem;
+
+    /* Sidebar - Deep Dark */
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: 38 95% 55%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 38 95% 65%;
+    --sidebar-border: 0 0% 8%;
+    --sidebar-ring: 38 95% 55%;
 
     /* Time slots Dark */
-    --slot-available: 222 20% 14%;
-    --slot-selected: 30 95% 55%;
-    --slot-unavailable: 222 25% 10%;
+    --slot-available: 0 0% 10%;
+    --slot-selected: 38 95% 55%;
+    --slot-unavailable: 0 0% 5%;
 
     /* Gradients Dark */
-    --gradient-primary: linear-gradient(135deg, hsl(30 95% 55%) 0%, hsl(15 95% 50%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(222 25% 10%) 0%, hsl(222 25% 8%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(38 95% 55%) 0%, hsl(20 95% 50%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 9%) 0%, hsl(0 0% 5%) 100%);
   }
 }
 

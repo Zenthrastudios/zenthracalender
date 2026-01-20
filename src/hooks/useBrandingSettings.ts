@@ -8,6 +8,7 @@ export interface BrandingSettings {
     brand_name: string;
     brand_logo_url: string | null;
     brand_color: string;
+    site_url: string | null;
     is_enabled: boolean;
     created_at: string;
     updated_at: string;

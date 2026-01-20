@@ -17,6 +17,7 @@ export interface WhatsappSettings {
     instructor_reminder_template_name: string;
     payment_failed_template_name: string;
     template_language: string;
+    site_url: string | null;
     is_enabled: boolean;
     created_at: string;
     updated_at: string;

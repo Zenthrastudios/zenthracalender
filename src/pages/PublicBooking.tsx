@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2, Star, Instagram, Facebook, Linkedin, Twitter, Youtube, Pin } from 'lucide-react';
+import { Clock, Video, Globe, ChevronLeft, ChevronRight, Calendar, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2, Star, Instagram, Facebook, Linkedin, Twitter, Youtube, Pin } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes, startOfDay, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -653,87 +653,107 @@ export default function PublicBookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border">
-        <Link to="/" className="flex items-center gap-2">
-          {branding?.is_enabled && branding?.brand_logo_url ? (
-            <img src={branding.brand_logo_url} alt={branding.brand_name} className="w-8 h-8 object-contain" />
-          ) : (
-            <div className="w-7 h-7 rounded-full bg-foreground flex items-center justify-center">
-              <span className="text-background text-sm font-bold">C</span>
-            </div>
-          )}
-          <span className="font-semibold">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
+    <div className="min-h-screen bg-[#0B0B0F] selection:bg-primary/30 text-white pb-12">
+      {/* Header */}
+      <header className="w-full px-6 py-6 flex items-center justify-between border-b border-white/5 backdrop-blur-md sticky top-0 z-50 bg-[#0B0B0F]/80">
+        <Link to="/" className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden"
+            style={{ background: branding?.is_enabled && branding?.brand_color ? branding.brand_color : "#FF9124" }}
+          >
+            {branding?.is_enabled && branding?.brand_logo_url ? (
+              <img src={branding.brand_logo_url} alt={branding.brand_name || ""} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-white font-black text-xl">{(branding?.brand_name || 'C')?.charAt(0)}</span>
+            )}
+          </div>
+          <span className="font-bold text-xl tracking-tight text-white">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
         </Link>
-        <span className="text-sm text-muted-foreground">Powered by CalSchedule</span>
+        <div className="hidden sm:block">
+          <span className="text-xs font-medium text-gray-500 tracking-widest uppercase">Powered by CalSchedule</span>
+        </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-12">
-        <div className="bg-card rounded-2xl shadow-card overflow-hidden">
+      <main className="max-w-6xl mx-auto px-6 py-12">
+        <div className="bg-[#1C1C1E] rounded-[2.5rem] border border-white/5 shadow-2xl overflow-hidden relative">
+          {/* Subtle Glow background */}
+          <div
+            className="absolute top-0 left-0 w-full h-1 opacity-50"
+            style={{ background: `linear-gradient(90deg, transparent, ${branding?.is_enabled && branding?.brand_color ? branding.brand_color : "#FF9124"}, transparent)` }}
+          ></div>
+
           {eventData.eventType.banner_image_url && eventData.eventType.banner_image_url.trim() !== '' && (
-            <div className="w-full h-44 md:h-52 bg-muted overflow-hidden">
+            <div className="w-full h-56 md:h-64 bg-muted overflow-hidden relative">
               <img
                 src={eventData.eventType.banner_image_url}
                 alt=""
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#1C1C1E] via-transparent to-transparent"></div>
             </div>
           )}
-          <div className="grid md:grid-cols-[300px_1fr_1fr]">
-            {/* Host & Event Info */}
-            <div className="p-6 border-r border-border">
-              <div className="flex items-start gap-3">
-                <Avatar className="w-12 h-12">
-                  <AvatarImage src={eventData.host?.avatar_url || ''} />
-                  <AvatarFallback className="text-lg bg-primary/10 text-primary">
-                    {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{eventData.host?.name || username}</p>
-                  <p className="text-xs text-muted-foreground truncate">Book a session</p>
+
+          <div className="grid md:grid-cols-[340px_1fr_1fr] divide-x divide-white/5">
+            {/* Column 1: Host & Event Info */}
+            <div className="p-8 md:p-10 bg-white/[0.01]">
+              <div className="flex flex-col items-center md:items-start text-center md:text-left gap-6">
+                <div className="relative group">
+                  <div
+                    className="absolute inset-0 rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity"
+                    style={{ background: branding?.is_enabled && branding?.brand_color ? branding.brand_color : "#FF9124" }}
+                  ></div>
+                  <Avatar className="w-20 h-20 rounded-3xl border-2 border-white/10 relative z-10 p-0.5 bg-[#0B0B0F]">
+                    <AvatarImage src={eventData.host?.avatar_url || ''} className="rounded-3xl object-cover" />
+                    <AvatarFallback className="text-2xl font-bold bg-white/5 text-white">
+                      {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-lg font-bold text-white mb-0.5">{eventData.host?.name || username}</p>
+                  <p className="text-sm text-gray-400 font-medium">@{username}</p>
                 </div>
               </div>
 
-              <h1 className="text-2xl font-bold mt-5 leading-tight">{eventData.eventType.title}</h1>
+              <div className="mt-10 space-y-2">
+                <h1 className="text-3xl font-black text-white leading-tight tracking-tight">{eventData.eventType.title}</h1>
+                <div className="flex items-center gap-2 text-gray-500 font-medium text-sm">
+                  {getLocationIcon(eventData.eventType.location_type)({ className: "w-4 h-4" })}
+                  <span>{getLocationLabel(eventData.eventType.location_type)}</span>
+                </div>
+              </div>
 
-              <p className="text-sm text-muted-foreground mt-2">
-                Choose a time that works for you. You’ll get a confirmation email with all details.
-              </p>
-
-              <div className="mt-5 space-y-3 text-sm">
+              <div className="mt-8 space-y-4">
                 {selectedSlot ? (
-                  <>
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                      <Clock className="w-4 h-4" />
-                      <span>
-                        {format(selectedSlot.startTime, 'EEEE, MMM d, yyyy')} · {format(selectedSlot.startTime, 'h:mm a')}
+                  <div className="bg-white/5 rounded-2xl p-5 border border-white/5 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center gap-3 text-white">
+                      <Clock className="w-4 h-4 text-primary" style={{ color: branding?.is_enabled && branding?.brand_color ? branding.brand_color : undefined }} />
+                      <span className="font-bold">
+                        {format(selectedSlot.startTime, 'MMM d, yyyy')} · {format(selectedSlot.startTime, 'h:mm a')}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-muted-foreground">
+                    <div className="flex items-center gap-3 text-gray-400 text-sm">
                       <Globe className="w-4 h-4" />
                       <span>Asia/Kolkata (IST)</span>
                     </div>
-                  </>
+                  </div>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                      <Clock className="w-4 h-4" />
-                      <span>{eventData.eventType.duration} min</span>
+                    <div className="flex items-center gap-4 text-gray-300 font-semibold py-1">
+                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-gray-500" />
+                      </div>
+                      <span>{eventData.eventType.duration} Minutes</span>
                     </div>
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                      <LocationIcon className="w-4 h-4" />
-                      <span>{getLocationLabel(eventData.eventType.location_type)}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                      <Globe className="w-4 h-4" />
-                      <span>Asia/Kolkata (IST)</span>
-                    </div>
+
                     {isPaidEvent && eventPrice > 0 && (
-                      <div className="flex items-center gap-3 text-primary font-medium">
-                        <IndianRupee className="w-4 h-4" />
-                        <span>₹{eventPrice.toLocaleString('en-IN')}</span>
+                      <div className="flex items-center gap-4 text-white font-bold py-1">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <IndianRupee className="w-4 h-4 text-primary" style={{ color: branding?.is_enabled && branding?.brand_color ? branding.brand_color : undefined }} />
+                        </div>
+                        <span className="text-xl">₹{eventPrice.toLocaleString('en-IN')}</span>
                       </div>
                     )}
                   </>
@@ -741,124 +761,62 @@ export default function PublicBookingPage() {
               </div>
 
               {eventData.eventType.description && (
-                <p className="text-sm text-muted-foreground mt-6 border-t border-border pt-4 whitespace-pre-wrap">
-                  {eventData.eventType.description}
-                </p>
-              )}
-
-              {Object.values(socialLinks).some((v) => typeof v === 'string' && v.trim() !== '') && (
-                <div className="mt-5 flex items-center gap-2">
-                  {socialLinks.website?.trim() && (
-                    <a
-                      href={normalizeUrl(socialLinks.website)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      aria-label="Website"
-                    >
-                      <Globe className="w-4 h-4" />
-                    </a>
-                  )}
-                  {socialLinks.instagram?.trim() && (
-                    <a
-                      href={normalizeUrl(socialLinks.instagram)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      aria-label="Instagram"
-                    >
-                      <Instagram className="w-4 h-4" />
-                    </a>
-                  )}
-                  {socialLinks.facebook?.trim() && (
-                    <a
-                      href={normalizeUrl(socialLinks.facebook)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      aria-label="Facebook"
-                    >
-                      <Facebook className="w-4 h-4" />
-                    </a>
-                  )}
-                  {socialLinks.linkedin?.trim() && (
-                    <a
-                      href={normalizeUrl(socialLinks.linkedin)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      aria-label="LinkedIn"
-                    >
-                      <Linkedin className="w-4 h-4" />
-                    </a>
-                  )}
-                  {socialLinks.twitter?.trim() && (
-                    <a
-                      href={normalizeUrl(socialLinks.twitter)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      aria-label="Twitter"
-                    >
-                      <Twitter className="w-4 h-4" />
-                    </a>
-                  )}
-                  {socialLinks.youtube?.trim() && (
-                    <a
-                      href={normalizeUrl(socialLinks.youtube)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      aria-label="YouTube"
-                    >
-                      <Youtube className="w-4 h-4" />
-                    </a>
-                  )}
-                  {socialLinks.pinterest?.trim() && (
-                    <a
-                      href={normalizeUrl(socialLinks.pinterest)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                      aria-label="Pinterest"
-                    >
-                      <Pin className="w-4 h-4" />
-                    </a>
-                  )}
+                <div className="mt-10 pt-8 border-t border-white/5">
+                  <p className="text-sm text-gray-400 leading-relaxed whitespace-pre-wrap">
+                    {eventData.eventType.description}
+                  </p>
                 </div>
               )}
 
-              {showTestimonials && (testimonials || []).length > 0 && (
-                <div className="mt-6 border-t border-border pt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold">Testimonials</h2>
-                    <span className="text-xs text-muted-foreground">{(testimonials || []).length}</span>
+              {/* Social Links Design */}
+              {Object.values(socialLinks).some((v) => typeof v === 'string' && v.trim() !== '') && (
+                <div className="mt-8 pt-8 border-t border-white/5">
+                  <div className="flex flex-wrap gap-2">
+                    {socialLinks.website?.trim() && (
+                      <a href={normalizeUrl(socialLinks.website)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
+                        <Globe className="w-5 h-5" />
+                      </a>
+                    )}
+                    {socialLinks.instagram?.trim() && (
+                      <a href={normalizeUrl(socialLinks.instagram)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
+                        <Instagram className="w-5 h-5" />
+                      </a>
+                    )}
+                    {socialLinks.facebook?.trim() && (
+                      <a href={normalizeUrl(socialLinks.facebook)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
+                        <Facebook className="w-5 h-5" />
+                      </a>
+                    )}
+                    {socialLinks.linkedin?.trim() && (
+                      <a href={normalizeUrl(socialLinks.linkedin)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
+                        <Linkedin className="w-5 h-5" />
+                      </a>
+                    )}
+                    {socialLinks.twitter?.trim() && (
+                      <a href={normalizeUrl(socialLinks.twitter)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
+                        <Twitter className="w-5 h-5" />
+                      </a>
+                    )}
                   </div>
-                  <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+                </div>
+              )}
+
+              {/* Testimonials Design */}
+              {showTestimonials && (testimonials || []).length > 0 && (
+                <div className="mt-8 pt-8 border-t border-white/5">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-6">What people say</h3>
+                  <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {(testimonials || []).map((t) => (
-                      <div key={t.id} className="rounded-lg border border-border bg-background p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{t.author_name}</p>
-                            {t.author_title && (
-                              <p className="text-xs text-muted-foreground truncate">{t.author_title}</p>
-                            )}
+                      <div key={t.id} className="relative bg-white/[0.02] rounded-2xl p-4 border border-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-sm text-gray-300">{t.author_name}</span>
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star key={i} className={cn('w-3 h-3', i < t.rating! ? 'text-primary fill-primary' : 'text-gray-700')} style={{ color: i < t.rating! && branding?.brand_color ? branding.brand_color : undefined, fill: i < t.rating! && branding?.brand_color ? branding.brand_color : undefined }} />
+                            ))}
                           </div>
-                          {t.rating && (
-                            <div className="flex items-center gap-0.5">
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={cn(
-                                    'w-3.5 h-3.5',
-                                    i < t.rating! ? 'text-primary fill-primary' : 'text-muted-foreground/40'
-                                  )}
-                                />
-                              ))}
-                            </div>
-                          )}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{t.content}</p>
+                        <p className="text-xs text-gray-500 italic">"{t.content}"</p>
                       </div>
                     ))}
                   </div>
@@ -866,25 +824,37 @@ export default function PublicBookingPage() {
               )}
             </div>
 
-            {/* Calendar */}
-            <div className="p-6 border-r border-border">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-semibold">{format(currentMonth, 'MMMM yyyy')}</h2>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} aria-label="Previous Month">
-                    <ChevronLeft className="w-4 h-4" />
+            {/* Column 2: Calendar */}
+            <div className="p-8 md:p-10">
+              <div className="flex items-center justify-between mb-8 px-2">
+                <h2 className="font-black text-xl text-white outline-none">{format(currentMonth, 'MMMM yyyy')}</h2>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-xl border border-white/5 hover:bg-white/10"
+                    onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-400" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} aria-label="Next Month">
-                    <ChevronRight className="w-4 h-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-xl border border-white/5 hover:bg-white/10"
+                    onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-                  <div key={day} className="text-center text-xs text-muted-foreground font-medium py-2">{day}</div>
+
+              <div className="grid grid-cols-7 gap-2 mb-2">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
+                  <div key={day} className="text-center text-[10px] text-gray-600 font-black py-2 tracking-tighter">{day}</div>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-1">
+
+              <div className="grid grid-cols-7 gap-2">
                 {Array.from({ length: firstDayOffset }).map((_, i) => <div key={`e-${i}`} className="aspect-square" />)}
                 {calendarDays.map(date => {
                   const isAvailable = hasAvailability(date);
@@ -896,170 +866,217 @@ export default function PublicBookingPage() {
                       onClick={() => isAvailable && !isPast && (setSelectedDate(date), setSelectedSlot(null), setShowBookingForm(false))}
                       disabled={!isAvailable || isPast}
                       className={cn(
-                        "aspect-square rounded-full flex items-center justify-center text-sm transition-all",
-                        isSelected && "text-primary-foreground",
-                        !isSelected && isAvailable && !isPast && "hover:bg-accent",
-                        (!isAvailable || isPast) && "text-muted-foreground/50 cursor-not-allowed"
+                        "relative aspect-square rounded-2xl flex items-center justify-center text-sm font-bold transition-all duration-300",
+                        isSelected
+                          ? "text-black z-10"
+                          : isAvailable && !isPast
+                            ? "text-gray-300 hover:bg-white/10 hover:border-white/20 border border-transparent"
+                            : "text-gray-400/20 cursor-not-allowed border border-transparent"
                       )}
-                      style={isSelected ? { backgroundColor: branding?.is_enabled ? branding.brand_color : 'hsl(var(--primary))' } : {}}
                     >
-                      {format(date, 'd')}
+                      {isSelected && (
+                        <div
+                          className="absolute inset-0 rounded-2xl shadow-xl animate-in fade-in scale-in-95 duration-300"
+                          style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
+                        />
+                      )}
+                      <span className="relative z-10">{format(date, 'd')}</span>
+                      {isAvailable && !isPast && !isSelected && (
+                        <div
+                          className="absolute bottom-2 w-1 h-1 rounded-full opacity-50"
+                          style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
+                        />
+                      )}
                     </button>
                   );
                 })}
               </div>
-              <div className="mt-6">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Time Zone</Label>
-                <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
-                  <Globe className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-foreground">Asia/Kolkata (IST)</span>
+
+              <div className="mt-12 space-y-4">
+                <p className="text-[11px] font-bold text-gray-600 uppercase tracking-widest px-2">System Time Zone</p>
+                <div className="flex items-center gap-3 rounded-2xl bg-white/[0.03] border border-white/5 px-5 py-4 text-sm shadow-inner group">
+                  <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Globe className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <span className="text-gray-300 font-bold">Asia/Kolkata (IST)</span>
                 </div>
               </div>
             </div>
 
-            {/* Time Slots / Booking Form */}
-            <div className="p-6">
+            {/* Column 3: Time Slots / Form */}
+            <div className="p-8 md:p-10 bg-white/[0.01]">
               {showBookingForm && selectedSlot ? (
-                <form onSubmit={handleBookingSubmit} className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                <form onSubmit={handleBookingSubmit} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                   <div>
-                    <h2 className="font-semibold mb-1">Enter your details</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {format(selectedSlot.startTime, 'EEEE, MMMM d')} at {format(selectedSlot.startTime, 'h:mm a')}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Your Name <span className="text-destructive">*</span></Label>
-                    <Input
-                      value={attendeeName}
-                      onChange={(e) => setAttendeeName(e.target.value)}
-                      required
-                      className="bg-background"
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email Address <span className="text-destructive">*</span></Label>
-                    <Input
-                      type="email"
-                      value={attendeeEmail}
-                      onChange={(e) => setAttendeeEmail(e.target.value)}
-                      required
-                      className="bg-background"
-                      placeholder="john@example.com"
-                    />
+                    <h2 className="text-2xl font-black text-white mb-2">Final Step</h2>
+                    <p className="text-sm text-gray-500 font-medium">Please provide your details to confirm the booking.</p>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Phone Number <span className="text-destructive">*</span></Label>
-                    <div className="flex gap-2">
-                      <Select value={attendeeCountryCode} onValueChange={setAttendeeCountryCode}>
-                        <SelectTrigger className="w-[150px] bg-background">
-                          <SelectValue placeholder="Code" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COUNTRY_DIAL_CODES.map((c) => (
-                            <SelectItem key={c.iso2} value={c.iso2}>
-                              {c.iso2} ({c.dialCode})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  <div className="space-y-5">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Full Name</Label>
                       <Input
-                        type="tel"
-                        value={attendeePhoneNational}
-                        onChange={(e) => setAttendeePhoneNational(e.target.value)}
+                        value={attendeeName}
+                        onChange={(e) => setAttendeeName(e.target.value)}
                         required
-                        className="bg-background flex-1"
-                        placeholder="9876543210"
-                        inputMode="tel"
+                        className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5 focus:border-primary/50 text-white placeholder:text-gray-700 focus:ring-0"
+                        placeholder="Ex: Elon Musk"
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      We’ll use this only if the host needs to contact you.
-                    </p>
-                  </div>
 
-                  {/* Custom Fields */}
-                  {customFields.map(renderCustomField)}
-
-                  <div className="space-y-2">
-                    <Label>Additional Notes</Label>
-                    <Textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      className="bg-background min-h-[80px]"
-                      placeholder="Any additional information..."
-                    />
-                  </div>
-                  {/* Price Display for Paid Events */}
-                  {isPaidEvent && eventPrice > 0 && (
-                    <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="w-5 h-5 text-primary" />
-                          <span className="font-medium">Payment Required</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-lg font-bold text-primary">
-                          <IndianRupee className="w-5 h-5" />
-                          {eventPrice.toLocaleString('en-IN')}
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Payment via {paymentProvider === 'razorpay' ? 'Razorpay' : 'Cashfree'}
-                      </p>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Email Address</Label>
+                      <Input
+                        type="email"
+                        value={attendeeEmail}
+                        onChange={(e) => setAttendeeEmail(e.target.value)}
+                        required
+                        className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5 focus:border-primary/50 text-white placeholder:text-gray-700 focus:ring-0"
+                        placeholder="elon@mars.com"
+                      />
                     </div>
-                  )}
 
-                  <div className="flex gap-3 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setShowBookingForm(false)} className="flex-1">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Phone Number</Label>
+                      <div className="flex gap-2">
+                        <Select value={attendeeCountryCode} onValueChange={setAttendeeCountryCode}>
+                          <SelectTrigger className="w-[110px] h-14 rounded-2xl bg-[#0B0B0F] border-white/5 focus:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1C1C1E] border-white/10 text-white">
+                            {COUNTRY_DIAL_CODES.map((c) => (
+                              <SelectItem key={c.iso2} value={c.iso2}>{c.iso2}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="tel"
+                          value={attendeePhoneNational}
+                          onChange={(e) => setAttendeePhoneNational(e.target.value)}
+                          required
+                          className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5 focus:border-primary/50 text-white placeholder:text-gray-700 flex-1 focus:ring-0"
+                          placeholder="91000 00000"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Custom Fields - Styled similarly */}
+                    <div className="space-y-5">
+                      {customFields.map((field) => (
+                        <div key={field.id} className="space-y-2">
+                          <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">{field.label}</Label>
+                          {field.type === 'textarea' ? (
+                            <Textarea
+                              value={(customFieldValues[field.id] as string) || ''}
+                              onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
+                              className="rounded-2xl bg-[#0B0B0F] border-white/5 min-h-[100px] text-white focus:border-primary/50 focus:ring-0"
+                            />
+                          ) : field.type === 'select' ? (
+                            <Select value={(customFieldValues[field.id] as string) || ''} onValueChange={(v) => updateCustomFieldValue(field.id, v)}>
+                              <SelectTrigger className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5">
+                                <SelectValue placeholder={field.placeholder || "Select an option"} />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#1C1C1E] border-white/10 text-white">
+                                {(field as any).options?.map((opt: string) => (
+                                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : field.type === 'checkbox' ? (
+                            <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#0B0B0F] border border-white/5">
+                              <Checkbox
+                                id={field.id}
+                                checked={(customFieldValues[field.id] as boolean) || false}
+                                onCheckedChange={(c) => updateCustomFieldValue(field.id, !!c)}
+                                className="rounded-md border-white/20 data-[state=checked]:bg-primary"
+                              />
+                              <label htmlFor={field.id} className="text-sm font-medium text-gray-300">{field.label}</label>
+                            </div>
+                          ) : (
+                            <Input
+                              type={field.type}
+                              value={(customFieldValues[field.id] as string) || ''}
+                              onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
+                              className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5 text-white focus:ring-0"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2 pt-2">
+                      <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Additional Notes</Label>
+                      <Textarea
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        className="rounded-2xl bg-[#0B0B0F] border-white/5 min-h-[100px] text-white placeholder:text-gray-700 focus:ring-0"
+                        placeholder="Share anything you want the host to know..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 pt-6 pb-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setShowBookingForm(false)}
+                      className="h-14 rounded-2xl flex-1 border border-white/5 text-gray-400 font-bold hover:bg-white/5"
+                    >
                       Back
                     </Button>
                     <Button
                       type="submit"
-                      className="flex-1"
+                      className="h-14 rounded-2xl flex-2 min-w-[180px] font-black tracking-wide shadow-xl active:scale-95 transition-transform"
                       disabled={createBooking.isPending || isProcessingPayment}
-                      style={{ backgroundColor: branding?.is_enabled ? branding.brand_color : undefined }}
+                      style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124", color: "#000" }}
                     >
                       {isProcessingPayment ? (
                         <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Processing...
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Processing
                         </>
                       ) : createBooking.isPending ? (
                         'Booking...'
                       ) : isPaidEvent && eventPrice > 0 ? (
-                        <>
-                          <CreditCard className="w-4 h-4 mr-2" />
-                          Pay & Confirm
-                        </>
+                        'Pay & Confirm'
                       ) : (
-                        'Confirm Booking'
+                        'Confirm Now'
                       )}
                     </Button>
                   </div>
                 </form>
               ) : selectedDate ? (
-                <>
-                  <h2 className="font-semibold mb-4">{format(selectedDate, 'EEEE, MMM d')}</h2>
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-black text-white">{format(selectedDate, 'EEEE, MMM d')}</h2>
+                    <div className="px-3 py-1 rounded-full bg-white/5 text-[10px] font-black uppercase tracking-widest text-gray-500">Available</div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-3 custom-scrollbar">
                     {timeSlots.filter(s => s.available).map((slot) => (
-                      <div key={slot.time} className="flex gap-2">
+                      <div key={slot.time} className="group relative flex gap-2">
                         <button
                           onClick={() => setSelectedSlot(slot)}
                           className={cn(
-                            "flex-1 py-3 px-4 rounded-lg text-sm font-medium border transition-all",
+                            "flex-1 h-16 rounded-[1.25rem] text-base font-bold transition-all duration-300 relative overflow-hidden flex items-center justify-center border",
                             selectedSlot?.time === slot.time
-                              ? "bg-foreground text-background border-foreground"
-                              : "bg-background border-border hover:border-primary text-primary"
+                              ? "border-transparent text-black"
+                              : "bg-white/[0.03] border-white/5 text-gray-300 hover:border-white/20 hover:bg-white/[0.06]"
                           )}
                         >
-                          {slot.time}
+                          {selectedSlot?.time === slot.time && (
+                            <div
+                              className="absolute inset-0 z-0 animate-in fade-in scale-in-95 duration-300"
+                              style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
+                            />
+                          )}
+                          <span className="relative z-10">{slot.time}</span>
                         </button>
+
                         {selectedSlot?.time === slot.time && (
                           <Button
                             onClick={() => setShowBookingForm(true)}
-                            className="animate-scale-in"
-                            style={{ backgroundColor: branding?.is_enabled ? branding.brand_color : undefined }}
+                            className="h-16 w-24 rounded-[1.25rem] bg-white text-black hover:bg-gray-200 font-black animate-in slide-in-from-left-4 duration-300 shadow-xl"
                           >
                             Next
                           </Button>
@@ -1067,15 +1084,21 @@ export default function PublicBookingPage() {
                       </div>
                     ))}
                     {timeSlots.filter(s => s.available).length === 0 && (
-                      <p className="text-muted-foreground text-sm text-center py-8">
-                        No available slots for this day.
-                      </p>
+                      <div className="text-center py-20 bg-white/[0.02] rounded-[2rem] border border-dashed border-white/10">
+                        <Calendar className="w-10 h-10 text-gray-700 mx-auto mb-4" />
+                        <p className="text-gray-500 font-bold">No slots available today</p>
+                        <p className="text-xs text-gray-600 mt-1">Try selecting another date</p>
+                      </div>
                     )}
                   </div>
-                </>
+                </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  <p className="text-sm">Select a date to see available times</p>
+                <div className="h-full flex flex-col items-center justify-center text-center px-6 animate-pulse">
+                  <div className="w-20 h-20 rounded-[2rem] bg-white/[0.02] border border-white/5 flex items-center justify-center mb-6">
+                    <Clock className="w-8 h-8 text-gray-700" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-400 mb-2">Ready to book?</h3>
+                  <p className="text-sm text-gray-600 max-w-[240px]">Select a date on the calendar to see available time slots.</p>
                 </div>
               )}
             </div>

@@ -65,25 +65,6 @@ const escapeHtml = (v: string) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 
-const buildPrimaryButton = (label: string, href: string, tone: "primary" | "neutral" | "danger" = "primary") => {
-  const bg = tone === "primary" ? "#000000" : tone === "danger" ? "#DC2626" : "#FFFFFF";
-  const color = tone === "neutral" ? "#111827" : "#FFFFFF";
-  const border = tone === "neutral" ? "1px solid #E5E7EB" : "0";
-  return `
-    <a href="${href}" style="display:inline-block;text-decoration:none;background:${bg};color:${color};padding:14px 24px;border-radius:12px;font-weight:600;font-size:15px;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,0.05);${border ? `border:${border};` : ""}">
-      ${escapeHtml(label)}
-    </a>
-  `;
-};
-
-const buildSecondaryLink = (label: string, href: string) => {
-  return `
-    <a href="${href}" style="color:#6B7280;text-decoration:underline;font-size:14px;font-weight:500;">
-      ${escapeHtml(label)}
-    </a>
-  `;
-};
-
 const wrapEmail = (opts: {
   title: string;
   subtitle?: string;
@@ -94,10 +75,7 @@ const wrapEmail = (opts: {
   brandName: string;
   brandLogoUrl?: string;
 }) => {
-  const accent = opts.accent || "#000000";
-
-  // Use user's accent color for the button if primary, but here we just pass it to the badge or headers if needed
-  // For this design, we keep the main UI clean (White/Gray).
+  const accent = opts.accent || "#FF9124";
 
   return `
   <!DOCTYPE html>
@@ -105,57 +83,66 @@ const wrapEmail = (opts: {
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-      body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #F3F4F6; }
+      body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0B0B0F; color: #FFFFFF; }
+      @media screen and (max-width: 600px) {
+        .container { padding: 20px 10px !important; }
+        .card { padding: 24px 20px !important; }
+        .section-grid { display: block !important; }
+        .section-item { margin-bottom: 24px !important; width: 100% !important; }
+      }
     </style>
   </head>
-  <body style="background-color:#F3F4F6;padding:40px 0;">
-    <div style="max-width:560px;margin:0 auto;padding:0 16px;">
+  <body style="background-color:#0B0B0F;padding:40px 0;color:#FFFFFF;">
+    <div class="container" style="max-width:600px;margin:0 auto;padding:0 20px;">
       
-      <!-- Main Card -->
-      <div style="background:#FFFFFF;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px -10px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.02);">
-        
-        <!-- Header -->
-        <div style="padding:32px 40px 0;text-align:center;">
-          ${opts.brandLogoUrl
-      ? `<img src="${opts.brandLogoUrl}" alt="${escapeHtml(opts.brandName)}" style="height:40px;width:auto;object-fit:contain;margin-bottom:24px;">`
-      : `<div style="font-size:20px;font-weight:700;color:#111827;margin-bottom:24px;">${escapeHtml(opts.brandName)}</div>`
-    }
-          
-          ${opts.badgeText ? `
-          <div style="display:inline-block;background:${accent}15;color:${accent};font-size:12px;font-weight:700;padding:6px 16px;border-radius:999px;margin-bottom:24px;letter-spacing:0.5px;text-transform:uppercase;">
-            ${escapeHtml(opts.badgeText)}
-          </div>` : ""}
-
-          <h1 style="margin:0 0 12px;font-size:28px;font-weight:800;color:#111827;letter-spacing:-0.5px;line-height:1.2;">
-            ${escapeHtml(opts.title)}
-          </h1>
-          
-          ${opts.subtitle ? `<p style="margin:0;font-size:16px;line-height:1.6;color:#6B7280;">${escapeHtml(opts.subtitle)}</p>` : ""}
+      <!-- Top Icon -->
+      <div style="text-align:center;margin-bottom:32px;">
+        <div style="display:inline-block;width:64px;height:64px;background:linear-gradient(135deg, \${accent}, #FF5C00);border-radius:50%;line-height:64px;text-align:center;box-shadow: 0 10px 20px -5px \${accent}40;">
+          <span style="font-size:32px;">✓</span>
         </div>
-
-        <!-- Body -->
-        <div style="padding:40px;">
-          ${opts.bodyHtml}
-          
-          ${opts.footerHtml ? `
-          <div style="margin-top:32px;padding-top:24px;border-top:1px dashed #E5E7EB;text-align:center;">
-            <p style="margin:0;font-size:13px;color:#9CA3AF;line-height:1.5;">${opts.footerHtml}</p>
-          </div>` : ""}
-        </div>
-
       </div>
 
-      <!-- Footer -->
-      <div style="text-align:center;margin-top:24px;">
-        <p style="font-size:13px;color:#9CA3AF;margin:0;">
-          Powered by <span style="font-weight:600;color:#6B7280;">${escapeHtml(opts.brandName)}</span>
-        </p>
-      </div>
+      <div style="text-align:center;margin-bottom:40px;">
+        <h1 style="margin:0 0 12px;font-size:32px;font-weight:800;letter-spacing:-1px;color:#FFFFFF;">\${escapeHtml(opts.title)}</h1>
+        \${opts.subtitle ? `< p style = "margin:12px auto 0;font-size:16px;line-height:1.6;color:#94A3B8;max-width:400px;" >\${ escapeHtml(opts.subtitle) } </p>` : ""
+}
+</div>
+
+  < !--Main Card-- >
+    <div class="card" style = "background:#1C1C1E;border-radius:24px;padding:40px;border:1px solid rgba(255,255,255,0.05);margin-bottom:32px;" >
+
+      <!--Host Simple Box-- >
+        <div style="display:flex;align-items:center;margin-bottom:32px;padding-bottom:32px;border-bottom:1px solid rgba(255,255,255,0.08);" >
+          <div style="width:48px;height:48px;background:#4F46E5;border-radius:12px;margin-right:16px;display:inline-block;vertical-align:middle;text-align:center;line-height:48px;" >
+\${
+  opts.brandLogoUrl
+  ? `<img src="\${opts.brandLogoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">`
+  : `<span style="color:white;font-weight:bold;font-size:20px;">\${opts.brandName.charAt(0)}</span>`
+}
+</div>
+  < div style = "display:inline-block;vertical-align:middle;" >
+    <div style="font-weight:700;font-size:18px;color:#FFFFFF;" >\${ escapeHtml(opts.brandName) } </div>
+      < div style = "font-size:14px;color:#636366;" > @\${ escapeHtml(opts.brandName.toLowerCase().replace(/\\s+/g, '')) } </div>
+        </div>
+        </div>
+
+\${ opts.bodyHtml }
+
+</div>
+
+  < !--Actions -->
+    <div style="text-align:center;margin-top:20px;" >
+\${ opts.footerHtml || "" }
+
+<p style="margin-top:40px;font-size:12px;color:#48484A;letter-spacing:1px;text-transform:uppercase;" >
+  POWERED BY < strong style = "color:#636366;" > CalSchedule </strong>
+    </p>
+    </div>
 
     </div>
-  </body>
-  </html>
-  `;
+    </body>
+    </html>
+      `;
 };
 
 // Generate ICS calendar file content
@@ -168,33 +155,33 @@ const generateICSContent = (data: EmailRequest, isCancellation = false): string 
     return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   };
 
-  const uid = `${data.bookingId}@calschedule`;
+  const uid = `\${ data.bookingId } @calschedule`;
   const now = formatToICS(new Date());
   const start = formatToICS(startDate);
   const end = formatToICS(endDate);
 
   const location = data.meetingLink || '';
-  const description = `Meeting with ${data.hostName}${data.notes ? `\\n\\nNotes: ${data.notes}` : ''}${data.meetingLink ? `\\n\\nJoin: ${data.meetingLink}` : ''}`;
+  const description = `Meeting with \${ data.hostName } \${ data.notes ? `\\\\n\\\\nNotes: \${data.notes}` : '' } \${ data.meetingLink ? `\\\\n\\\\nJoin: \${data.meetingLink}` : '' } `;
 
-  return `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//CalSchedule//EN
-CALSCALE:GREGORIAN
-METHOD:${isCancellation ? 'CANCEL' : 'REQUEST'}
-BEGIN:VEVENT
-UID:${uid}
-DTSTAMP:${now}
-DTSTART:${start}
-DTEND:${end}
-SUMMARY:${data.eventTitle} with ${data.hostName}
-DESCRIPTION:${description}
-LOCATION:${location}
-STATUS:${isCancellation ? 'CANCELLED' : 'CONFIRMED'}
-ORGANIZER;CN=${data.hostName}:mailto:${data.hostEmail || 'noreply@calschedule.com'}
-ATTENDEE;CN=${data.recipientName};RSVP=TRUE:mailto:${data.recipientEmail}
-SEQUENCE:${isCancellation ? '1' : '0'}
-END:VEVENT
-END:VCALENDAR`;
+  return `BEGIN: VCALENDAR
+VERSION: 2.0
+PRODID: -//CalSchedule//EN
+  CALSCALE: GREGORIAN
+METHOD: \${ isCancellation ? 'CANCEL' : 'REQUEST' }
+BEGIN: VEVENT
+UID: \${ uid }
+DTSTAMP: \${ now }
+DTSTART: \${ start }
+DTEND: \${ end }
+SUMMARY: \${ data.eventTitle } with \${ data.hostName }
+DESCRIPTION: \${ description }
+LOCATION: \${ location }
+STATUS: \${ isCancellation ? 'CANCELLED' : 'CONFIRMED' }
+ORGANIZER; CN =\${ data.hostName }: mailto: \${ data.hostEmail || 'noreply@calschedule.com' }
+ATTENDEE; CN =\${ data.recipientName }; RSVP = TRUE: mailto: \${ data.recipientEmail }
+SEQUENCE: \${ isCancellation ? '1' : '0' }
+END: VEVENT
+END: VCALENDAR`;
 };
 
 const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookingsUrl?: string; rescheduleUrl?: string; cancelUrl?: string }) => {
@@ -205,145 +192,146 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
   const rescheduleUrl = links.rescheduleUrl;
   const cancelUrl = links.cancelUrl;
 
-  /* Details Card */
-  const detailsCard = `
-    <div style="background:#F9FAFB;border:1px solid #F3F4F6;border-radius:16px;padding:24px;margin-bottom:32px;">
-      <div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:20px;">${escapeHtml(data.eventTitle)}</div>
-      
-      <table style="width:100%;border-collapse:collapse;">
-        <tr>
-          <td style="padding-bottom:16px;width:24px;vertical-align:top;">
-            <div style="height:8px;width:8px;border-radius:50%;background:#3B82F6;margin-top:6px;"></div>
-          </td>
-          <td style="padding-bottom:16px;padding-right:24px;vertical-align:top;">
-            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">When</div>
-            <div style="font-size:15px;color:#111827;font-weight:500;">
-              ${escapeHtml(startFormatted)} - ${escapeHtml(endFormatted.split(',')[1] || endFormatted)}
-              <div style="color:#6B7280;font-weight:400;margin-top:2px;">${escapeHtml(data.timezone)}</div>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding-bottom:16px;width:24px;vertical-align:top;">
-            <div style="height:8px;width:8px;border-radius:50%;background:#8B5CF6;margin-top:6px;"></div>
-          </td>
-          <td style="padding-bottom:16px;vertical-align:top;">
-            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">With</div>
-            <div style="font-size:15px;color:#111827;font-weight:500;">${escapeHtml(data.hostName)}</div>
-          </td>
-        </tr>
-        ${data.meetingLink ? `
-        <tr>
-          <td style="width:24px;vertical-align:top;">
-            <div style="height:8px;width:8px;border-radius:50%;background:#10B981;margin-top:6px;"></div>
-          </td>
-          <td style="vertical-align:top;">
-            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Where</div>
-            <div style="font-size:15px;color:#111827;font-weight:500;">
-              <a href="${data.meetingLink}" style="color:#2563EB;text-decoration:none;">Join Meeting</a>
-            </div>
-          </td>
-        </tr>
-        ` : ""}
-      </table>
-
-      ${data.notes ? `
-        <div style="margin-top:20px;padding-top:20px;border-top:1px dashed #E5E7EB;">
-          <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Notes</div>
-          <div style="font-size:14px;color:#4B5563;line-height:1.6;font-style:italic;">"${escapeHtml(data.notes)}"</div>
-        </div>
-      ` : ""}
-    </div>
-  `;
-
-  const actions = `
-    <div style="display:flex;flex-direction:column;gap:12px;align-items:center;">
-      ${joinUrl ? buildPrimaryButton("Join Meeting", joinUrl, "primary") : ""}
-      <div style="display:flex;gap:20px;margin-top:8px;">
-        ${myBookingsUrl ? buildSecondaryLink("View Details", myBookingsUrl) : ""}
-        ${rescheduleUrl ? buildSecondaryLink("Reschedule", rescheduleUrl) : ""}
-        ${cancelUrl ? buildSecondaryLink("Cancel", cancelUrl) : ""}
-      </div>
-    </div>
-  `;
-
-  const nextSteps = ``; // Removed next steps text to keep it cleaner, as the card is self-explanatory
-
-  const brandName = (data.branding?.isEnabled ? data.branding.brandName : 'CalSchedule') || 'CalSchedule';
+  const accent = data.branding?.isEnabled ? data.branding.brandColor : "#FF9124";
+  const brandName = (data.branding?.isEnabled ? data.branding.brandName : 'Host') || 'Host';
   const brandLogoUrl = data.branding?.isEnabled ? data.branding.brandLogoUrl : undefined;
-  const brandAccent = data.branding?.isEnabled ? data.branding.brandColor : undefined;
+
+  const contentHtml = `
+  < !--Details Grid-- >
+    <div class="section-grid" style = "display:table;width:100%;margin-bottom:32px;" >
+      <!--WHAT Row-- >
+        <div style="display:table-row;" >
+          <div class="section-item" style = "display:table-cell;width:50%;padding-bottom:32px;padding-right:16px;vertical-align:top;" >
+            <div style="font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;" >
+              <span style="margin-right:4px;" >📹</span> WHAT
+                </div>
+                < div style = "font-size:18px;font-weight:700;color:#FFFFFF;margin-bottom:4px;" >\${ escapeHtml(data.eventTitle) } </div>
+                  < div style = "font-size:14px;color:#8E8E93;" > Google Meet </div>
+                    </div>
+                    < div class="section-item" style = "display:table-cell;width:50%;padding-bottom:32px;vertical-align:top;" >
+                      <div style="font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;" >
+                        <span style="margin-right:4px;" >👤</span> WHO
+                          </div>
+                          < div style = "font-size:18px;font-weight:700;color:#FFFFFF;margin-bottom:4px;" >\${ escapeHtml(data.recipientName) } </div>
+                            < div style = "font-size:14px;color:#8E8E93;" >\${ escapeHtml(data.recipientEmail) } </div>
+                              </div>
+                              </div>
+                              </div>
+
+                              < !--WHEN section full width-- >
+                                <div style="margin-bottom:32px;padding-top:32px;border-top:1px dashed rgba(255,255,255,0.08);" >
+                                  <div style="font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;" >
+                                    <span style="margin-right:4px;" >🕒</span> WHEN
+                                      </div>
+                                      < div style = "font-size:18px;color:#FFFFFF;font-weight:600;line-height:1.4;" >
+\${ escapeHtml(startFormatted.split('at')[0]) } <span style="color:\${accent};" > at </span> \${escapeHtml(startFormatted.split('at')[1])} - \${escapeHtml(endFormatted.split('at')[1])}
+  < span style = "color:#636366;font-size:16px;" > (\${ escapeHtml(data.timezone.split('/').pop() || data.timezone) })</span>
+    </div>
+    </div>
+
+    < !--Join Button inside card-- >
+\${
+  joinUrl ? `
+    <div style="margin-top:40px;text-align:center;">
+       <a href="\${joinUrl}" style="display:inline-block;width:100%;box-sizing:border-box;background:linear-gradient(135deg, \${accent}, #FF5C00);color:#000000;padding:18px 32px;border-radius:18px;font-weight:800;font-size:17px;text-decoration:none;box-shadow: 0 10px 20px -5px \${accent}60;">
+         📹 Join Meeting
+       </a>
+    </div>
+    ` : ""
+}
+`;
+
+  const footerActions = `
+  < div style = "text-align:center;" >
+    <div style="margin-bottom:24px;" >
+      <a href="\${myBookingsUrl || '#'}" style = "color:\${accent};text-decoration:none;font-size:15px;font-weight:600;display:inline-flex;align-items:center;" >
+        <span style="margin-right:8px;" >📅</span> Add to Calendar
+          </a>
+          </div>
+
+          < div style = "display:block;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.05);" >
+            <span style="color:#636366;margin:0 12px;" >
+              <a href="\${rescheduleUrl || '#'}" style = "color:#94A3B8;text-decoration:none;font-size:14px;font-weight:500;" >🔄 Reschedule </a>
+                </span>
+                < span style = "color:rgba(255,255,255,0.1);" >| </span>
+                  < span style = "color:#636366;margin:0 12px;" >
+                    <a href="\${cancelUrl || '#'}" style = "color:#EF4444;text-decoration:none;font-size:14px;font-weight:500;" >❌ Cancel </a>
+                      </span>
+                      </div>
+
+                      < div style = "margin-top:32px;" >
+                        <a href="\${myBookingsUrl || '#'}" style = "color:#636366;text-decoration:none;font-weight:500;font-size:13px;" > View all your bookings →</a>
+                          </div>
+                          </div>
+                            `;
 
   switch (data.type) {
     case "confirmation":
       return {
-        subject: `Booking Confirmed: ${data.eventTitle} with ${data.hostName}`,
+        subject: `Booking Confirmed: \${ data.eventTitle } `,
         html: wrapEmail({
-          title: "Booking confirmed",
-          subtitle: `Hi ${data.recipientName}, your meeting is scheduled with ${data.hostName}.`,
-          badgeText: "CONFIRMED",
-          accent: brandAccent || "#22C55E",
-          bodyHtml: `${detailsCard}${actions}${nextSteps}`,
-          footerHtml: `If you can’t find this email later, use ${myBookingsUrl ? `<a href="${myBookingsUrl}" style="color:#60A5FA;text-decoration:none;">My Bookings</a>` : "the My Bookings page"} to view your appointment details.`,
+          title: "Booking confirmed!",
+          subtitle: `You are scheduled with the host.A calendar invitation has been sent to your email address.`,
+          accent,
+          bodyHtml: contentHtml,
+          footerHtml: footerActions,
           brandName,
           brandLogoUrl,
         }),
       };
-
-    case "cancellation":
-      return {
-        subject: `Booking Cancelled: ${data.eventTitle}`,
-        html: wrapEmail({
-          title: "Booking cancelled",
-          subtitle: `Hi ${data.recipientName}, this meeting has been cancelled.`,
-          badgeText: "CANCELLED",
-          accent: brandAccent || "#EF4444",
-          bodyHtml: `${detailsCard}${myBookingsUrl ? `<div style="margin-top:14px;">${buildPrimaryButton("View booking details", myBookingsUrl, "neutral")}</div>` : ""}`,
-          footerHtml: "A calendar update is attached to remove this event from your calendar.",
-          brandName,
-          brandLogoUrl,
-        }),
-      };
-
-    case "reminder":
-      return {
-        subject: `Reminder: ${data.eventTitle} with ${data.hostName}`,
-        html: wrapEmail({
-          title: "Ready for your meeting?",
-          subtitle: `Hi ${data.recipientName}, this is a friendly reminder about your upcoming meeting with ${data.hostName}.`,
-          badgeText: "UPCOMING",
-          accent: brandAccent || "#3B82F6",
-          bodyHtml: `${detailsCard}${actions}<div style="margin-top:20px;text-align:center;color:#6B7280;font-size:14px;background:#F1F5F9;padding:12px;border-radius:8px;"><strong>Pro tip:</strong> Join 2–3 minutes early to test your audio and video.</div>`,
-          brandName,
-          brandLogoUrl,
-        }),
-      };
-
     case "reschedule":
       return {
-        subject: `Rescheduled: ${data.eventTitle} with ${data.hostName}`,
+        subject: `Booking Rescheduled: \${ data.eventTitle } `,
         html: wrapEmail({
-          title: "New time confirmed",
-          subtitle: `Hi ${data.recipientName}, your meeting with ${data.hostName} has been successfully rescheduled.`,
-          badgeText: "UPDATED",
-          accent: brandAccent || "#F59E0B",
-          bodyHtml: `${detailsCard}${actions}${nextSteps}`,
-          footerHtml: "We've attached an updated calendar invitation. Please accept it to update your calendar.",
+          title: "Booking rescheduled!",
+          subtitle: `Your meeting time has been updated.A new calendar invitation has been sent.`,
+          accent,
+          bodyHtml: contentHtml,
+          footerHtml: footerActions,
           brandName,
           brandLogoUrl,
         }),
       };
-
-    default:
+    case "reminder":
       return {
-        subject: `Update: ${data.eventTitle}`,
+        subject: `Reminder: \${ data.eventTitle } starts soon`,
         html: wrapEmail({
-          title: "Booking update",
-          subtitle: `Update for ${data.eventTitle}.`,
-          bodyHtml: `${detailsCard}${actions}`,
-          brandName,
-          brandLogoUrl,
+          title: "Meeting starting soon!",
+          subtitle: `This is a reminder for your upcoming session.We're looking forward to seeing you.`,
+accent,
+  bodyHtml: contentHtml,
+    footerHtml: footerActions,
+      brandName,
+      brandLogoUrl,
         }),
       };
+    case "cancellation":
+return {
+  subject: `Booking Cancelled: \${data.eventTitle}`,
+  html: wrapEmail({
+    title: "Booking cancelled",
+    subtitle: `This meeting has been cancelled. A calendar update has been sent to your email.`,
+    accent: "#EF4444",
+    bodyHtml: contentHtml,
+    footerHtml: `
+            <div style="margin-top:20px;text-align:center;">
+               <a href="\${myBookingsUrl || '#'}" style="color:#636366;text-decoration:none;font-weight:500;font-size:13px;">View all your bookings →</a>
+            </div>
+          `,
+    brandName,
+    brandLogoUrl,
+  }),
+};
+    default:
+return {
+  subject: "Booking Update",
+  html: wrapEmail({
+    title: "Booking Update",
+    bodyHtml: contentHtml,
+    brandName,
+    brandLogoUrl,
+  }),
+};
   }
 };
 
@@ -355,117 +343,65 @@ const getHostEmailContent = (
 ) => {
   const startFormatted = formatDateTime(data.startTime, data.timezone);
   const endFormatted = formatDateTime(data.endTime, data.timezone);
+  const joinUrl = links.joinUrl;
 
-  const detailsCard = `
-    <div style="background:#F9FAFB;border:1px solid #F3F4F6;border-radius:16px;padding:24px;margin-bottom:32px;">
-      <div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:20px;">${escapeHtml(data.eventTitle)}</div>
-      
-      <table style="width:100%;border-collapse:collapse;">
-        <tr>
-          <td style="padding-bottom:16px;width:24px;vertical-align:top;">
-            <div style="height:8px;width:8px;border-radius:50%;background:#3B82F6;margin-top:6px;"></div>
-          </td>
-          <td style="padding-bottom:16px;padding-right:24px;vertical-align:top;">
-            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">When</div>
-            <div style="font-size:15px;color:#111827;font-weight:500;">
-              ${escapeHtml(startFormatted)}
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding-bottom:16px;width:24px;vertical-align:top;">
-            <div style="height:8px;width:8px;border-radius:50%;background:#8B5CF6;margin-top:6px;"></div>
-          </td>
-          <td style="padding-bottom:16px;vertical-align:top;">
-            <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Attendee</div>
-            <div style="font-size:15px;color:#111827;font-weight:500;">${escapeHtml(attendee.name)}</div>
-            <div style="font-size:14px;color:#6B7280;">${escapeHtml(attendee.email)}</div>
-          </td>
-        </tr>
-      </table>
+  const accent = data.branding?.isEnabled ? data.branding.brandColor : "#FF9124";
+  const brandName = (data.branding?.isEnabled ? data.branding.brandName : 'Host') || 'Host';
+  const brandLogoUrl = data.branding?.isEnabled ? data.branding.brandLogoUrl : undefined;
 
-      ${data.notes ? `
-        <div style="margin-top:20px;padding-top:20px;border-top:1px dashed #E5E7EB;">
-          <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Attendee Notes</div>
-          <div style="font-size:14px;color:#4B5563;line-height:1.6;font-style:italic;">"${escapeHtml(data.notes)}"</div>
+  const contentHtml = `
+    <!-- Details Grid -->
+    <div class="section-grid" style="display:table;width:100%;margin-bottom:32px;">
+      <!-- WHAT Row -->
+      <div style="display:table-row;">
+        <div class="section-item" style="display:table-cell;width:50%;padding-bottom:32px;padding-right:16px;vertical-align:top;">
+          <div style="font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+            <span style="margin-right:4px;">📹</span> WHAT
+          </div>
+          <div style="font-size:18px;font-weight:700;color:#FFFFFF;margin-bottom:4px;">\${escapeHtml(data.eventTitle)}</div>
+          <div style="font-size:14px;color:#8E8E93;">Google Meet</div>
         </div>
-      ` : ""}
+        <div class="section-item" style="display:table-cell;width:50%;padding-bottom:32px;vertical-align:top;">
+          <div style="font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+            <span style="margin-right:4px;">👤</span> ATTENDEE
+          </div>
+          <div style="font-size:18px;font-weight:700;color:#FFFFFF;margin-bottom:4px;">\${escapeHtml(attendee.name)}</div>
+          <div style="font-size:14px;color:#8E8E93;">\${escapeHtml(attendee.email)}</div>
+        </div>
+      </div>
     </div>
+
+    <!-- WHEN section full width -->
+    <div style="margin-bottom:32px;padding-top:32px;border-top:1px dashed rgba(255,255,255,0.08);">
+       <div style="font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
+         <span style="margin-right:4px;">🕒</span> WHEN
+       </div>
+       <div style="font-size:18px;color:#FFFFFF;font-weight:600;line-height:1.4;">
+         \${escapeHtml(startFormatted.split('at')[0])} <span style="color:\${accent};">at</span> \${escapeHtml(startFormatted.split('at')[1])} - \${escapeHtml(endFormatted.split('at')[1])}
+       </div>
+    </div>
+
+    <!-- Join Button inside card -->
+    \${joinUrl ? `
+    < div style = "margin-top:40px;text-align:center;" >
+      <a href="\${joinUrl}" style = "display:inline-block;width:100%;box-sizing:border-box;background:linear-gradient(135deg, \${accent}, #FF5C00);color:#000000;padding:18px 32px;border-radius:18px;font-weight:800;font-size:17px;text-decoration:none;box-shadow: 0 10px 20px -5px \${accent}60;" >
+         📹 Join Meeting
+  </a>
+  </div>
+    ` : ""}
   `;
 
-  const actions = links.joinUrl
-    ? `<div style="text-align:center;margin-top:24px;">${buildPrimaryButton('Join meeting', links.joinUrl, 'primary')}</div>`
-    : '';
-
-  const brandName = (data.branding?.isEnabled ? data.branding.brandName : 'CalSchedule') || 'CalSchedule';
-  const brandLogoUrl = data.branding?.isEnabled ? data.branding.brandLogoUrl : undefined;
-  const brandAccent = data.branding?.isEnabled ? data.branding.brandColor : undefined;
-
-  switch (data.type) {
-    case 'confirmation':
-      return {
-        subject: `New booking: ${data.eventTitle} with ${attendee.name}`,
-        html: wrapEmail({
-          title: 'New booking',
-          subtitle: `Hi ${host.name}, you have a new booking.`,
-          badgeText: 'NEW BOOKING',
-          accent: brandAccent || '#22C55E',
-          bodyHtml: `${detailsCard}${actions}`,
-          brandName,
-          brandLogoUrl,
-        }),
-      };
-    case 'cancellation':
-      return {
-        subject: `Cancelled: ${data.eventTitle} with ${attendee.name}`,
-        html: wrapEmail({
-          title: 'Booking cancelled',
-          subtitle: `Hi ${host.name}, this booking has been cancelled.`,
-          badgeText: 'CANCELLED',
-          accent: brandAccent || '#EF4444',
-          bodyHtml: `${detailsCard}${actions}`,
-          brandName,
-          brandLogoUrl,
-        }),
-      };
-    case 'reschedule':
-      return {
-        subject: `Rescheduled: ${data.eventTitle} with ${attendee.name}`,
-        html: wrapEmail({
-          title: 'Booking Rescheduled',
-          subtitle: `Hi ${host.name}, the meeting time has been updated by the attendee.`,
-          badgeText: 'UPDATED',
-          accent: brandAccent || '#F59E0B',
-          bodyHtml: `${detailsCard}${actions}`,
-          brandName,
-          brandLogoUrl,
-        }),
-      };
-    case 'reminder':
-      return {
-        subject: `Reminder: ${data.eventTitle} with ${attendee.name}`,
-        html: wrapEmail({
-          title: 'Meeting Reminder',
-          subtitle: `Hi ${host.name}, you have a meeting coming up soon.`,
-          badgeText: 'UPCOMING',
-          accent: brandAccent || '#3B82F6',
-          bodyHtml: `${detailsCard}${actions}`,
-          brandName,
-          brandLogoUrl,
-        }),
-      };
-    default:
-      return {
-        subject: `Update: ${data.eventTitle} with ${attendee.name}`,
-        html: wrapEmail({
-          title: 'Booking update',
-          subtitle: `Update for ${data.eventTitle}.`,
-          bodyHtml: `${detailsCard}${actions}`,
-          brandName,
-          brandLogoUrl,
-        }),
-      };
-  }
+return {
+  subject: `New booking: \${data.eventTitle}`,
+  html: wrapEmail({
+    title: "New booking!",
+    subtitle: `You have a new session scheduled with \${attendee.name}.`,
+    accent,
+    bodyHtml: contentHtml,
+    brandName,
+    brandLogoUrl,
+  }),
+};
 };
 
 const getHostDetails = async (supabase: ReturnType<typeof createClient>, hostId: string) => {
@@ -475,9 +411,6 @@ const getHostDetails = async (supabase: ReturnType<typeof createClient>, hostId:
     return null;
   }
   const meta = data.user?.user_metadata || {};
-  // Try to find a name in metadata, fallback to profile name if we could fetch it (but we don't have access to profile table easily here without potentially circular ref deps if not careful, so stick to auth meta or email)
-  // Actually, we can try to query the public.profiles table too if auth meta is empty, but auth meta is usually reliable for name if synced.
-  // Let's stick to auth meta > email username > 'Host'
   const name = meta.full_name || meta.name || meta.display_name || data.user?.email?.split('@')[0] || 'Host';
 
   return {
@@ -508,25 +441,28 @@ const handler = async (req: Request): Promise<Response> => {
     let resolvedHostName = data.hostName;
     let resolvedHostEmail = data.hostEmail?.trim();
 
-    // Fetch branding settings if not provided
-    if (!data.branding && requestedHostId) {
+    if (requestedHostId) {
       const { data: brandData } = await supabase
         .from('branding_settings')
-        .select('brand_name, brand_logo_url, brand_color, is_enabled')
+        .select('brand_name, brand_logo_url, brand_color, is_enabled, site_url')
         .eq('user_id', requestedHostId)
         .maybeSingle();
 
       if (brandData) {
-        data.branding = {
-          brandName: brandData.brand_name, // If brand name is available, we *could* use it as host name if truly missing, but let's prefer personal name first.
-          brandLogoUrl: brandData.brand_logo_url,
-          brandColor: brandData.brand_color,
-          isEnabled: brandData.is_enabled,
-        };
+        if (!data.branding) {
+          data.branding = {
+            brandName: brandData.brand_name,
+            brandLogoUrl: brandData.brand_logo_url,
+            brandColor: brandData.brand_color,
+            isEnabled: brandData.is_enabled,
+          };
+        }
+        if (!data.siteUrl && brandData.site_url) {
+          data.siteUrl = brandData.site_url;
+        }
       }
     }
 
-    // Attempt to resolve real host name if generic "Host" or missing
     if (requestedHostId && (!resolvedHostName || resolvedHostName === 'Host' || !resolvedHostEmail)) {
       const details = await getHostDetails(supabase, requestedHostId);
       if (details) {
@@ -539,31 +475,31 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Update data object with resolved name for consistency in templates
     data.hostName = resolvedHostName;
     data.hostEmail = resolvedHostEmail;
 
     const siteUrl = getSiteUrl(data);
     const joinUrl = data.meetingLink;
-    const myBookingsUrl = siteUrl ? `${siteUrl}/my-bookings` : undefined;
-    const rescheduleUrl = siteUrl && bookingRow?.reschedule_token ? `${siteUrl}/reschedule/${bookingRow.reschedule_token}` : undefined;
-    const cancelUrl = siteUrl && bookingRow?.cancel_token ? `${siteUrl}/cancel/${bookingRow.cancel_token}` : undefined;
+    const myBookingsUrl = siteUrl ? `\${siteUrl}/my-bookings` : undefined;
+    const rescheduleUrl = siteUrl && bookingRow?.reschedule_token ? `\${siteUrl}/reschedule/\${bookingRow.reschedule_token}` : undefined;
+    const cancelUrl = siteUrl && bookingRow?.cancel_token ? `\${siteUrl}/cancel/\${bookingRow.cancel_token}` : undefined;
 
     const { subject, html } = getEmailContent(data, { joinUrl, myBookingsUrl, rescheduleUrl, cancelUrl });
 
-    // Generate ICS calendar content
     const isCancellation = data.type === "cancellation";
     const icsContent = generateICSContent(data, isCancellation);
     const icsBase64 = btoa(icsContent);
+
+    const emailFromTitle = data.branding?.isEnabled ? (data.branding.brandName || "CalSchedule") : "CalSchedule";
 
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
+        Authorization: `Bearer \${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "CalSchedule <noreply@intimatecare.in>",
+        from: `\${emailFromTitle} <noreply@intimatecare.in>`,
         to: [data.recipientEmail],
         subject,
         html,
@@ -578,51 +514,36 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     const result = await res.json();
-    console.log("Email sent:", result);
+    if (!res.ok) throw new Error(result.message || "Failed to send email");
 
-    if (!res.ok) {
-      throw new Error(result.message || "Failed to send email");
-    }
+    if (requestedHostId && resolvedHostEmail) {
+      const hostContent = getHostEmailContent(
+        data,
+        { name: resolvedHostName, email: resolvedHostEmail },
+        { name: data.recipientName, email: data.recipientEmail },
+        { joinUrl },
+      );
 
-    // Send separate host notification email
-    if (requestedHostId) {
-      // resolvedHostEmail is already resolved above if possible
-      if (resolvedHostEmail) {
-        const hostContent = getHostEmailContent(
-          data,
-          { name: resolvedHostName, email: resolvedHostEmail },
-          { name: data.recipientName, email: data.recipientEmail },
-          { joinUrl },
-        );
-
-        const hostRes = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-          },
-          body: JSON.stringify({
-            from: "CalSchedule <noreply@intimatecare.in>",
-            to: [resolvedHostEmail],
-            subject: hostContent.subject,
-            html: hostContent.html,
-            attachments: [
-              {
-                filename: isCancellation ? "cancellation.ics" : "invite.ics",
-                content: icsBase64,
-                content_type: "text/calendar; method=" + (isCancellation ? "CANCEL" : "REQUEST"),
-              },
-            ],
-          }),
-        });
-
-        const hostResult = await hostRes.json();
-        console.log("Host email sent:", { to: resolvedHostEmail, result: hostResult });
-      } else {
-        console.warn('Host email not available, skipping host notification');
-      }
-    } else {
-      console.warn('Host id not available for booking, skipping host notification');
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer \${RESEND_API_KEY}`,
+        },
+        body: JSON.stringify({
+          from: `\${emailFromTitle} <noreply@intimatecare.in>`,
+          to: [resolvedHostEmail],
+          subject: hostContent.subject,
+          html: hostContent.html,
+          attachments: [
+            {
+              filename: isCancellation ? "cancellation.ics" : "invite.ics",
+              content: icsBase64,
+              content_type: "text/calendar; method=" + (isCancellation ? "CANCEL" : "REQUEST"),
+            },
+          ],
+        }),
+      });
     }
 
     return new Response(JSON.stringify({ success: true, data: result }), {

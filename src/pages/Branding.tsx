@@ -22,6 +22,7 @@ export default function BrandingPage() {
         brand_name: '',
         brand_logo_url: '',
         brand_color: '#111827',
+        site_url: '',
         is_enabled: true
     });
 
@@ -33,6 +34,7 @@ export default function BrandingPage() {
                 brand_name: settings.brand_name || 'CalSchedule',
                 brand_logo_url: settings.brand_logo_url || '',
                 brand_color: settings.brand_color || '#111827',
+                site_url: settings.site_url || '',
                 is_enabled: settings.is_enabled ?? true
             });
         }
@@ -112,6 +114,19 @@ export default function BrandingPage() {
                                     />
                                     <p className="text-xs text-muted-foreground">
                                         This will replace "CalSchedule" on your public pages and in emails.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="site-url">Primary Domain (App URL)</Label>
+                                    <Input
+                                        id="site-url"
+                                        placeholder="https://cal.zenthrashop.in"
+                                        value={formData.site_url}
+                                        onChange={e => setFormData(prev => ({ ...prev, site_url: e.target.value }))}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        The base URL for all booking links and confirmation pages.
                                     </p>
                                 </div>
 

@@ -21,6 +21,7 @@ interface WhatsAppRequest {
         reminder_template_name?: string;
         instructor_reminder_template_name?: string;
         template_language?: string;
+        site_url?: string;
     };
 }
 
@@ -82,8 +83,7 @@ serve(async (req) => {
         }
 
         const templateLanguage = settings.template_language || "en";
-
-        const siteUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://zenthracalendar.com";
+        const siteUrl = settings.site_url || Deno.env.get("PUBLIC_SITE_URL") || "https://zenthracalendar.com";
         const formattedDate = formatDateTime(booking.start_time, booking.attendee_timezone || "UTC");
 
         // Construct parameters based on template type

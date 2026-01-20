@@ -69,6 +69,7 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
     instructor_reminder_template_name: 'booking_reminder_instructor',
     payment_failed_template_name: 'payment_failed',
     template_language: 'en',
+    site_url: '',
     is_enabled: true
   });
 
@@ -87,6 +88,7 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
         instructor_reminder_template_name: settings.instructor_reminder_template_name || 'booking_reminder_instructor',
         payment_failed_template_name: settings.payment_failed_template_name || 'payment_failed',
         template_language: settings.template_language || 'en',
+        site_url: settings.site_url || '',
         is_enabled: settings.is_enabled ?? true
       });
     }
@@ -238,6 +240,25 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
               <div className="space-y-4">
                 <h4 className="text-sm font-semibold flex items-center gap-2">
                   <Globe className="w-4 h-4 text-muted-foreground" />
+                  Custom Domain URL
+                </h4>
+                <div className="space-y-2">
+                  <Label htmlFor="site_url">App URL / Custom Domain</Label>
+                  <Input
+                    id="site_url"
+                    placeholder="https://cal.zenthrashop.in"
+                    value={formData.site_url}
+                    onChange={e => setFormData(prev => ({ ...prev, site_url: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This domain will be used for all links in WhatsApp messages.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-muted-foreground" />
                   Message Templates
                 </h4>
                 <div className="grid gap-4">
@@ -261,73 +282,76 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cancelled_template">Booking Cancelled Template</Label>
-                    <Input
-                      id="cancelled_template"
-                      placeholder="booking_cancelled"
-                      value={formData.cancelled_template_name}
-                      onChange={e => setFormData(prev => ({ ...prev, cancelled_template_name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="rescheduled_template">Booking Rescheduled Template (Customer)</Label>
-                    <Input
-                      id="rescheduled_template"
-                      placeholder="booking_rescheduled"
-                      value={formData.rescheduled_template_name}
-                      onChange={e => setFormData(prev => ({ ...prev, rescheduled_template_name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="instructor_rescheduled_template">Booking Rescheduled Template (Instructor)</Label>
-                    <Input
-                      id="instructor_rescheduled_template"
-                      placeholder="booking_rescheduled_instructor"
-                      value={formData.instructor_rescheduled_template_name}
-                      onChange={e => setFormData(prev => ({ ...prev, instructor_rescheduled_template_name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reminder_template">Booking Reminder Template (Customer)</Label>
-                    <Input
-                      id="reminder_template"
-                      placeholder="booking_reminder"
-                      value={formData.reminder_template_name}
-                      onChange={e => setFormData(prev => ({ ...prev, reminder_template_name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="instructor_reminder_template">Booking Reminder Template (Instructor)</Label>
-                    <Input
-                      id="instructor_reminder_template"
-                      placeholder="booking_reminder_instructor"
-                      value={formData.instructor_reminder_template_name}
-                      onChange={e => setFormData(prev => ({ ...prev, instructor_reminder_template_name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="payment_failed_template">Payment Failed Template</Label>
-                    <Input
-                      id="payment_failed_template"
-                      placeholder="payment_failed"
-                      value={formData.payment_failed_template_name}
-                      onChange={e => setFormData(prev => ({ ...prev, payment_failed_template_name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="template_language">Template Language Code</Label>
-                    <div className="flex gap-2">
+                  {/* ... other template inputs ... */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cancelled_template">Cancelled Template</Label>
                       <Input
-                        id="template_language"
-                        placeholder="en, en_US, etc."
+                        id="cancelled_template"
+                        placeholder="booking_cancelled"
+                        value={formData.cancelled_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, cancelled_template_name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="rescheduled_template">Rescheduled Template</Label>
+                      <Input
+                        id="rescheduled_template"
+                        placeholder="booking_rescheduled"
+                        value={formData.rescheduled_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, rescheduled_template_name: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="instructor_rescheduled_template">Instructor Reschedule Template</Label>
+                      <Input
+                        id="instructor_rescheduled_template"
+                        placeholder="booking_rescheduled_instructor"
+                        value={formData.instructor_rescheduled_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, instructor_rescheduled_template_name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="payment_failed_template">Payment Failed Template</Label>
+                      <Input
+                        id="payment_failed_template"
+                        placeholder="payment_failed"
+                        value={formData.payment_failed_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, payment_failed_template_name: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="reminder_template">Reminder Template</Label>
+                      <Input
+                        id="reminder_template"
+                        placeholder="booking_reminder"
+                        value={formData.reminder_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, reminder_template_name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="instructor_reminder_template">Instructor Reminder Template</Label>
+                      <Input
+                        id="instructor_reminder_template"
+                        placeholder="booking_reminder_instructor"
+                        value={formData.instructor_reminder_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, instructor_reminder_template_name: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="language">Language Code</Label>
+                      <Input
+                        id="language"
+                        placeholder="en"
                         value={formData.template_language}
                         onChange={e => setFormData(prev => ({ ...prev, template_language: e.target.value }))}
-                        className="flex-1"
                       />
-                      <div className="text-xs text-muted-foreground bg-muted p-2 rounded border border-border flex-1">
-                        Use <strong>en</strong> for English, <strong>en_US</strong> for US English, etc. Match this exactly with your Meta dashboard.
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -336,7 +360,7 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div className="space-y-1">
                   <Label className="text-base">Enable WhatsApp Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Automatically send messages when bookings are made</p>
+                  <p className="text-xs text-muted-foreground">Send automated messages for new bookings</p>
                 </div>
                 <Switch
                   checked={formData.is_enabled}
