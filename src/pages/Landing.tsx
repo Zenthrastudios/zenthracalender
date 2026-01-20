@@ -8,6 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const features = [
   {
@@ -172,6 +173,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             <Link to="/auth" className="text-sm font-medium hover:text-primary transition-colors hidden sm:block">Log in</Link>
+            <ThemeToggle />
             <Button asChild size="default" className="rounded-full px-6 shadow-lg shadow-primary/20">
               <Link to="/auth">Get Started</Link>
             </Button>

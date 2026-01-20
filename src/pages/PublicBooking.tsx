@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useBrandingSettings } from '@/hooks/useBrandingSettings';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -653,7 +654,7 @@ export default function PublicBookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0B0F] selection:bg-primary/30 text-white pb-12">
+    <div className="min-h-screen bg-[#09090B] selection:bg-primary/30 text-white pb-12">
       {/* Header */}
       <header className="w-full px-6 py-6 flex items-center justify-between border-b border-white/5 backdrop-blur-md sticky top-0 z-50 bg-[#0B0B0F]/80">
         <Link to="/" className="flex items-center gap-3">
@@ -669,13 +670,16 @@ export default function PublicBookingPage() {
           </div>
           <span className="font-bold text-xl tracking-tight text-white">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
         </Link>
-        <div className="hidden sm:block">
-          <span className="text-xs font-medium text-gray-500 tracking-widest uppercase">Powered by CalSchedule</span>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:block">
+            <span className="text-xs font-medium text-gray-500 tracking-widest uppercase">Powered by CalSchedule</span>
+          </div>
+          <ThemeToggle />
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-12">
-        <div className="bg-[#1C1C1E] rounded-[2.5rem] border border-white/5 shadow-2xl overflow-hidden relative">
+        <div className="bg-[#0F0F11] rounded-3xl border border-white/[0.08] shadow-2xl overflow-hidden relative">
           {/* Subtle Glow background */}
           <div
             className="absolute top-0 left-0 w-full h-1 opacity-50"
@@ -694,16 +698,12 @@ export default function PublicBookingPage() {
             </div>
           )}
 
-          <div className="grid md:grid-cols-[340px_1fr_1fr] divide-x divide-white/5">
+          <div className="grid lg:grid-cols-[280px_1fr_1fr] divide-y lg:divide-y-0 lg:divide-x divide-white/[0.08]">
             {/* Column 1: Host & Event Info */}
-            <div className="p-8 md:p-10 bg-white/[0.01]">
-              <div className="flex flex-col items-center md:items-start text-center md:text-left gap-6">
-                <div className="relative group">
-                  <div
-                    className="absolute inset-0 rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity"
-                    style={{ background: branding?.is_enabled && branding?.brand_color ? branding.brand_color : "#FF9124" }}
-                  ></div>
-                  <Avatar className="w-20 h-20 rounded-3xl border-2 border-white/10 relative z-10 p-0.5 bg-[#0B0B0F]">
+            <div className="p-6 lg:p-8">
+              <div className="flex flex-col items-center md:items-start text-center md:text-left gap-4">
+                <div className="relative">
+                  <Avatar className="w-20 h-20 rounded-2xl border border-white/[0.08] bg-[#09090B]">
                     <AvatarImage src={eventData.host?.avatar_url || ''} className="rounded-3xl object-cover" />
                     <AvatarFallback className="text-2xl font-bold bg-white/5 text-white">
                       {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase()}
@@ -717,17 +717,20 @@ export default function PublicBookingPage() {
                 </div>
               </div>
 
-              <div className="mt-10 space-y-2">
-                <h1 className="text-3xl font-black text-white leading-tight tracking-tight">{eventData.eventType.title}</h1>
+              <div className="mt-6 space-y-1.5">
+                <h1 className="text-2xl lg:text-3xl font-black text-white leading-tight tracking-tight">{eventData.eventType.title}</h1>
                 <div className="flex items-center gap-2 text-gray-500 font-medium text-sm">
-                  {getLocationIcon(eventData.eventType.location_type)({ className: "w-4 h-4" })}
+                  {(() => {
+                    const LocationIconComponent = getLocationIcon(eventData.eventType.location_type);
+                    return <LocationIconComponent className="w-4 h-4" />;
+                  })()}
                   <span>{getLocationLabel(eventData.eventType.location_type)}</span>
                 </div>
               </div>
 
-              <div className="mt-8 space-y-4">
+              <div className="mt-6 space-y-3">
                 {selectedSlot ? (
-                  <div className="bg-white/5 rounded-2xl p-5 border border-white/5 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.08] space-y-2.5">
                     <div className="flex items-center gap-3 text-white">
                       <Clock className="w-4 h-4 text-primary" style={{ color: branding?.is_enabled && branding?.brand_color ? branding.brand_color : undefined }} />
                       <span className="font-bold">
@@ -741,9 +744,9 @@ export default function PublicBookingPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center gap-4 text-gray-300 font-semibold py-1">
-                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
-                        <Clock className="w-4 h-4 text-gray-500" />
+                    <div className="flex items-center gap-3 text-gray-300 font-medium py-1">
+                      <div className="w-7 h-7 rounded-lg bg-white/[0.03] flex items-center justify-center">
+                        <Clock className="w-3.5 h-3.5 text-gray-500" />
                       </div>
                       <span>{eventData.eventType.duration} Minutes</span>
                     </div>
@@ -761,8 +764,9 @@ export default function PublicBookingPage() {
               </div>
 
               {eventData.eventType.description && (
-                <div className="mt-10 pt-8 border-t border-white/5">
-                  <p className="text-sm text-gray-400 leading-relaxed whitespace-pre-wrap">
+                <div className="mt-8 pt-6 border-t border-white/[0.08]">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">About</p>
+                  <p className="text-sm text-gray-400 leading-relaxed">
                     {eventData.eventType.description}
                   </p>
                 </div>
@@ -804,7 +808,7 @@ export default function PublicBookingPage() {
               {/* Testimonials Design */}
               {showTestimonials && (testimonials || []).length > 0 && (
                 <div className="mt-8 pt-8 border-t border-white/5">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-6">What people say</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-6">What people say</h3>
                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {(testimonials || []).map((t) => (
                       <div key={t.id} className="relative bg-white/[0.02] rounded-2xl p-4 border border-white/5">
@@ -816,7 +820,7 @@ export default function PublicBookingPage() {
                             ))}
                           </div>
                         </div>
-                        <p className="text-xs text-gray-500 italic">"{t.content}"</p>
+                        <p className="text-xs text-gray-400 italic">"{t.content}"</p>
                       </div>
                     ))}
                   </div>
@@ -825,14 +829,14 @@ export default function PublicBookingPage() {
             </div>
 
             {/* Column 2: Calendar */}
-            <div className="p-8 md:p-10">
-              <div className="flex items-center justify-between mb-8 px-2">
-                <h2 className="font-black text-xl text-white outline-none">{format(currentMonth, 'MMMM yyyy')}</h2>
+            <div className="p-6 lg:p-8">
+              <div className="flex items-center justify-between mb-6 px-1">
+                <h2 className="font-semibold text-lg text-white">Select Date</h2>
                 <div className="flex gap-2">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-xl border border-white/5 hover:bg-white/10"
+                    className="rounded-lg border border-white/[0.08] hover:bg-white/[0.05]"
                     onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                   >
                     <ChevronLeft className="w-5 h-5 text-gray-400" />
@@ -840,7 +844,7 @@ export default function PublicBookingPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-xl border border-white/5 hover:bg-white/10"
+                    className="rounded-lg border border-white/[0.08] hover:bg-white/[0.05]"
                     onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                   >
                     <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -848,13 +852,17 @@ export default function PublicBookingPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-2 mb-2">
+              <div className="text-center mb-3">
+                <p className="text-sm font-medium text-white">{format(currentMonth, 'MMMM yyyy')}</p>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1.5 mb-2">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-                  <div key={day} className="text-center text-[10px] text-gray-600 font-black py-2 tracking-tighter">{day}</div>
+                  <div key={day} className="text-center text-[10px] text-gray-500 font-black py-2 tracking-tighter">{day}</div>
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-1.5">
                 {Array.from({ length: firstDayOffset }).map((_, i) => <div key={`e-${i}`} className="aspect-square" />)}
                 {calendarDays.map(date => {
                   const isAvailable = hasAvailability(date);
@@ -866,24 +874,24 @@ export default function PublicBookingPage() {
                       onClick={() => isAvailable && !isPast && (setSelectedDate(date), setSelectedSlot(null), setShowBookingForm(false))}
                       disabled={!isAvailable || isPast}
                       className={cn(
-                        "relative aspect-square rounded-2xl flex items-center justify-center text-sm font-bold transition-all duration-300",
+                        "relative aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-colors",
                         isSelected
-                          ? "text-black z-10"
+                          ? "text-white"
                           : isAvailable && !isPast
-                            ? "text-gray-300 hover:bg-white/10 hover:border-white/20 border border-transparent"
-                            : "text-gray-400/20 cursor-not-allowed border border-transparent"
+                            ? "text-gray-300 hover:bg-white/[0.05]"
+                            : "text-gray-700 cursor-not-allowed"
                       )}
                     >
                       {isSelected && (
                         <div
-                          className="absolute inset-0 rounded-2xl shadow-xl animate-in fade-in scale-in-95 duration-300"
+                          className="absolute inset-0 rounded-lg"
                           style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
                         />
                       )}
-                      <span className="relative z-10">{format(date, 'd')}</span>
+                      <span className="relative">{format(date, 'd')}</span>
                       {isAvailable && !isPast && !isSelected && (
                         <div
-                          className="absolute bottom-2 w-1 h-1 rounded-full opacity-50"
+                          className="absolute bottom-1 w-1 h-1 rounded-full"
                           style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
                         />
                       )}
@@ -892,58 +900,56 @@ export default function PublicBookingPage() {
                 })}
               </div>
 
-              <div className="mt-12 space-y-4">
-                <p className="text-[11px] font-bold text-gray-600 uppercase tracking-widest px-2">System Time Zone</p>
-                <div className="flex items-center gap-3 rounded-2xl bg-white/[0.03] border border-white/5 px-5 py-4 text-sm shadow-inner group">
-                  <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Globe className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <span className="text-gray-300 font-bold">Asia/Kolkata (IST)</span>
+              <div className="mt-8 space-y-3">
+                <p className="text-xs text-gray-500 uppercase tracking-wider px-1">Timezone</p>
+                <div className="flex items-center gap-3 rounded-lg bg-white/[0.03] border border-white/[0.08] px-4 py-3 text-sm">
+                  <Globe className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-300 font-medium">Asia/Kolkata (IST)</span>
                 </div>
               </div>
             </div>
 
             {/* Column 3: Time Slots / Form */}
-            <div className="p-8 md:p-10 bg-white/[0.01]">
+            <div className="p-6 lg:p-8">
               {showBookingForm && selectedSlot ? (
-                <form onSubmit={handleBookingSubmit} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-                  <div>
-                    <h2 className="text-2xl font-black text-white mb-2">Final Step</h2>
-                    <p className="text-sm text-gray-500 font-medium">Please provide your details to confirm the booking.</p>
+                <form onSubmit={handleBookingSubmit} className="space-y-5">
+                  <div className="pb-4 border-b border-white/[0.08]">
+                    <h2 className="text-lg font-semibold text-white mb-1">Your Details</h2>
+                    <p className="text-sm text-gray-500">Complete the form to confirm your booking</p>
                   </div>
 
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Full Name</Label>
+                      <Label className="text-xs font-medium text-gray-400 ml-0.5">Full Name</Label>
                       <Input
                         value={attendeeName}
                         onChange={(e) => setAttendeeName(e.target.value)}
                         required
-                        className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5 focus:border-primary/50 text-white placeholder:text-gray-700 focus:ring-0"
-                        placeholder="Ex: Elon Musk"
+                        className="h-10 rounded-lg bg-white/[0.03] border-white/[0.08] focus:border-white/20 text-white placeholder:text-gray-600 focus:ring-0"
+                        placeholder="John Doe"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Email Address</Label>
+                      <Label className="text-xs font-medium text-gray-400 ml-0.5">Email Address</Label>
                       <Input
                         type="email"
                         value={attendeeEmail}
                         onChange={(e) => setAttendeeEmail(e.target.value)}
                         required
-                        className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5 focus:border-primary/50 text-white placeholder:text-gray-700 focus:ring-0"
-                        placeholder="elon@mars.com"
+                        className="h-10 rounded-lg bg-white/[0.03] border-white/[0.08] focus:border-white/20 text-white placeholder:text-gray-600 focus:ring-0"
+                        placeholder="john@example.com"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Phone Number</Label>
+                      <Label className="text-xs font-medium text-gray-400 ml-0.5">Phone Number</Label>
                       <div className="flex gap-2">
                         <Select value={attendeeCountryCode} onValueChange={setAttendeeCountryCode}>
-                          <SelectTrigger className="w-[110px] h-14 rounded-2xl bg-[#0B0B0F] border-white/5 focus:ring-0">
+                          <SelectTrigger className="w-[85px] h-10 rounded-lg bg-white/[0.03] border-white/[0.08] focus:ring-0">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#1C1C1E] border-white/10 text-white">
+                          <SelectContent className="bg-[#0F0F11] border-white/[0.08] text-white">
                             {COUNTRY_DIAL_CODES.map((c) => (
                               <SelectItem key={c.iso2} value={c.iso2}>{c.iso2}</SelectItem>
                             ))}
@@ -954,26 +960,26 @@ export default function PublicBookingPage() {
                           value={attendeePhoneNational}
                           onChange={(e) => setAttendeePhoneNational(e.target.value)}
                           required
-                          className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5 focus:border-primary/50 text-white placeholder:text-gray-700 flex-1 focus:ring-0"
-                          placeholder="91000 00000"
+                          className="h-10 rounded-lg bg-white/[0.03] border-white/[0.08] focus:border-white/20 text-white placeholder:text-gray-600 flex-1 focus:ring-0"
+                          placeholder="1234567890"
                         />
                       </div>
                     </div>
 
                     {/* Custom Fields - Styled similarly */}
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                       {customFields.map((field) => (
                         <div key={field.id} className="space-y-2">
-                          <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">{field.label}</Label>
+                          <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">{field.label}</Label>
                           {field.type === 'textarea' ? (
                             <Textarea
                               value={(customFieldValues[field.id] as string) || ''}
                               onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
-                              className="rounded-2xl bg-[#0B0B0F] border-white/5 min-h-[100px] text-white focus:border-primary/50 focus:ring-0"
+                              className="rounded-xl bg-[#0B0B0F] border-white/10 min-h-[80px] text-white text-sm focus:border-primary/50 focus:ring-0"
                             />
                           ) : field.type === 'select' ? (
                             <Select value={(customFieldValues[field.id] as string) || ''} onValueChange={(v) => updateCustomFieldValue(field.id, v)}>
-                              <SelectTrigger className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5">
+                              <SelectTrigger className="h-11 rounded-xl bg-[#0B0B0F] border-white/10 text-sm">
                                 <SelectValue placeholder={field.placeholder || "Select an option"} />
                               </SelectTrigger>
                               <SelectContent className="bg-[#1C1C1E] border-white/10 text-white">
@@ -983,7 +989,7 @@ export default function PublicBookingPage() {
                               </SelectContent>
                             </Select>
                           ) : field.type === 'checkbox' ? (
-                            <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#0B0B0F] border border-white/5">
+                            <div className="flex items-center gap-3 p-3 rounded-xl bg-[#0B0B0F] border border-white/10">
                               <Checkbox
                                 id={field.id}
                                 checked={(customFieldValues[field.id] as boolean) || false}
@@ -997,50 +1003,50 @@ export default function PublicBookingPage() {
                               type={field.type}
                               value={(customFieldValues[field.id] as string) || ''}
                               onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
-                              className="h-14 rounded-2xl bg-[#0B0B0F] border-white/5 text-white focus:ring-0"
+                              className="h-11 rounded-xl bg-[#0B0B0F] border-white/10 text-white text-sm focus:ring-0"
                             />
                           )}
                         </div>
                       ))}
                     </div>
 
-                    <div className="space-y-2 pt-2">
-                      <Label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Additional Notes</Label>
+                    <div className="space-y-2 pt-1">
+                      <Label className="text-xs font-medium text-gray-400 ml-0.5">Additional Notes</Label>
                       <Textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        className="rounded-2xl bg-[#0B0B0F] border-white/5 min-h-[100px] text-white placeholder:text-gray-700 focus:ring-0"
-                        placeholder="Share anything you want the host to know..."
+                        className="rounded-lg bg-white/[0.03] border-white/[0.08] min-h-[70px] text-white placeholder:text-gray-600 focus:ring-0 resize-none"
+                        placeholder="Any special requirements or notes..."
                       />
                     </div>
                   </div>
 
-                  <div className="flex gap-4 pt-6 pb-2">
+                  <div className="flex gap-2.5 pt-5 pb-2 border-t border-white/[0.08]">
                     <Button
                       type="button"
                       variant="ghost"
                       onClick={() => setShowBookingForm(false)}
-                      className="h-14 rounded-2xl flex-1 border border-white/5 text-gray-400 font-bold hover:bg-white/5"
+                      className="h-10 rounded-lg flex-1 border border-white/[0.08] text-gray-400 font-medium hover:bg-white/[0.03] hover:text-gray-300"
                     >
                       Back
                     </Button>
                     <Button
                       type="submit"
-                      className="h-14 rounded-2xl flex-2 min-w-[180px] font-black tracking-wide shadow-xl active:scale-95 transition-transform"
+                      className="h-10 rounded-lg flex-2 min-w-[130px] font-semibold"
                       disabled={createBooking.isPending || isProcessingPayment}
-                      style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124", color: "#000" }}
+                      style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124", color: "#fff" }}
                     >
                       {isProcessingPayment ? (
                         <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
                           Processing
                         </>
                       ) : createBooking.isPending ? (
-                        'Booking...'
+                        'Confirming...'
                       ) : isPaidEvent && eventPrice > 0 ? (
                         'Pay & Confirm'
                       ) : (
-                        'Confirm Now'
+                        'Confirm Booking'
                       )}
                     </Button>
                   </div>
