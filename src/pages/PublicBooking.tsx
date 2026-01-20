@@ -654,72 +654,61 @@ export default function PublicBookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090B] selection:bg-primary/30 text-white pb-12">
+    <div className="min-h-screen bg-background selection:bg-primary/30 text-foreground pb-12 transition-colors duration-300">
       {/* Header */}
-      <header className="w-full px-6 py-6 flex items-center justify-between border-b border-white/5 backdrop-blur-md sticky top-0 z-50 bg-[#0B0B0F]/80">
-        <Link to="/" className="flex items-center gap-3">
+      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border/50 backdrop-blur-md sticky top-0 z-50 bg-background/80">
+        <Link to="/" className="flex items-center gap-2.5">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden"
+            className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden"
             style={{ background: branding?.is_enabled && branding?.brand_color ? branding.brand_color : "#FF9124" }}
           >
             {branding?.is_enabled && branding?.brand_logo_url ? (
               <img src={branding.brand_logo_url} alt={branding.brand_name || ""} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-white font-black text-xl">{(branding?.brand_name || 'C')?.charAt(0)}</span>
+              <span className="text-white font-semibold text-lg">{(branding?.brand_name || 'C')?.charAt(0)}</span>
             )}
           </div>
-          <span className="font-bold text-xl tracking-tight text-white">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
+          <span className="font-semibold text-lg text-foreground">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
         </Link>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:block">
-            <span className="text-xs font-medium text-gray-500 tracking-widest uppercase">Powered by CalSchedule</span>
-          </div>
+        <div className="flex items-center gap-4">
+          <span className="hidden sm:block text-xs text-muted-foreground">Powered by CalSchedule</span>
           <ThemeToggle />
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-12">
-        <div className="bg-[#0F0F11] rounded-3xl border border-white/[0.08] shadow-2xl overflow-hidden relative">
-          {/* Subtle Glow background */}
-          <div
-            className="absolute top-0 left-0 w-full h-1 opacity-50"
-            style={{ background: `linear-gradient(90deg, transparent, ${branding?.is_enabled && branding?.brand_color ? branding.brand_color : "#FF9124"}, transparent)` }}
-          ></div>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden relative">
 
           {eventData.eventType.banner_image_url && eventData.eventType.banner_image_url.trim() !== '' && (
-            <div className="w-full h-56 md:h-64 bg-muted overflow-hidden relative">
+            <div className="w-full h-40 md:h-48 bg-muted overflow-hidden">
               <img
                 src={eventData.eventType.banner_image_url}
                 alt=""
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#1C1C1E] via-transparent to-transparent"></div>
             </div>
           )}
 
-          <div className="grid lg:grid-cols-[280px_1fr_1fr] divide-y lg:divide-y-0 lg:divide-x divide-white/[0.08]">
+          <div className="grid lg:grid-cols-[260px_1fr_1fr] divide-y lg:divide-y-0 lg:divide-x divide-border">
             {/* Column 1: Host & Event Info */}
-            <div className="p-6 lg:p-8">
-              <div className="flex flex-col items-center md:items-start text-center md:text-left gap-4">
-                <div className="relative">
-                  <Avatar className="w-20 h-20 rounded-2xl border border-white/[0.08] bg-[#09090B]">
-                    <AvatarImage src={eventData.host?.avatar_url || ''} className="rounded-3xl object-cover" />
-                    <AvatarFallback className="text-2xl font-bold bg-white/5 text-white">
-                      {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-
-                <div className="space-y-1">
-                  <p className="text-lg font-bold text-white mb-0.5">{eventData.host?.name || username}</p>
-                  <p className="text-sm text-gray-400 font-medium">@{username}</p>
+            <div className="p-5 lg:p-6">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-12 h-12 rounded-full border border-border bg-muted">
+                  <AvatarImage src={eventData.host?.avatar_url || ''} className="rounded-full object-cover" />
+                  <AvatarFallback className="text-base font-medium bg-muted text-muted-foreground">
+                    {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{eventData.host?.name || username}</p>
+                  <p className="text-xs text-muted-foreground">@{username}</p>
                 </div>
               </div>
 
-              <div className="mt-6 space-y-1.5">
-                <h1 className="text-2xl lg:text-3xl font-black text-white leading-tight tracking-tight">{eventData.eventType.title}</h1>
-                <div className="flex items-center gap-2 text-gray-500 font-medium text-sm">
+              <div className="mt-5">
+                <h1 className="text-xl font-semibold text-foreground leading-tight">{eventData.eventType.title}</h1>
+                <div className="flex items-center gap-2 text-muted-foreground text-sm mt-1.5">
                   {(() => {
                     const LocationIconComponent = getLocationIcon(eventData.eventType.location_type);
                     return <LocationIconComponent className="w-4 h-4" />;
@@ -728,35 +717,31 @@ export default function PublicBookingPage() {
                 </div>
               </div>
 
-              <div className="mt-6 space-y-3">
+              <div className="mt-5 space-y-2.5">
                 {selectedSlot ? (
-                  <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.08] space-y-2.5">
-                    <div className="flex items-center gap-3 text-white">
-                      <Clock className="w-4 h-4 text-primary" style={{ color: branding?.is_enabled && branding?.brand_color ? branding.brand_color : undefined }} />
-                      <span className="font-bold">
+                  <div className="bg-muted/50 rounded-lg p-3 border border-border space-y-2">
+                    <div className="flex items-center gap-2 text-foreground text-sm">
+                      <Clock className="w-4 h-4" style={{ color: branding?.is_enabled && branding?.brand_color ? branding.brand_color : undefined }} />
+                      <span className="font-medium">
                         {format(selectedSlot.startTime, 'MMM d, yyyy')} · {format(selectedSlot.startTime, 'h:mm a')}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-gray-400 text-sm">
-                      <Globe className="w-4 h-4" />
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                      <Globe className="w-3.5 h-3.5" />
                       <span>Asia/Kolkata (IST)</span>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3 text-gray-300 font-medium py-1">
-                      <div className="w-7 h-7 rounded-lg bg-white/[0.03] flex items-center justify-center">
-                        <Clock className="w-3.5 h-3.5 text-gray-500" />
-                      </div>
-                      <span>{eventData.eventType.duration} Minutes</span>
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Clock className="w-4 h-4" />
+                      <span>{eventData.eventType.duration} min</span>
                     </div>
 
                     {isPaidEvent && eventPrice > 0 && (
-                      <div className="flex items-center gap-4 text-white font-bold py-1">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <IndianRupee className="w-4 h-4 text-primary" style={{ color: branding?.is_enabled && branding?.brand_color ? branding.brand_color : undefined }} />
-                        </div>
-                        <span className="text-xl">₹{eventPrice.toLocaleString('en-IN')}</span>
+                      <div className="flex items-center gap-2 text-foreground font-medium">
+                        <IndianRupee className="w-4 h-4" style={{ color: branding?.is_enabled && branding?.brand_color ? branding.brand_color : undefined }} />
+                        <span>₹{eventPrice.toLocaleString('en-IN')}</span>
                       </div>
                     )}
                   </>
@@ -764,63 +749,63 @@ export default function PublicBookingPage() {
               </div>
 
               {eventData.eventType.description && (
-                <div className="mt-8 pt-6 border-t border-white/[0.08]">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">About</p>
-                  <p className="text-sm text-gray-400 leading-relaxed">
+                <div className="mt-5 pt-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">About</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     {eventData.eventType.description}
                   </p>
                 </div>
               )}
 
-              {/* Social Links Design */}
+              {/* Social Links */}
               {Object.values(socialLinks).some((v) => typeof v === 'string' && v.trim() !== '') && (
-                <div className="mt-8 pt-8 border-t border-white/5">
-                  <div className="flex flex-wrap gap-2">
+                <div className="mt-5 pt-4 border-t border-border">
+                  <div className="flex flex-wrap gap-1.5">
                     {socialLinks.website?.trim() && (
-                      <a href={normalizeUrl(socialLinks.website)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
-                        <Globe className="w-5 h-5" />
+                      <a href={normalizeUrl(socialLinks.website)} target="_blank" rel="noreferrer" title="Website" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Globe className="w-4 h-4" />
                       </a>
                     )}
                     {socialLinks.instagram?.trim() && (
-                      <a href={normalizeUrl(socialLinks.instagram)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
-                        <Instagram className="w-5 h-5" />
+                      <a href={normalizeUrl(socialLinks.instagram)} target="_blank" rel="noreferrer" title="Instagram" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Instagram className="w-4 h-4" />
                       </a>
                     )}
                     {socialLinks.facebook?.trim() && (
-                      <a href={normalizeUrl(socialLinks.facebook)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
-                        <Facebook className="w-5 h-5" />
+                      <a href={normalizeUrl(socialLinks.facebook)} target="_blank" rel="noreferrer" title="Facebook" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Facebook className="w-4 h-4" />
                       </a>
                     )}
                     {socialLinks.linkedin?.trim() && (
-                      <a href={normalizeUrl(socialLinks.linkedin)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
-                        <Linkedin className="w-5 h-5" />
+                      <a href={normalizeUrl(socialLinks.linkedin)} target="_blank" rel="noreferrer" title="LinkedIn" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Linkedin className="w-4 h-4" />
                       </a>
                     )}
                     {socialLinks.twitter?.trim() && (
-                      <a href={normalizeUrl(socialLinks.twitter)} target="_blank" rel="noreferrer" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
-                        <Twitter className="w-5 h-5" />
+                      <a href={normalizeUrl(socialLinks.twitter)} target="_blank" rel="noreferrer" title="Twitter" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Twitter className="w-4 h-4" />
                       </a>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Testimonials Design */}
+              {/* Testimonials */}
               {showTestimonials && (testimonials || []).length > 0 && (
-                <div className="mt-8 pt-8 border-t border-white/5">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-6">What people say</h3>
-                  <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="mt-5 pt-4 border-t border-border">
+                  <h3 className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Reviews</h3>
+                  <div className="space-y-2.5 max-h-[200px] overflow-y-auto">
                     {(testimonials || []).map((t) => (
-                      <div key={t.id} className="relative bg-white/[0.02] rounded-2xl p-4 border border-white/5">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-bold text-sm text-gray-300">{t.author_name}</span>
+                      <div key={t.id} className="bg-muted/30 rounded-lg p-3 border border-border">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-medium text-xs text-foreground">{t.author_name}</span>
                           <div className="flex gap-0.5">
                             {Array.from({ length: 5 }).map((_, i) => (
-                              <Star key={i} className={cn('w-3 h-3', i < t.rating! ? 'text-primary fill-primary' : 'text-gray-700')} style={{ color: i < t.rating! && branding?.brand_color ? branding.brand_color : undefined, fill: i < t.rating! && branding?.brand_color ? branding.brand_color : undefined }} />
+                              <Star key={i} className={cn('w-3 h-3', i < t.rating! ? 'text-primary fill-primary' : 'text-muted')} style={{ color: i < t.rating! && branding?.brand_color ? branding.brand_color : undefined, fill: i < t.rating! && branding?.brand_color ? branding.brand_color : undefined }} />
                             ))}
                           </div>
                         </div>
-                        <p className="text-xs text-gray-400 italic">"{t.content}"</p>
+                        <p className="text-xs text-muted-foreground">"{t.content}"</p>
                       </div>
                     ))}
                   </div>
@@ -829,40 +814,40 @@ export default function PublicBookingPage() {
             </div>
 
             {/* Column 2: Calendar */}
-            <div className="p-6 lg:p-8">
-              <div className="flex items-center justify-between mb-6 px-1">
-                <h2 className="font-semibold text-lg text-white">Select Date</h2>
-                <div className="flex gap-2">
+            <div className="p-5 lg:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-medium text-sm text-foreground">Select Date</h2>
+                <div className="flex gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-lg border border-white/[0.08] hover:bg-white/[0.05]"
+                    className="h-8 w-8 rounded-md hover:bg-muted"
                     onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                   >
-                    <ChevronLeft className="w-5 h-5 text-gray-400" />
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-lg border border-white/[0.08] hover:bg-white/[0.05]"
+                    className="h-8 w-8 rounded-md hover:bg-muted"
                     onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                   >
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </Button>
                 </div>
               </div>
 
               <div className="text-center mb-3">
-                <p className="text-sm font-medium text-white">{format(currentMonth, 'MMMM yyyy')}</p>
+                <p className="text-sm font-medium text-foreground">{format(currentMonth, 'MMMM yyyy')}</p>
               </div>
 
-              <div className="grid grid-cols-7 gap-1.5 mb-2">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-                  <div key={day} className="text-center text-[10px] text-gray-500 font-black py-2 tracking-tighter">{day}</div>
+              <div className="grid grid-cols-7 gap-1 mb-1">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+                  <div key={idx} className="text-center text-xs text-muted-foreground font-medium py-2">{day}</div>
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-1.5">
+              <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: firstDayOffset }).map((_, i) => <div key={`e-${i}`} className="aspect-square" />)}
                 {calendarDays.map(date => {
                   const isAvailable = hasAvailability(date);
@@ -874,17 +859,17 @@ export default function PublicBookingPage() {
                       onClick={() => isAvailable && !isPast && (setSelectedDate(date), setSelectedSlot(null), setShowBookingForm(false))}
                       disabled={!isAvailable || isPast}
                       className={cn(
-                        "relative aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-colors",
+                        "relative aspect-square rounded-md flex items-center justify-center text-sm transition-colors",
                         isSelected
-                          ? "text-white"
+                          ? "text-white font-medium"
                           : isAvailable && !isPast
-                            ? "text-gray-300 hover:bg-white/[0.05]"
-                            : "text-gray-700 cursor-not-allowed"
+                            ? "text-foreground hover:bg-muted"
+                            : "text-muted-foreground/40 cursor-not-allowed"
                       )}
                     >
                       {isSelected && (
                         <div
-                          className="absolute inset-0 rounded-lg"
+                          className="absolute inset-0.5 rounded-md"
                           style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
                         />
                       )}
@@ -900,56 +885,56 @@ export default function PublicBookingPage() {
                 })}
               </div>
 
-              <div className="mt-8 space-y-3">
-                <p className="text-xs text-gray-500 uppercase tracking-wider px-1">Timezone</p>
-                <div className="flex items-center gap-3 rounded-lg bg-white/[0.03] border border-white/[0.08] px-4 py-3 text-sm">
-                  <Globe className="w-4 h-4 text-gray-500" />
-                  <span className="text-gray-300 font-medium">Asia/Kolkata (IST)</span>
+              <div className="mt-6">
+                <p className="text-xs text-muted-foreground mb-2">Timezone</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Globe className="w-4 h-4" />
+                  <span>Asia/Kolkata (IST)</span>
                 </div>
               </div>
             </div>
 
             {/* Column 3: Time Slots / Form */}
-            <div className="p-6 lg:p-8">
+            <div className="p-5 lg:p-6">
               {showBookingForm && selectedSlot ? (
-                <form onSubmit={handleBookingSubmit} className="space-y-5">
-                  <div className="pb-4 border-b border-white/[0.08]">
-                    <h2 className="text-lg font-semibold text-white mb-1">Your Details</h2>
-                    <p className="text-sm text-gray-500">Complete the form to confirm your booking</p>
+                <form onSubmit={handleBookingSubmit} className="space-y-4">
+                  <div className="pb-3 border-b border-border">
+                    <h2 className="text-sm font-medium text-foreground">Your Details</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Complete the form to confirm</p>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium text-gray-400 ml-0.5">Full Name</Label>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Full Name</Label>
                       <Input
                         value={attendeeName}
                         onChange={(e) => setAttendeeName(e.target.value)}
                         required
-                        className="h-10 rounded-lg bg-white/[0.03] border-white/[0.08] focus:border-white/20 text-white placeholder:text-gray-600 focus:ring-0"
+                        className="h-9 rounded-md bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
                         placeholder="John Doe"
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium text-gray-400 ml-0.5">Email Address</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Email Address</Label>
                       <Input
                         type="email"
                         value={attendeeEmail}
                         onChange={(e) => setAttendeeEmail(e.target.value)}
                         required
-                        className="h-10 rounded-lg bg-white/[0.03] border-white/[0.08] focus:border-white/20 text-white placeholder:text-gray-600 focus:ring-0"
+                        className="h-9 rounded-md bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
                         placeholder="john@example.com"
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium text-gray-400 ml-0.5">Phone Number</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Phone Number</Label>
                       <div className="flex gap-2">
                         <Select value={attendeeCountryCode} onValueChange={setAttendeeCountryCode}>
-                          <SelectTrigger className="w-[85px] h-10 rounded-lg bg-white/[0.03] border-white/[0.08] focus:ring-0">
+                          <SelectTrigger className="w-[80px] h-9 rounded-md bg-background border-border">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#0F0F11] border-white/[0.08] text-white">
+                          <SelectContent className="bg-popover border-border">
                             {COUNTRY_DIAL_CODES.map((c) => (
                               <SelectItem key={c.iso2} value={c.iso2}>{c.iso2}</SelectItem>
                             ))}
@@ -960,81 +945,82 @@ export default function PublicBookingPage() {
                           value={attendeePhoneNational}
                           onChange={(e) => setAttendeePhoneNational(e.target.value)}
                           required
-                          className="h-10 rounded-lg bg-white/[0.03] border-white/[0.08] focus:border-white/20 text-white placeholder:text-gray-600 flex-1 focus:ring-0"
+                          className="h-9 rounded-md bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground flex-1"
                           placeholder="1234567890"
                         />
                       </div>
                     </div>
 
-                    {/* Custom Fields - Styled similarly */}
-                    <div className="space-y-4">
-                      {customFields.map((field) => (
-                        <div key={field.id} className="space-y-2">
-                          <Label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">{field.label}</Label>
-                          {field.type === 'textarea' ? (
-                            <Textarea
-                              value={(customFieldValues[field.id] as string) || ''}
-                              onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
-                              className="rounded-xl bg-[#0B0B0F] border-white/10 min-h-[80px] text-white text-sm focus:border-primary/50 focus:ring-0"
-                            />
-                          ) : field.type === 'select' ? (
-                            <Select value={(customFieldValues[field.id] as string) || ''} onValueChange={(v) => updateCustomFieldValue(field.id, v)}>
-                              <SelectTrigger className="h-11 rounded-xl bg-[#0B0B0F] border-white/10 text-sm">
-                                <SelectValue placeholder={field.placeholder || "Select an option"} />
-                              </SelectTrigger>
-                              <SelectContent className="bg-[#1C1C1E] border-white/10 text-white">
-                                {(field as any).options?.map((opt: string) => (
-                                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : field.type === 'checkbox' ? (
-                            <div className="flex items-center gap-3 p-3 rounded-xl bg-[#0B0B0F] border border-white/10">
-                              <Checkbox
-                                id={field.id}
-                                checked={(customFieldValues[field.id] as boolean) || false}
-                                onCheckedChange={(c) => updateCustomFieldValue(field.id, !!c)}
-                                className="rounded-md border-white/20 data-[state=checked]:bg-primary"
+                    {/* Custom Fields */}
+                    {customFields.length > 0 && (
+                      <div className="space-y-3 pt-2">
+                        {customFields.map((field) => (
+                          <div key={field.id} className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                            {field.type === 'textarea' ? (
+                              <Textarea
+                                value={(customFieldValues[field.id] as string) || ''}
+                                onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
+                                className="rounded-md bg-background border-border min-h-[70px] text-foreground text-sm"
                               />
-                              <label htmlFor={field.id} className="text-sm font-medium text-gray-300">{field.label}</label>
-                            </div>
-                          ) : (
-                            <Input
-                              type={field.type}
-                              value={(customFieldValues[field.id] as string) || ''}
-                              onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
-                              className="h-11 rounded-xl bg-[#0B0B0F] border-white/10 text-white text-sm focus:ring-0"
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                            ) : field.type === 'select' ? (
+                              <Select value={(customFieldValues[field.id] as string) || ''} onValueChange={(v) => updateCustomFieldValue(field.id, v)}>
+                                <SelectTrigger className="h-9 rounded-md bg-background border-border text-sm">
+                                  <SelectValue placeholder={field.placeholder || "Select an option"} />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover border-border">
+                                  {(field as any).options?.map((opt: string) => (
+                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : field.type === 'checkbox' ? (
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id={field.id}
+                                  checked={(customFieldValues[field.id] as boolean) || false}
+                                  onCheckedChange={(c) => updateCustomFieldValue(field.id, !!c)}
+                                />
+                                <label htmlFor={field.id} className="text-sm text-foreground">{field.label}</label>
+                              </div>
+                            ) : (
+                              <Input
+                                type={field.type}
+                                value={(customFieldValues[field.id] as string) || ''}
+                                onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
+                                className="h-9 rounded-md bg-background border-border text-foreground text-sm"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                    <div className="space-y-2 pt-1">
-                      <Label className="text-xs font-medium text-gray-400 ml-0.5">Additional Notes</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Additional Notes (optional)</Label>
                       <Textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        className="rounded-lg bg-white/[0.03] border-white/[0.08] min-h-[70px] text-white placeholder:text-gray-600 focus:ring-0 resize-none"
-                        placeholder="Any special requirements or notes..."
+                        className="rounded-md bg-background border-border min-h-[60px] text-foreground placeholder:text-muted-foreground resize-none"
+                        placeholder="Any special requirements..."
                       />
                     </div>
                   </div>
 
-                  <div className="flex gap-2.5 pt-5 pb-2 border-t border-white/[0.08]">
+                  <div className="flex gap-2 pt-3 border-t border-border">
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => setShowBookingForm(false)}
-                      className="h-10 rounded-lg flex-1 border border-white/[0.08] text-gray-400 font-medium hover:bg-white/[0.03] hover:text-gray-300"
+                      className="h-9 rounded-md flex-1"
                     >
                       Back
                     </Button>
                     <Button
                       type="submit"
-                      className="h-10 rounded-lg flex-2 min-w-[130px] font-semibold"
+                      className="h-9 rounded-md flex-1 font-medium text-white"
                       disabled={createBooking.isPending || isProcessingPayment}
-                      style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124", color: "#fff" }}
+                      style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
                     >
                       {isProcessingPayment ? (
                         <>
@@ -1046,65 +1032,53 @@ export default function PublicBookingPage() {
                       ) : isPaidEvent && eventPrice > 0 ? (
                         'Pay & Confirm'
                       ) : (
-                        'Confirm Booking'
+                        'Confirm'
                       )}
                     </Button>
                   </div>
                 </form>
               ) : selectedDate ? (
-                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-                  <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-black text-white">{format(selectedDate, 'EEEE, MMM d')}</h2>
-                    <div className="px-3 py-1 rounded-full bg-white/5 text-[10px] font-black uppercase tracking-widest text-gray-500">Available</div>
+                <div className="animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-medium text-foreground">{format(selectedDate, 'EEEE, MMM d')}</h2>
+                    <span className="text-xs text-muted-foreground">{timeSlots.filter(s => s.available).length} slots</span>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-3 custom-scrollbar">
+                  <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">
                     {timeSlots.filter(s => s.available).map((slot) => (
-                      <div key={slot.time} className="group relative flex gap-2">
-                        <button
-                          onClick={() => setSelectedSlot(slot)}
-                          className={cn(
-                            "flex-1 h-16 rounded-[1.25rem] text-base font-bold transition-all duration-300 relative overflow-hidden flex items-center justify-center border",
-                            selectedSlot?.time === slot.time
-                              ? "border-transparent text-black"
-                              : "bg-white/[0.03] border-white/5 text-gray-300 hover:border-white/20 hover:bg-white/[0.06]"
-                          )}
-                        >
-                          {selectedSlot?.time === slot.time && (
-                            <div
-                              className="absolute inset-0 z-0 animate-in fade-in scale-in-95 duration-300"
-                              style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
-                            />
-                          )}
-                          <span className="relative z-10">{slot.time}</span>
-                        </button>
-
-                        {selectedSlot?.time === slot.time && (
-                          <Button
-                            onClick={() => setShowBookingForm(true)}
-                            className="h-16 w-24 rounded-[1.25rem] bg-white text-black hover:bg-gray-200 font-black animate-in slide-in-from-left-4 duration-300 shadow-xl"
-                          >
-                            Next
-                          </Button>
+                      <button
+                        key={slot.time}
+                        onClick={() => {
+                          setSelectedSlot(slot);
+                          setShowBookingForm(true);
+                        }}
+                        className={cn(
+                          "h-10 rounded-md text-sm font-medium transition-colors border",
+                          selectedSlot?.time === slot.time
+                            ? "border-transparent text-white"
+                            : "bg-muted/30 border-border text-foreground hover:bg-muted"
                         )}
-                      </div>
+                        style={selectedSlot?.time === slot.time ? { background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" } : undefined}
+                      >
+                        {slot.time}
+                      </button>
                     ))}
-                    {timeSlots.filter(s => s.available).length === 0 && (
-                      <div className="text-center py-20 bg-white/[0.02] rounded-[2rem] border border-dashed border-white/10">
-                        <Calendar className="w-10 h-10 text-gray-700 mx-auto mb-4" />
-                        <p className="text-gray-500 font-bold">No slots available today</p>
-                        <p className="text-xs text-gray-600 mt-1">Try selecting another date</p>
-                      </div>
-                    )}
                   </div>
+                  {timeSlots.filter(s => s.available).length === 0 && (
+                    <div className="text-center py-12 bg-muted/20 rounded-lg border border-dashed border-border">
+                      <Calendar className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">No slots available</p>
+                      <p className="text-xs text-muted-foreground mt-1">Try another date</p>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center px-6 animate-pulse">
-                  <div className="w-20 h-20 rounded-[2rem] bg-white/[0.02] border border-white/5 flex items-center justify-center mb-6">
-                    <Clock className="w-8 h-8 text-gray-700" />
+                <div className="h-full flex flex-col items-center justify-center text-center px-4 py-12">
+                  <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                    <Clock className="w-6 h-6 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-400 mb-2">Ready to book?</h3>
-                  <p className="text-sm text-gray-600 max-w-[240px]">Select a date on the calendar to see available time slots.</p>
+                  <h3 className="text-sm font-medium text-foreground mb-1">Select a date</h3>
+                  <p className="text-xs text-muted-foreground max-w-[200px]">Choose a date to see available time slots</p>
                 </div>
               )}
             </div>
