@@ -83,7 +83,7 @@ serve(async (req) => {
         }
 
         const templateLanguage = settings.template_language || "en";
-        const siteUrl = settings.site_url || Deno.env.get("PUBLIC_SITE_URL") || "https://zenthracalendar.com";
+        const siteUrl = (settings.site_url || Deno.env.get("PUBLIC_SITE_URL") || "https://cal.zenthrashop.in").replace(/\/$/, '');
         const formattedDate = formatDateTime(booking.start_time, booking.attendee_timezone || "UTC");
 
         // Construct parameters based on template type

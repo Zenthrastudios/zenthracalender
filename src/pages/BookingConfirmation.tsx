@@ -3,6 +3,7 @@ import { useBookingById, useCancelBooking } from '@/hooks/useBookings';
 import { useProfileById, useUserBranding } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Calendar,
   CheckCircle,
@@ -72,24 +73,24 @@ export default function BookingConfirmation() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0B0B0F] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-white/5 border-t-primary rounded-full animate-spin" style={{ borderTopColor: accentColor }}></div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-border border-t-primary rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (!booking) {
     return (
-      <div className="min-h-screen bg-[#0B0B0F] flex items-center justify-center p-6 text-center">
-        <div className="bg-[#1C1C1E] rounded-[2rem] border border-white/5 p-12 max-w-md w-full shadow-2xl">
-          <div className="w-20 h-20 rounded-[2rem] bg-white/[0.02] border border-white/5 flex items-center justify-center mb-8 mx-auto">
-            <XCircle className="w-10 h-10 text-red-500" />
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 text-center">
+        <div className="bg-card rounded-xl border border-border p-8 max-w-md w-full">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6 mx-auto">
+            <XCircle className="w-8 h-8 text-destructive" />
           </div>
-          <h1 className="text-2xl font-black text-white mb-4">Booking not found</h1>
-          <p className="text-gray-500 mb-8 leading-relaxed">This booking doesn't exist or has been cancelled.</p>
+          <h1 className="text-xl font-semibold text-foreground mb-3">Booking not found</h1>
+          <p className="text-muted-foreground mb-6 text-sm">This booking doesn't exist or has been cancelled.</p>
           <Button
             onClick={() => navigate('/')}
-            className="w-full h-14 rounded-2xl font-bold bg-white text-black hover:bg-gray-200"
+            className="w-full"
           >
             Go Home
           </Button>
@@ -155,111 +156,90 @@ END:VCALENDAR`;
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0B0F] text-white selection:bg-primary/30 pb-20 overflow-x-hidden">
-      {/* Dynamic Background Glow */}
-      <div
-        className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[500px] opacity-[0.03] blur-[120px] pointer-events-none rounded-full"
-        style={{ background: accentColor }}
-      ></div>
-
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 pb-12 transition-colors duration-300">
       {/* Header */}
-      <header className="w-full px-6 py-6 flex items-center justify-between border-b border-white/5 backdrop-blur-md sticky top-0 z-50 bg-[#0B0B0F]/80">
-        <Link to="/" className="flex items-center gap-3">
+      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border/50 backdrop-blur-md sticky top-0 z-50 bg-background/80">
+        <Link to="/" className="flex items-center gap-2.5">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden"
+            className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden"
             style={{ background: accentColor }}
           >
             {branding?.is_enabled && branding?.brand_logo_url ? (
               <img src={branding.brand_logo_url} alt={branding.brand_name || ""} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-white font-black text-xl">{(branding?.brand_name || 'C')?.charAt(0)}</span>
+              <span className="text-white font-semibold text-lg">{(branding?.brand_name || 'C')?.charAt(0)}</span>
             )}
           </div>
-          <span className="font-bold text-xl tracking-tight text-white">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
+          <span className="font-semibold text-lg text-foreground">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
         </Link>
         <div className="flex items-center gap-4">
-          {!hostProfile && (
-            <>
-              <Button variant="ghost" className="text-gray-400 font-bold hover:text-white" onClick={() => navigate('/auth')}>Login</Button>
-              <Button className="h-11 px-6 rounded-xl font-black bg-white text-black hover:bg-gray-200" onClick={() => navigate('/auth')}>Sign up</Button>
-            </>
-          )}
+          <span className="hidden sm:block text-xs text-muted-foreground">Powered by CalSchedule</span>
+          <ThemeToggle />
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-6 pt-16 relative z-10">
-        <div className="text-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="relative inline-block mb-8">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-12">
+        <div className="text-center mb-8">
+          <div className="inline-block mb-4">
             <div
-              className="absolute inset-0 rounded-full blur-2xl opacity-40 animate-pulse"
+              className="w-16 h-16 rounded-full flex items-center justify-center"
               style={{ background: accentColor }}
-            ></div>
-            <div
-              className="w-20 h-20 rounded-full flex items-center justify-center relative z-10 shadow-2xl"
-              style={{ background: `linear-gradient(135deg, ${accentColor}, #FF5C00)` }}
             >
-              <CheckCircle className="w-10 h-10 text-white" />
+              <CheckCircle className="w-8 h-8 text-white" />
             </div>
           </div>
 
-          <h1 className="text-4xl font-black text-white mb-3 tracking-tight">Booking confirmed!</h1>
-          <p className="text-lg text-gray-500 font-medium">
-            You are scheduled with <span className="text-gray-300 font-bold">{hostProfile?.name || 'the host'}</span>.
+          <h1 className="text-2xl font-semibold text-foreground mb-2">Booking Confirmed!</h1>
+          <p className="text-sm text-muted-foreground">
+            You are scheduled with <span className="text-foreground font-medium">{hostProfile?.name || 'the host'}</span>
           </p>
-          <div className="mt-4 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white/[0.03] border border-white/5 w-fit mx-auto">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Confirmation email sent</span>
+          <div className="mt-3 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-green-500/10 border border-green-500/20 w-fit mx-auto">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+            <span className="text-xs text-green-600 dark:text-green-400 font-medium">Confirmation email sent</span>
           </div>
         </div>
 
-        {/* Booking Details Card - PREMIUM DARK */}
-        <div className="bg-[#1C1C1E] rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
-          {/* Subtle accent line */}
-          <div className="absolute top-0 left-0 w-full h-1 opacity-50" style={{ background: accentColor }}></div>
-
-          <div className="p-8 md:p-10">
+        {/* Booking Details Card */}
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="p-6">
             {/* Host Section */}
-            <div className="flex items-center gap-4 mb-10 pb-10 border-b border-white/5">
-              <Avatar className="h-16 w-16 rounded-[1.5rem] border-2 border-white/5 p-1 bg-[#0B0B0F]">
-                <AvatarImage src={hostProfile?.avatar_url || ''} className="rounded-[1.4rem] object-cover" />
-                <AvatarFallback className="bg-white/5 text-white font-bold text-xl">
+            <div className="flex items-center gap-3 mb-6 pb-6 border-b border-border">
+              <Avatar className="h-12 w-12 rounded-full border border-border">
+                <AvatarImage src={hostProfile?.avatar_url || ''} className="rounded-full object-cover" />
+                <AvatarFallback className="bg-muted text-muted-foreground font-medium">
                   {hostProfile?.name?.charAt(0) || 'H'}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-xl font-black text-white">{hostProfile?.name || 'Host'}</p>
-                <p className="text-gray-500 font-bold">@{hostProfile?.username || 'username'}</p>
+                <p className="text-base font-medium text-foreground">{hostProfile?.name || 'Host'}</p>
+                <p className="text-sm text-muted-foreground">@{hostProfile?.username || 'username'}</p>
               </div>
             </div>
 
-            {/* Grid Details - matching email template style */}
-            <div className="grid md:grid-cols-2 gap-10 mb-10">
-              <div className="space-y-4">
+            {/* Grid Details */}
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-white/[0.03] flex items-center justify-center">
-                    <LocationIconComponent className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <span className="text-[11px] font-black text-gray-600 uppercase tracking-[0.2em]">WHAT</span>
+                  <LocationIconComponent className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">Event</span>
                 </div>
                 <div>
-                  <p className="text-xl font-black text-white mb-1">{booking.event_type?.title}</p>
-                  <p className="text-sm text-gray-400 font-medium">{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</p>
+                  <p className="text-base font-medium text-foreground">{booking.event_type?.title}</p>
+                  <p className="text-sm text-muted-foreground">{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</p>
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-white/[0.03] flex items-center justify-center">
-                    <User className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <span className="text-[11px] font-black text-gray-600 uppercase tracking-[0.2em]">WHO</span>
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">Attendee</span>
                 </div>
                 <div>
-                  <p className="text-xl font-black text-white mb-1 truncate">{booking.attendee_name}</p>
-                  <p className="text-sm text-gray-400 font-medium truncate">{booking.attendee_email}</p>
+                  <p className="text-base font-medium text-foreground truncate">{booking.attendee_name}</p>
+                  <p className="text-sm text-muted-foreground truncate">{booking.attendee_email}</p>
                   {booking.attendee_phone && (
-                    <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-500 font-bold">
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
                       <Phone className="w-3 h-3" />
                       <span>{booking.attendee_phone}</span>
                     </div>
@@ -268,27 +248,25 @@ END:VCALENDAR`;
               </div>
             </div>
 
-            {/* WHEN Section */}
-            <div className="bg-white/[0.02] rounded-3xl p-6 border border-white/5 space-y-4 shadow-inner">
+            {/* When Section */}
+            <div className="bg-muted/30 rounded-lg p-5 border border-border space-y-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center">
-                  <Clock className="w-4 h-4 text-gray-500" />
-                </div>
-                <span className="text-[11px] font-black text-gray-600 uppercase tracking-[0.2em]">WHEN</span>
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">When</span>
               </div>
 
               <div className="space-y-1">
-                <p className="text-xl font-black text-white">
+                <p className="text-base font-medium text-foreground">
                   {format(new Date(booking.start_time), 'EEEE, MMMM d, yyyy')}
                 </p>
-                <div className="flex items-center gap-2 text-lg font-bold text-gray-400">
-                  <span className="text-white">{format(new Date(booking.start_time), 'h:mm a')}</span>
-                  <ArrowRight className="w-4 h-4 text-gray-700" />
-                  <span className="text-white">{format(new Date(booking.end_time), 'h:mm a')}</span>
-                  <span className="text-gray-700 mx-2">|</span>
-                  <div className="flex items-center gap-1.5 text-sm text-gray-600 font-black">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span className="text-foreground font-medium">{format(new Date(booking.start_time), 'h:mm a')}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span className="text-foreground font-medium">{format(new Date(booking.end_time), 'h:mm a')}</span>
+                  <span className="mx-1">·</span>
+                  <div className="flex items-center gap-1">
                     <Globe className="w-3.5 h-3.5" />
-                    <span className="uppercase tracking-tighter">({booking.attendee_timezone?.replace('_', ' ').split('/').pop()})</span>
+                    <span>{booking.attendee_timezone?.replace('_', ' ').split('/').pop()}</span>
                   </div>
                 </div>
               </div>
@@ -296,33 +274,24 @@ END:VCALENDAR`;
 
             {/* Meet Link */}
             {booking.meet_link && (
-              <div className="mt-8 relative group">
-                <div
-                  className="absolute inset-0 rounded-3xl blur-xl opacity-10 group-hover:opacity-20 transition-opacity"
-                  style={{ background: accentColor }}
-                ></div>
-                <div className="relative bg-white/[0.03] rounded-3xl p-6 border border-white/5 hover:border-white/10 transition-all">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ background: `${accentColor}20` }}
-                    >
-                      <Video className="w-4 h-4" style={{ color: accentColor }} />
-                    </div>
-                    <span className="text-[11px] font-black text-gray-600 uppercase tracking-[0.2em]">JOIN MEETING</span>
+              <div className="mt-6">
+                <div className="bg-muted/30 rounded-lg p-5 border border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Video className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide">Join Meeting</span>
                   </div>
 
                   <div className="flex items-center justify-between gap-4">
-                    <p className="text-sm font-bold text-white truncate max-w-[80%]">{booking.meet_link}</p>
+                    <p className="text-sm text-foreground truncate flex-1">{booking.meet_link}</p>
                     <a
                       href={booking.meet_link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="h-11 px-6 rounded-xl flex items-center justify-center gap-2 font-black text-sm transition-all shadow-lg active:scale-95"
-                      style={{ background: accentColor, color: '#000' }}
+                      className="h-9 px-4 rounded-md flex items-center justify-center gap-2 font-medium text-sm text-white transition-all"
+                      style={{ background: accentColor }}
                     >
-                      Join Now
-                      <ExternalLink className="w-4 h-4" />
+                      Join
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 </div>
@@ -331,69 +300,63 @@ END:VCALENDAR`;
           </div>
         </div>
 
-        {/* Actions - BUTTONS */}
-        <div className="mt-12 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
-          <div className="flex flex-col items-center gap-6">
+        {/* Actions */}
+        <div className="mt-8 space-y-6">
+          <div className="flex flex-col items-center gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="h-16 px-10 rounded-[1.25rem] bg-white text-black hover:bg-gray-200 font-black text-lg shadow-xl active:scale-95 transition-transform">
-                  <CalendarPlus className="w-5 h-5 mr-3" />
+                <Button className="h-10 px-6 rounded-md font-medium">
+                  <CalendarPlus className="w-4 h-4 mr-2" />
                   Add to Calendar
-                  <ChevronDown className="w-5 h-5 ml-3 opacity-50" />
+                  <ChevronDown className="w-4 h-4 ml-2" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-[#1C1C1E] border-white/10 p-2 rounded-[1.25rem] min-w-[200px]">
-                <DropdownMenuItem onClick={() => handleAddToCalendar('google')} className="p-3 rounded-xl font-bold text-white focus:bg-white/5 cursor-pointer">
+              <DropdownMenuContent className="bg-popover border-border rounded-md min-w-[180px]">
+                <DropdownMenuItem onClick={() => handleAddToCalendar('google')} className="cursor-pointer">
                   Google Calendar
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddToCalendar('outlook')} className="p-3 rounded-xl font-bold text-white focus:bg-white/5 cursor-pointer">
+                <DropdownMenuItem onClick={() => handleAddToCalendar('outlook')} className="cursor-pointer">
                   Outlook Calendar
                 </DropdownMenuItem>
-                <div className="h-px bg-white/5 my-1 mx-1"></div>
-                <DropdownMenuItem onClick={() => handleAddToCalendar('ics')} className="p-3 rounded-xl font-bold text-white focus:bg-white/5 cursor-pointer">
+                <div className="h-px bg-border my-1"></div>
+                <DropdownMenuItem onClick={() => handleAddToCalendar('ics')} className="cursor-pointer">
                   Download .ics file
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-6">
               <button
                 onClick={handleReschedule}
-                className="group flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-white transition-all underline decoration-gray-800 underline-offset-8 decoration-2 hover:decoration-white"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+                <RefreshCw className="w-3.5 h-3.5" />
                 Reschedule
               </button>
 
               <button
                 onClick={handleCancel}
                 disabled={cancelBooking.isPending}
-                className="group flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-red-500 transition-all underline decoration-gray-800 underline-offset-8 decoration-2 hover:decoration-red-500"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
               >
-                <XCircle className="w-4 h-4" />
-                {cancelBooking.isPending ? 'Cancelling...' : 'Cancel Meeting'}
+                <XCircle className="w-3.5 h-3.5" />
+                {cancelBooking.isPending ? 'Cancelling...' : 'Cancel'}
               </button>
             </div>
           </div>
 
-          {/* Footer Navigation */}
-          <div className="pt-12 border-t border-white/5 flex flex-col items-center gap-8">
+          {/* Footer */}
+          <div className="pt-8 border-t border-border flex flex-col items-center gap-6">
             <Link
               to="/my-bookings"
-              className="group flex items-center gap-3 text-sm font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              View all your bookings
-              <div
-                className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center group-hover:translate-x-1 transition-transform"
-                style={{ color: accentColor }}
-              >
-                <ArrowRight className="w-4 h-4" />
-              </div>
+              View all bookings
+              <ArrowRight className="w-4 h-4" />
             </Link>
 
-            <div className="flex flex-col items-center gap-1 opacity-20">
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Powerhouse Technology</span>
-              <span className="text-xs font-black text-white">CalSchedule</span>
+            <div className="text-center">
+              <span className="text-xs text-muted-foreground">Powered by CalSchedule</span>
             </div>
           </div>
         </div>
