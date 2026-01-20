@@ -35,9 +35,10 @@ export interface Booking {
     location_type: string;
     description?: string;
   };
+  is_rescheduled?: boolean;
 }
 
-export function useBookings(filter?: 'upcoming' | 'past' | 'cancelled') {
+export function useBookings(filter?: 'upcoming' | 'past' | 'cancelled' | 'rescheduled') {
   const { user } = useAuth();
 
   return useQuery({
@@ -62,6 +63,8 @@ export function useBookings(filter?: 'upcoming' | 'past' | 'cancelled') {
         query = query.lt('start_time', now).neq('status', 'cancelled');
       } else if (filter === 'cancelled') {
         query = query.eq('status', 'cancelled');
+      } else if (filter === 'rescheduled') {
+        query = query.eq('is_rescheduled', true);
       }
 
       const { data, error } = await query;

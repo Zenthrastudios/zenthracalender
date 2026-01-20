@@ -16,7 +16,7 @@ import { Switch } from '@/components/ui/switch';
 
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,8 +37,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { 
-  ChevronRight, Video, Phone, MapPin, Globe, Clock, Calendar, 
+import {
+  ChevronRight, Video, Phone, MapPin, Globe, Clock, Calendar,
   Settings2, User, Plus, Trash2, GripVertical, FileText, IndianRupee, CreditCard, GraduationCap, Star, Eye, EyeOff, Edit
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -120,7 +120,7 @@ export default function EventTypeEditor() {
   const { data: instructors } = useInstructors();
   const createEventType = useCreateEventType();
   const updateEventType = useUpdateEventType();
-  
+
   const isNew = id === 'new';
   const existingEvent = eventTypes?.find(et => et.id === id);
 
@@ -142,6 +142,8 @@ export default function EventTypeEditor() {
   const [bufferBefore, setBufferBefore] = useState(0);
   const [bufferAfter, setBufferAfter] = useState(5);
   const [minimumNotice, setMinimumNotice] = useState(60);
+  const [allowRescheduling, setAllowRescheduling] = useState(true);
+  const [reschedulePrice, setReschedulePrice] = useState(0);
 
   // Custom Form Fields
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
@@ -153,7 +155,7 @@ export default function EventTypeEditor() {
 
   // Instructor Assignment
   const [instructorId, setInstructorId] = useState<string | null>(null);
-  
+
   // Testimonials
   const [showTestimonials, setShowTestimonials] = useState(true);
   const { data: testimonials } = useTestimonials(isNew ? undefined : existingEvent?.id, { includeHidden: true });
@@ -173,7 +175,7 @@ export default function EventTypeEditor() {
 
   // Schedule Assignment
   const [scheduleId, setScheduleId] = useState<string | null>(null);
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBannerUploading, setIsBannerUploading] = useState(false);
   const [isTestimonialAvatarUploading, setIsTestimonialAvatarUploading] = useState(false);
@@ -198,6 +200,10 @@ export default function EventTypeEditor() {
       setBufferBefore(existingEvent.buffer_before);
       setBufferAfter(existingEvent.buffer_after);
       setMinimumNotice(existingEvent.minimum_notice);
+      // @ts-ignore
+      setAllowRescheduling(existingEvent.allow_rescheduling ?? true);
+      // @ts-ignore
+      setReschedulePrice(existingEvent.reschedule_price ?? 0);
       // Load custom fields if they exist
       if (Array.isArray(existingEvent.custom_fields)) {
         setCustomFields(existingEvent.custom_fields as unknown as CustomField[]);
@@ -449,6 +455,10 @@ export default function EventTypeEditor() {
       instructor_id: instructorId,
       schedule_id: scheduleId,
       show_testimonials: showTestimonials,
+      // @ts-ignore
+      allow_rescheduling: allowRescheduling,
+      // @ts-ignore
+      reschedule_price: reschedulePrice,
     };
 
     try {
@@ -521,7 +531,9 @@ export default function EventTypeEditor() {
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-1">
                 <h3 className="font-semibold">Testimonials</h3>
-                <p className="text-sm text-muted-foreground">Manage testimonials for this event type and choose whether to show them on the booking page.</p>
+                <p className="text-sm text-muted-foreground">
+                  Manage and display testimonials on your booking page.
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -734,7 +746,7 @@ export default function EventTypeEditor() {
               <GraduationCap className="w-5 h-5 text-primary" />
               <h3 className="font-semibold">Assign Instructor</h3>
             </div>
-            
+
             {instructors && instructors.length > 0 ? (
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -764,7 +776,7 @@ export default function EventTypeEditor() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 {instructorId && (
                   <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
                     {(() => {
@@ -799,7 +811,7 @@ export default function EventTypeEditor() {
                 </Button>
               </div>
             )}
-            
+
             {!instructorId && (
               <div className="mt-4 flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
                 <Avatar className="h-12 w-12">
@@ -822,7 +834,7 @@ export default function EventTypeEditor() {
           {/* Basic Info */}
           <div className="p-6 bg-card rounded-xl border border-border space-y-6">
             <h3 className="font-semibold">Basic Information</h3>
-            
+
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="title">Event Title</Label>
@@ -1015,7 +1027,7 @@ export default function EventTypeEditor() {
               <Clock className="w-5 h-5 text-primary" />
               <h3 className="font-semibold">Duration & Location</h3>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Duration</Label>
@@ -1241,7 +1253,7 @@ export default function EventTypeEditor() {
                 This schedule determines when attendees can book this event type
               </p>
             </div>
-            
+
             {scheduleAvailability && scheduleAvailability.length > 0 && (
               <div className="grid grid-cols-7 gap-2 text-center">
                 {DAYS.map((day, idx) => (
@@ -1268,7 +1280,7 @@ export default function EventTypeEditor() {
               <CreditCard className="w-5 h-5 text-primary" />
               <h3 className="font-semibold">Payment Settings</h3>
             </div>
-            
+
             <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
               <div>
                 <p className="font-medium">Paid Event</p>
@@ -1377,6 +1389,38 @@ export default function EventTypeEditor() {
                     </Select>
                     <p className="text-xs text-muted-foreground">How far in advance can bookings be made</p>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="allow-rescheduling">Allow Rescheduling</Label>
+                    <div className="flex items-center gap-2 h-10">
+                      <Switch
+                        id="allow-rescheduling"
+                        checked={allowRescheduling}
+                        onCheckedChange={setAllowRescheduling}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {allowRescheduling ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Can attendees reschedule this event?</p>
+                  </div>
+
+                  {allowRescheduling && (
+                    <div className="space-y-2">
+                      <Label>Reschedule Price (₹)</Label>
+                      <div className="relative">
+                        <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={reschedulePrice}
+                          onChange={(e) => setReschedulePrice(Number(e.target.value))}
+                          className="pl-9 bg-background"
+                          min="0"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Charge for rescheduling (0 for free)</p>
+                    </div>
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>

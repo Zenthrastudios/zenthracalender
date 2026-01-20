@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { format, addDays, isBefore, startOfDay } from 'date-fns';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { format, isBefore, startOfDay, addDays, isPast, isSameMonth, addMonths } from 'date-fns';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { sendWhatsAppNotification } from '@/utils/whatsapp';
 import { Button } from '@/components/ui/button';
@@ -10,26 +10,36 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { toast } from 'sonner';
 import {
-  Calendar as CalendarIcon,
   Clock,
+  Calendar as CalendarIcon,
+  CheckCircle,
+  AlertCircle,
+  ChevronRight,
+  Globe,
+  IndianRupee,
+  ArrowRight,
+  RefreshCw,
+  Loader2,
   Video,
   Phone,
   MapPin,
   ArrowLeft,
-  CheckCircle,
-  Loader2,
-  AlertCircle,
-  ChevronRight,
-  Globe,
-  ArrowRight,
-  RefreshCw,
 } from 'lucide-react';
+import { useCreateRazorpayOrder, useVerifyRazorpayPayment } from '@/hooks/usePayments';
 import { cn } from '@/lib/utils';
 import { useUserBranding } from '@/hooks/useProfile';
 
+declare global {
+  interface Window {
+    Razorpay?: unknown;
+  }
+}
+
 interface TimeSlot {
-  time: string;
+  time: string; // ISO string
   label: string;
+  startTime: Date;
+  endTime: Date;
 }
 
 export default function Reschedule() {
@@ -38,9 +48,25 @@ export default function Reschedule() {
   const queryClient = useQueryClient();
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isRescheduled, setIsRescheduled] = useState(false);
+
+  const createRazorpayOrder = useCreateRazorpayOrder();
+  const verifyRazorpayPayment = useVerifyRazorpayPayment();
+
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
   // Fetch booking by reschedule token
   const { data: booking, isLoading: bookingLoading, error: bookingError } = useQuery({
@@ -54,7 +80,7 @@ export default function Reschedule() {
           *,
           event_type:event_types(
             id, title, duration, location_type, location_value, 
-            buffer_before, buffer_after, minimum_notice, user_id, schedule_id
+            buffer_before, buffer_after, minimum_notice, user_id, schedule_id, allow_rescheduling, reschedule_price
           )
         `)
         .eq('reschedule_token', token)
@@ -184,6 +210,8 @@ export default function Reschedule() {
           slots.push({
             time: slotDate.toISOString(),
             label: format(slotDate, 'h:mm a'),
+            startTime: slotDate,
+            endTime: slotEnd,
           });
         }
 
@@ -203,24 +231,18 @@ export default function Reschedule() {
     return hasAvailability && !isPast;
   };
 
-  const handleReschedule = async () => {
-    if (!selectedTime || !booking?.event_type) return;
-
-    setIsSubmitting(true);
-
-    try {
-      const startTime = new Date(selectedTime);
-      const endTime = new Date(startTime.getTime() + booking.event_type.duration * 60000);
-
+  const updateBooking = useMutation({
+    mutationFn: async ({ id, start_time, end_time }: { id: string, start_time: string, end_time: string }) => {
       const { error: updateError } = await (supabase as any)
         .from('bookings')
         .update({
-          start_time: startTime.toISOString(),
-          end_time: endTime.toISOString(),
+          start_time: start_time,
+          end_time: end_time,
           status: 'confirmed',
           reminder_sent: false,
+          is_rescheduled: true,
         })
-        .eq('id', booking.id);
+        .eq('id', id);
 
       if (updateError) throw updateError;
 
@@ -229,17 +251,17 @@ export default function Reschedule() {
         await supabase.functions.invoke('send-booking-email', {
           body: {
             type: 'reschedule',
-            bookingId: booking.id,
-            recipientEmail: booking.attendee_email,
-            recipientName: booking.attendee_name,
+            bookingId: booking?.id,
+            recipientEmail: booking?.attendee_email,
+            recipientName: booking?.attendee_name,
             hostName: hostProfile?.name || 'Host',
-            eventTitle: booking.event_type.title,
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString(),
-            timezone: booking.attendee_timezone,
-            meetingLink: booking.meet_link,
-            notes: booking.notes,
-            hostId: booking.host_id,
+            eventTitle: (booking?.event_type as any)?.title,
+            startTime: start_time,
+            endTime: end_time,
+            timezone: booking?.attendee_timezone,
+            meetingLink: booking?.meet_link,
+            notes: booking?.notes,
+            hostId: booking?.host_id,
           }
         });
       } catch (emailError) {
@@ -247,21 +269,21 @@ export default function Reschedule() {
       }
 
       // Customer WhatsApp (Using the secure edge function call)
-      if (booking.attendee_phone) {
+      if (booking?.attendee_phone) {
         await sendWhatsAppNotification(booking.host_id, 'reschedule', booking.attendee_phone, {
           ...booking,
-          start_time: startTime.toISOString(),
-          end_time: endTime.toISOString(),
+          start_time: start_time,
+          end_time: end_time,
           host_name: hostProfile?.name || 'Host'
         });
       }
 
       // Instructor/Host Notification
       try {
-        const eventType = booking.event_type as any;
+        const eventType = booking?.event_type as any;
         let instructorPhone: string | null = null;
 
-        if (eventType.instructor_id) {
+        if (eventType?.instructor_id) {
           const { data: instructor } = await supabase
             .from('instructors')
             .select('phone')
@@ -275,25 +297,123 @@ export default function Reschedule() {
         }
 
         if (instructorPhone) {
-          await sendWhatsAppNotification(booking.host_id, 'reschedule_instructor', instructorPhone, {
+          await sendWhatsAppNotification(booking?.host_id, 'reschedule_instructor', instructorPhone, {
             ...booking,
-            start_time: startTime.toISOString(),
-            end_time: endTime.toISOString(),
+            start_time: start_time,
+            end_time: end_time,
             host_name: hostProfile?.name || 'Host',
-            attendee_name: booking.attendee_name,
+            attendee_name: booking?.attendee_name,
           });
         }
       } catch (instructorNotifyError) {
         console.error('Failed to send instructor reschedule notification:', instructorNotifyError);
       }
-
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reschedule-booking', token] });
+      queryClient.invalidateQueries({ queryKey: ['host-bookings', booking?.host_id, selectedDate] });
       setIsRescheduled(true);
       toast.success('Successfully rescheduled!');
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       console.error('Reschedule error:', error);
       toast.error(error.message || 'Failed to reschedule');
-    } finally {
-      setIsSubmitting(false);
+    }
+  });
+
+  const handleRazorpayPayment = async () => {
+    if (!booking || !selectedSlot) return;
+
+    // @ts-ignore
+    const price = booking.event_type?.reschedule_price || 0;
+    if (price <= 0) return;
+
+    setIsProcessingPayment(true);
+    try {
+      const amountInPaise = Math.round(price * 100);
+      const orderResult = await createRazorpayOrder.mutateAsync({
+        bookingId: booking.id,
+        amount: amountInPaise,
+        customerName: booking.attendee_name,
+        customerEmail: booking.attendee_email,
+        hostId: (booking.event_type as any).user_id,
+      });
+
+      const RazorpayCtor = window.Razorpay as unknown as (new (opts: unknown) => { open: () => void });
+      const options = {
+        key: orderResult.keyId,
+        amount: orderResult.amount,
+        currency: orderResult.currency,
+        name: (booking.event_type as any).title,
+        description: 'Rescheduling Fee',
+        order_id: orderResult.orderId,
+        handler: async function (response: unknown) {
+          try {
+            const r = response as { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string };
+            const verifyResult = await verifyRazorpayPayment.mutateAsync({
+              razorpayOrderId: r.razorpay_order_id || '',
+              razorpayPaymentId: r.razorpay_payment_id || '',
+              razorpaySignature: r.razorpay_signature || '',
+            });
+
+            if (verifyResult.verified) {
+              await performReschedule();
+            } else {
+              toast.error('Payment verification failed.');
+            }
+          } catch (error) {
+            toast.error('Payment verification failed.');
+          }
+          setIsProcessingPayment(false);
+        },
+        prefill: {
+          name: booking.attendee_name,
+          email: booking.attendee_email,
+          contact: booking.attendee_phone,
+        },
+        theme: {
+          color: '#3b82f6',
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessingPayment(false);
+          },
+        },
+      };
+
+      const razorpay = new RazorpayCtor(options);
+      razorpay.open();
+    } catch (error) {
+      console.error('Razorpay payment error:', error);
+      toast.error('Failed to initiate payment.');
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const performReschedule = async () => {
+    if (!booking || !selectedSlot) return;
+
+    try {
+      await updateBooking.mutateAsync({
+        id: booking.id,
+        start_time: selectedSlot.startTime.toISOString(),
+        end_time: selectedSlot.endTime.toISOString(),
+      });
+    } catch (error) {
+      // Error handled by mutation's onError
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!booking || !selectedSlot) return;
+
+    // @ts-ignore
+    const price = booking.event_type?.reschedule_price || 0;
+
+    if (price > 0) {
+      await handleRazorpayPayment();
+    } else {
+      await performReschedule();
     }
   };
 
@@ -355,6 +475,40 @@ export default function Reschedule() {
     );
   }
 
+  // @ts-ignore
+  if (booking.is_rescheduled) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 text-center">
+        <div className="bg-card rounded-xl border border-border p-8 max-w-md w-full">
+          <div className="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mb-6 mx-auto">
+            <AlertCircle className="w-8 h-8 text-yellow-500" />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground mb-3">Already Rescheduled</h1>
+          <p className="text-muted-foreground mb-6 text-sm">
+            This booking has already been rescheduled once. Further changes are not allowed.
+          </p>
+          <Button onClick={() => navigate('/')} className="w-full">Go Home</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // @ts-ignore
+  if (booking.event_type && booking.event_type.allow_rescheduling === false) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 text-center">
+        <div className="bg-card rounded-xl border border-border p-8 max-w-md w-full">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-6 mx-auto">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground mb-3">Rescheduling Disabled</h1>
+          <p className="text-muted-foreground mb-6 text-sm">Rescheduling is not allowed for this event type. Please contact the host directly.</p>
+          <Button onClick={() => navigate('/')} className="w-full">Go Home</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (isRescheduled) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6 text-center">
@@ -371,10 +525,10 @@ export default function Reschedule() {
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">New Time</span>
             </div>
             <p className="text-lg font-semibold text-foreground">
-              {selectedTime && format(new Date(selectedTime), 'EEEE, MMMM d, yyyy')}
+              {selectedSlot?.startTime && format(selectedSlot.startTime, 'EEEE, MMMM d, yyyy')}
             </p>
             <p className="text-base text-muted-foreground">
-              {selectedTime && format(new Date(selectedTime), 'h:mm a')}
+              {selectedSlot?.startTime && format(selectedSlot.startTime, 'h:mm a')}
             </p>
           </div>
 
@@ -476,7 +630,7 @@ export default function Reschedule() {
                     selected={selectedDate}
                     onSelect={(date) => {
                       setSelectedDate(date);
-                      setSelectedTime(null);
+                      setSelectedSlot(null);
                     }}
                     disabled={(date) => !isDateAvailable(date)}
                     className="rounded-lg border border-border p-3"
@@ -503,17 +657,17 @@ export default function Reschedule() {
                           availableSlots.map((slot) => (
                             <button
                               key={slot.time}
-                              onClick={() => setSelectedTime(slot.time)}
+                              onClick={() => setSelectedSlot(slot)}
                               className={cn(
                                 "w-full px-4 py-3 rounded-md text-sm font-medium border transition-all flex items-center justify-between group",
-                                selectedTime === slot.time
+                                selectedSlot?.time === slot.time
                                   ? "bg-primary text-primary-foreground border-primary"
                                   : "bg-background border-border hover:border-primary/50"
                               )}
-                              style={selectedTime === slot.time ? { backgroundColor: accentColor, borderColor: accentColor } : {}}
+                              style={selectedSlot?.time === slot.time ? { backgroundColor: accentColor, borderColor: accentColor } : {}}
                             >
                               <span>{slot.label}</span>
-                              {selectedTime === slot.time && <CheckCircle className="w-4 h-4" />}
+                              {selectedSlot?.time === slot.time && <CheckCircle className="w-4 h-4" />}
                             </button>
                           ))
                         ) : (
@@ -524,21 +678,28 @@ export default function Reschedule() {
                         )}
                       </div>
 
-                      {selectedTime && (
+                      {selectedSlot && (
                         <div className="mt-6 pt-4 border-t border-border">
                           <Button
-                            onClick={handleReschedule}
-                            disabled={isSubmitting}
                             className="w-full text-white"
+                            onClick={handleReschedule}
+                            disabled={updateBooking.isPending || isProcessingPayment}
                             style={{ backgroundColor: accentColor }}
                           >
-                            {isSubmitting ? (
+                            {(updateBooking.isPending || isProcessingPayment) ? (
                               <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Confirming...
+                                Processing...
                               </>
                             ) : (
-                              'Confirm new time'
+                              // @ts-ignore
+                              (booking.event_type?.reschedule_price || 0) > 0 ? (
+                                <>
+                                  Pay ₹{booking.event_type.reschedule_price} & Reschedule
+                                </>
+                              ) : (
+                                'Confirm Reschedule'
+                              )
                             )}
                           </Button>
                         </div>

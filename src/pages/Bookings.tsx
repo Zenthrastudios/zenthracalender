@@ -47,7 +47,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-type FilterType = 'upcoming' | 'past' | 'cancelled';
+type FilterType = 'upcoming' | 'past' | 'cancelled' | 'rescheduled';
 
 export default function Bookings() {
   const [filter, setFilter] = useState<FilterType>('upcoming');
@@ -131,7 +131,7 @@ export default function Bookings() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
-          {(['upcoming', 'past', 'cancelled'] as FilterType[]).map((tab) => (
+          {(['upcoming', 'past', 'rescheduled', 'cancelled'] as FilterType[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setFilter(tab)}
@@ -161,7 +161,9 @@ export default function Bookings() {
                 ? "You don't have any upcoming bookings yet."
                 : filter === 'past'
                   ? "No past bookings found."
-                  : "No cancelled bookings."}
+                  : filter === 'rescheduled'
+                    ? "No rescheduled bookings found."
+                    : "No cancelled bookings."}
             </p>
           </div>
         ) : (
@@ -197,8 +199,13 @@ export default function Bookings() {
 
                       {/* Booking Details */}
                       <div>
-                        <h3 className="font-semibold text-lg mb-1">
+                        <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
                           {booking.event_type?.title || 'Meeting'}
+                          {booking.is_rescheduled && (
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none text-[10px] h-5">
+                              Rescheduled
+                            </Badge>
+                          )}
                         </h3>
 
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
