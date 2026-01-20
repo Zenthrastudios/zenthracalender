@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format, addDays, isBefore, startOfDay, isToday } from 'date-fns';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { sendWhatsAppNotification } from '@/utils/whatsapp';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import {
@@ -19,8 +18,14 @@ import {
   CheckCircle,
   Loader2,
   AlertCircle,
+  ChevronRight,
+  Globe,
+  User,
+  ExternalLink,
+  ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUserBranding } from '@/hooks/useProfile';
 
 interface TimeSlot {
   time: string;
@@ -79,6 +84,9 @@ export default function Reschedule() {
     enabled: !!booking?.host_id,
   });
 
+  const { data: branding } = useUserBranding(hostProfile?.user_id);
+  const accentColor = branding?.is_enabled && branding?.brand_color ? branding.brand_color : "#FF9124";
+
   // Fetch host availability based on event type's schedule
   const scheduleId = (booking?.event_type as any)?.schedule_id;
   const { data: availability = [] } = useQuery({
@@ -86,7 +94,7 @@ export default function Reschedule() {
     queryFn: async () => {
       if (!booking?.host_id) return [];
 
-      let query = supabase
+      let query = (supabase as any)
         .from('availability')
         .select('*')
         .eq('user_id', booking.host_id);
@@ -144,7 +152,7 @@ export default function Reschedule() {
     if (!selectedDate || !booking?.event_type) return [];
 
     const dayOfWeek = selectedDate.getDay();
-    const dayAvailability = availability.filter(a => a.weekday === dayOfWeek);
+    const dayAvailability = availability.filter((a: any) => a.weekday === dayOfWeek);
 
     if (dayAvailability.length === 0) return [];
 
@@ -153,7 +161,7 @@ export default function Reschedule() {
     const minimumNotice = booking.event_type.minimum_notice || 60;
     const now = new Date();
 
-    dayAvailability.forEach(avail => {
+    dayAvailability.forEach((avail: any) => {
       let currentMinutes = avail.start_time;
 
       while (currentMinutes + duration <= avail.end_time) {
@@ -169,7 +177,7 @@ export default function Reschedule() {
 
         // Check for conflicts
         const slotEnd = new Date(slotDate.getTime() + duration * 60000);
-        const hasConflict = existingBookings.some(b => {
+        const hasConflict = existingBookings.some((b: any) => {
           const bookingStart = new Date(b.start_time);
           const bookingEnd = new Date(b.end_time);
           return (slotDate < bookingEnd && slotEnd > bookingStart);
@@ -194,12 +202,11 @@ export default function Reschedule() {
   // Check if date has availability
   const isDateAvailable = (date: Date) => {
     const dayOfWeek = date.getDay();
-    const hasAvailability = availability.some(a => a.weekday === dayOfWeek);
+    const hasAvailability = availability.some((a: any) => a.weekday === dayOfWeek);
     const isPast = isBefore(date, startOfDay(new Date()));
     return hasAvailability && !isPast;
   };
 
-  // Handle reschedule
   const handleReschedule = async () => {
     if (!selectedTime || !booking?.event_type) return;
 
@@ -209,8 +216,7 @@ export default function Reschedule() {
       const startTime = new Date(selectedTime);
       const endTime = new Date(startTime.getTime() + booking.event_type.duration * 60000);
 
-      // Update booking - also reset reminder_sent so a new reminder can be sent
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('bookings')
         .update({
           start_time: startTime.toISOString(),
@@ -222,7 +228,6 @@ export default function Reschedule() {
 
       if (updateError) throw updateError;
 
-      // Send reschedule email to attendee
       try {
         await supabase.functions.invoke('send-booking-email', {
           body: {
@@ -244,7 +249,6 @@ export default function Reschedule() {
         console.error('Failed to send reschedule email:', emailError);
       }
 
-      // Send WhatsApp reschedule to customer
       if (booking.attendee_phone) {
         await sendWhatsAppNotification(booking.host_id, 'reschedule', booking.attendee_phone, {
           ...booking,
@@ -254,9 +258,7 @@ export default function Reschedule() {
         });
       }
 
-      // Send WhatsApp reschedule to instructor/host
       try {
-        // Get instructor phone if assigned
         const eventType = booking.event_type as any;
         let instructorPhone: string | null = null;
 
@@ -269,7 +271,6 @@ export default function Reschedule() {
           instructorPhone = instructor?.phone || null;
         }
 
-        // Fallback to host phone
         if (!instructorPhone && hostProfile?.phone) {
           instructorPhone = hostProfile.phone;
         }
@@ -288,7 +289,7 @@ export default function Reschedule() {
       }
 
       setIsRescheduled(true);
-      toast.success('Booking rescheduled successfully!');
+      toast.success('Successfully rescheduled!');
     } catch (error: any) {
       console.error('Reschedule error:', error);
       toast.error(error.message || 'Failed to reschedule');
@@ -297,234 +298,326 @@ export default function Reschedule() {
     }
   };
 
-
-  const getLocationIcon = (type: string) => {
+  const getLocationIconComponent = (type: string) => {
     switch (type) {
       case 'google_meet':
       case 'zoom':
-        return <Video className="w-4 h-4" />;
+        return Video;
       case 'phone':
-        return <Phone className="w-4 h-4" />;
+        return Phone;
       case 'in_person':
-        return <MapPin className="w-4 h-4" />;
+        return MapPin;
       default:
-        return <Video className="w-4 h-4" />;
+        return Video;
+    }
+  };
+
+  const getLocationLabel = (type: string) => {
+    switch (type) {
+      case 'google_meet': return 'Google Meet';
+      case 'zoom': return 'Zoom';
+      case 'phone': return 'Phone Call';
+      case 'in_person': return 'In Person';
+      default: return 'Video Call';
     }
   };
 
   if (bookingLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-[#0B0B0F] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-white/5 border-t-primary rounded-full animate-spin" style={{ borderTopColor: accentColor }}></div>
       </div>
     );
   }
 
   if (bookingError || !booking) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-8 text-center">
-            <AlertCircle className="w-12 h-12 mx-auto text-destructive mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Invalid Reschedule Link</h2>
-            <p className="text-muted-foreground mb-4">
-              This reschedule link is invalid or has expired. Please contact the host for a new link.
-            </p>
-            <Button onClick={() => navigate('/')}>Go Home</Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-[#0B0B0F] flex items-center justify-center p-6 text-center">
+        <div className="bg-[#1C1C1E] rounded-[2rem] border border-white/5 p-12 max-w-md w-full shadow-2xl">
+          <div className="w-20 h-20 rounded-[2rem] bg-white/[0.02] border border-white/5 flex items-center justify-center mb-8 mx-auto">
+            <AlertCircle className="w-10 h-10 text-red-500" />
+          </div>
+          <h1 className="text-2xl font-black text-white mb-4">Invalid Link</h1>
+          <p className="text-gray-500 mb-8 leading-relaxed">This reschedule link is invalid or has expired.</p>
+          <Button onClick={() => navigate('/')} className="w-full h-14 rounded-2xl font-bold bg-white text-black hover:bg-gray-200">Go Home</Button>
+        </div>
       </div>
     );
   }
 
   if (booking.status === 'cancelled') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-8 text-center">
-            <AlertCircle className="w-12 h-12 mx-auto text-destructive mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Booking Cancelled</h2>
-            <p className="text-muted-foreground">
-              This booking has been cancelled and cannot be rescheduled.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-[#0B0B0F] flex items-center justify-center p-6 text-center">
+        <div className="bg-[#1C1C1E] rounded-[2rem] border border-white/5 p-12 max-w-md w-full shadow-2xl">
+          <div className="w-20 h-20 rounded-[2rem] bg-white/[0.02] border border-white/5 flex items-center justify-center mb-8 mx-auto">
+            <AlertCircle className="w-10 h-10 text-orange-500" />
+          </div>
+          <h1 className="text-2xl font-black text-white mb-4">Booking Cancelled</h1>
+          <p className="text-gray-500 mb-8 leading-relaxed">This booking has been cancelled and cannot be rescheduled.</p>
+          <Button onClick={() => navigate('/')} className="w-full h-14 rounded-2xl font-bold bg-white text-black hover:bg-gray-200">Go Home</Button>
+        </div>
       </div>
     );
   }
 
   if (isRescheduled) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 mx-auto mb-6 bg-emerald-500/10 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-8 h-8 text-emerald-500" />
+      <div className="min-h-screen bg-[#0B0B0F] flex items-center justify-center p-6 text-center">
+        <div className="bg-[#1C1C1E] rounded-[2rem] border border-white/5 p-12 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-500">
+          <div className="relative inline-block mb-8">
+            <div className="absolute inset-0 rounded-full blur-2xl opacity-40 animate-pulse" style={{ background: accentColor }}></div>
+            <div className="w-20 h-20 rounded-full flex items-center justify-center relative z-10 shadow-2xl" style={{ background: `linear-gradient(135deg, ${accentColor}, #FF5C00)` }}>
+              <CheckCircle className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Rescheduled!</h2>
-            <p className="text-muted-foreground mb-6">
-              Your booking has been rescheduled. A confirmation email has been sent.
-            </p>
-            <div className="p-4 bg-muted/50 rounded-lg text-left mb-6">
-              <p className="font-medium">{booking.event_type?.title}</p>
-              <p className="text-sm text-muted-foreground">
-                {selectedTime && format(new Date(selectedTime), 'EEEE, MMMM d, yyyy')}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {selectedTime && format(new Date(selectedTime), 'h:mm a')} ({booking.attendee_timezone})
-              </p>
+          </div>
+          <h1 className="text-3xl font-black text-white mb-4 tracking-tight">Rescheduled!</h1>
+          <p className="text-gray-500 mb-10 leading-relaxed font-medium">Your meeting time has been updated successfully. A new confirmation has been sent to your email.</p>
+
+          <div className="bg-white/[0.02] rounded-3xl p-6 border border-white/5 text-left mb-10">
+            <p className="text-[11px] font-black text-gray-600 uppercase tracking-[0.2em] mb-3">NEW SCHEDULE</p>
+            <p className="text-xl font-black text-white mb-1">{booking.event_type?.title}</p>
+            <div className="flex items-center gap-2 text-gray-400 font-bold">
+              <span>{selectedTime && format(new Date(selectedTime), 'EEEE, MMM d, yyyy')}</span>
+              <span className="text-gray-800">|</span>
+              <span className="text-white">{selectedTime && format(new Date(selectedTime), 'h:mm a')}</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          <Button onClick={() => navigate(`/booking/confirmed/${booking.id}`)} className="w-full h-14 rounded-2xl font-black text-lg transition-all active:scale-95" style={{ background: accentColor, color: '#000' }}>
+            View Booking Details
+          </Button>
+        </div>
       </div>
     );
   }
 
+  const LocationIcon = getLocationIconComponent(booking.event_type?.location_type || 'google_meet');
+
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Background Gradients */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] opacity-50 animate-glow" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-secondary/20 rounded-full blur-[100px] opacity-50 animate-glow" style={{ animationDelay: '2s' }} />
-      </div>
+    <div className="min-h-screen bg-[#0B0B0F] text-white selection:bg-primary/30 pb-20">
+      {/* Dynamic Background Glow */}
+      <div
+        className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[500px] opacity-[0.03] blur-[120px] pointer-events-none rounded-full"
+        style={{ background: accentColor }}
+      ></div>
 
-      <div className="w-full max-w-4xl mx-auto px-4 py-6 sm:py-8 relative z-10">
-        <Card className="bg-card/60 backdrop-blur-xl border-white/10 shadow-2xl overflow-hidden">
-          <CardContent className="p-0">
-            <div className="flex flex-col lg:flex-row">
-              {/* Left Sidebar - Event Info */}
-              <div className="p-4 sm:p-6 border-b lg:border-b-0 lg:border-r border-white/10 lg:w-[280px] lg:shrink-0 bg-muted/30">
-                {hostProfile && (
-                  <div className="flex items-center gap-3 mb-6">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={hostProfile.avatar_url || ''} />
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {hostProfile.name?.charAt(0) || 'H'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">{hostProfile.name}</p>
-                      <p className="text-sm text-muted-foreground">@{hostProfile.username}</p>
-                    </div>
-                  </div>
-                )}
+      {/* Header */}
+      <header className="w-full px-6 py-6 flex items-center justify-between border-b border-white/5 backdrop-blur-md sticky top-0 z-50 bg-[#0B0B0F]/80">
+        <Link to="/" className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden"
+            style={{ background: accentColor }}
+          >
+            {branding?.is_enabled && branding?.brand_logo_url ? (
+              <img src={branding.brand_logo_url} alt={branding.brand_name || ""} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-white font-black text-xl">{(branding?.brand_name || 'C')?.charAt(0)}</span>
+            )}
+          </div>
+          <span className="font-bold text-xl tracking-tight text-white">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
+        </Link>
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="text-gray-400 font-bold hover:text-white gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </Button>
+      </header>
 
-                <h1 className="text-xl font-bold mb-4">{booking.event_type?.title}</h1>
+      <main className="max-w-6xl mx-auto px-6 pt-12">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-black text-white mb-3 tracking-tight">Reschedule Meeting</h1>
+          <p className="text-gray-500 font-medium">Select a new date and time for your session with {hostProfile?.name || 'the host'}.</p>
+        </div>
 
-                <div className="space-y-3 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    <span>{booking.event_type?.duration} minutes</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getLocationIcon(booking.event_type?.location_type || 'google_meet')}
-                    <span className="capitalize">
-                      {booking.event_type?.location_type?.replace('_', ' ') || 'Google Meet'}
-                    </span>
-                  </div>
-                </div>
+        {/* 3-Column Booking Card - Premium Dark */}
+        <div className="bg-[#1C1C1E] rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="grid lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-white/5">
 
-                <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                  <p className="text-sm font-medium mb-2">Current Booking</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(booking.start_time), 'EEEE, MMMM d, yyyy')}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(booking.start_time), 'h:mm a')} - {format(new Date(booking.end_time), 'h:mm a')}
-                  </p>
+            {/* Column 1: Host Info */}
+            <div className="lg:col-span-3 p-8 lg:p-10 space-y-10">
+              <div className="space-y-6">
+                <Avatar className="h-24 w-24 rounded-[2rem] border-4 border-white/5 p-1 bg-[#0B0B0F]">
+                  <AvatarImage src={hostProfile?.avatar_url || ''} className="rounded-[1.8rem] object-cover" />
+                  <AvatarFallback className="bg-white/5 text-white font-bold text-3xl">
+                    {hostProfile?.name?.charAt(0) || 'H'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h2 className="text-2xl font-black text-white mb-1">{hostProfile?.name || 'Host'}</h2>
+                  <p className="text-gray-500 font-bold">@{hostProfile?.username || 'username'}</p>
                 </div>
               </div>
 
-              {/* Right Side - Calendar & Times */}
-              <div className="p-4 sm:p-6 flex-1 min-w-0">
-                <h2 className="text-lg font-semibold mb-4">Select a new date & time</h2>
-
-                <div className="flex flex-col gap-6">
-                  {/* Calendar */}
-                  <div className="flex justify-center">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => {
-                        setSelectedDate(date);
-                        setSelectedTime(null);
-                      }}
-                      disabled={(date) => !isDateAvailable(date)}
-                      className="rounded-lg border-white/10 p-2"
-                      fromDate={new Date()}
-                      toDate={addDays(new Date(), 60)}
-                    />
+              <div className="space-y-8">
+                <div>
+                  <p className="text-[11px] font-black text-gray-600 uppercase tracking-[0.2em] mb-4">CURRENT BOOKING</p>
+                  <div className="bg-white/[0.02] rounded-3xl p-5 border border-white/5 group">
+                    <p className="text-lg font-black text-white mb-1 truncate">{booking.event_type?.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 font-bold mb-3">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{booking.event_type?.duration} minutes</span>
+                    </div>
+                    <div className="pt-3 border-t border-white/5 space-y-1">
+                      <p className="text-sm font-bold text-gray-400">{format(new Date(booking.start_time), 'EEE, MMM d, yyyy')}</p>
+                      <p className="text-sm font-black text-white">{format(new Date(booking.start_time), 'h:mm a')}</p>
+                    </div>
                   </div>
-
-                  {/* Time Slots */}
-                  {selectedDate && (
-                    <div>
-                      <p className="text-sm font-medium mb-3">
-                        {format(selectedDate, 'EEEE, MMMM d')}
-                      </p>
-                      {availableSlots.length > 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[250px] overflow-y-auto pr-1">
-                          {availableSlots.map((slot) => (
-                            <button
-                              key={slot.time}
-                              onClick={() => setSelectedTime(slot.time)}
-                              className={cn(
-                                "px-3 py-2.5 text-sm rounded-lg border transition-colors",
-                                selectedTime === slot.time
-                                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
-                                  : "bg-background/50 hover:bg-muted border-white/10 hover:border-primary/50"
-                              )}
-                            >
-                              {slot.label}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No available times for this date
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {!selectedDate && (
-                    <div className="flex items-center justify-center py-8 text-muted-foreground">
-                      <CalendarIcon className="w-5 h-5 mr-2" />
-                      Select a date to see available times
-                    </div>
-                  )}
                 </div>
 
-                {/* Confirm Button */}
-                {selectedTime && (
-                  <div className="mt-6 pt-6 border-t border-white/10">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div>
-                        <p className="font-medium">
-                          {format(new Date(selectedTime), 'EEEE, MMMM d, yyyy')}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(selectedTime), 'h:mm a')} ({booking.attendee_timezone})
-                        </p>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-gray-400">
+                    <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
+                      <LocationIcon className="w-5 h-5 text-gray-500" />
+                    </div>
+                    <span className="text-sm font-bold">{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-gray-400">
+                    <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
+                      <Globe className="w-5 h-5 text-gray-500" />
+                    </div>
+                    <span className="text-sm font-bold truncate uppercase tracking-tighter">({booking.attendee_timezone?.replace('_', ' ').split('/').pop()})</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Column 2: Calendar */}
+            <div className="lg:col-span-5 p-4 lg:p-10">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
+                  <CalendarIcon className="w-5 h-5 text-gray-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Select Date</h3>
+                  <p className="text-sm text-gray-500 font-medium">Available dates are highlighted</p>
+                </div>
+              </div>
+
+              <div className="reschedule-calendar-container flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => {
+                    setSelectedDate(date);
+                    setSelectedTime(null);
+                  }}
+                  disabled={(date) => !isDateAvailable(date)}
+                  className="rounded-[2rem] border-none p-4"
+                  fromDate={new Date()}
+                  toDate={addDays(new Date(), 60)}
+                />
+              </div>
+            </div>
+
+            {/* Column 3: Time Slots */}
+            <div className="lg:col-span-4 p-8 lg:p-10 flex flex-col">
+              {selectedDate ? (
+                <>
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center text-gray-500">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white uppercase tracking-tighter">{format(selectedDate, 'EEE, MMM d')}</h3>
+                      <p className="text-sm text-gray-500 font-medium">Choose a convenient slot</p>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-3 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
+                    {availableSlots.length > 0 ? (
+                      availableSlots.map((slot) => (
+                        <button
+                          key={slot.time}
+                          onClick={() => setSelectedTime(slot.time)}
+                          className={cn(
+                            "w-full group relative h-16 rounded-[1.25rem] border-2 transition-all duration-300 flex items-center px-6 overflow-hidden",
+                            selectedTime === slot.time
+                              ? "bg-white border-white scale-[1.02]"
+                              : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04]"
+                          )}
+                        >
+                          {selectedTime === slot.time && (
+                            <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: accentColor }}></div>
+                          )}
+                          <div className="flex-1 text-left">
+                            <span className={cn(
+                              "text-lg font-black transition-colors duration-300",
+                              selectedTime === slot.time ? "text-black" : "text-white"
+                            )}>
+                              {slot.label}
+                            </span>
+                          </div>
+                          {selectedTime === slot.time ? (
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-black">
+                              <CheckCircle className="w-6 h-6" />
+                            </div>
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-gray-700 group-hover:text-gray-400 group-hover:translate-x-1 transition-all" />
+                          )}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="h-40 flex flex-col items-center justify-center text-gray-600 bg-white/[0.01] rounded-3xl border border-dashed border-white/5">
+                        <AlertCircle className="w-8 h-8 mb-2 opacity-50" />
+                        <p className="font-bold">No slots available</p>
                       </div>
-                      <Button onClick={handleReschedule} disabled={isSubmitting} className="w-full sm:w-auto shadow-lg shadow-primary/25">
+                    )}
+                  </div>
+
+                  {/* Confirm Button */}
+                  {selectedTime && (
+                    <div className="mt-8 pt-8 border-t border-white/5 space-y-6">
+                      <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/5">
+                        <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-1">SELECTED TIME</p>
+                        <p className="text-lg font-black text-white">{format(new Date(selectedTime), 'h:mm a, MMMM d')}</p>
+                      </div>
+
+                      <Button
+                        onClick={handleReschedule}
+                        disabled={isSubmitting}
+                        className="w-full h-16 rounded-[1.25rem] font-black text-lg shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3"
+                        style={{ background: accentColor, color: '#000' }}
+                      >
                         {isSubmitting ? (
                           <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            <Loader2 className="w-6 h-6 animate-spin" />
                             Rescheduling...
                           </>
                         ) : (
-                          'Confirm Reschedule'
+                          <>
+                            Confirm Reschedule
+                            <ArrowRight className="w-5 h-5" />
+                          </>
                         )}
                       </Button>
                     </div>
+                  )}
+                </>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                  <div className="w-20 h-20 rounded-[2rem] bg-white/[0.01] border border-white/5 flex items-center justify-center mb-6 text-gray-700">
+                    <CalendarIcon className="w-10 h-10" />
                   </div>
-                )}
-              </div>
+                  <h3 className="text-xl font-bold text-gray-500 mb-2">Select a Date</h3>
+                  <p className="text-sm text-gray-600 font-medium">Pick a date on the calendar to see available time slots.</p>
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+          </div>
+        </div>
+
+        {/* Support Section */}
+        <div className="mt-16 pt-12 border-t border-white/5 flex flex-col items-center gap-8">
+          <div className="flex items-center gap-1 opacity-20">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Powerhouse Technology</span>
+            <span className="text-xs font-black text-white">CalSchedule</span>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

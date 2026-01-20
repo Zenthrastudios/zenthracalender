@@ -11,7 +11,14 @@ interface BrandingData {
   brand_logo_url: string | null;
   brand_color: string | null;
   is_enabled: boolean;
-  site_url: string | null;
+}
+
+interface ProfileData {
+  user_id: string;
+  name: string;
+  username: string | null;
+  avatar_url: string | null;
+  timezone: string;
 }
 
 function usePublicProfile(username: string | undefined) {
@@ -46,7 +53,7 @@ function usePublicProfile(username: string | undefined) {
       return {
         profile: profile as ProfileData,
         eventTypes: eventTypes as EventType[],
-        branding: branding as BrandingData | null,
+        branding: (branding as any) as BrandingData | null,
       };
     },
     enabled: !!username,

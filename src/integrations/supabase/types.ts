@@ -112,6 +112,47 @@ export type Database = {
         }
         Relationships: []
       }
+      branding_settings: {
+        Row: {
+          brand_color: string | null
+          brand_logo_url: string | null
+          brand_name: string | null
+          created_at: string
+          id: string
+          is_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_color?: string | null
+          brand_logo_url?: string | null
+          brand_name?: string | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_color?: string | null
+          brand_logo_url?: string | null
+          brand_name?: string | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branding_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           attendee_email: string
