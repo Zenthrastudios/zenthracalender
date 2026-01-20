@@ -196,7 +196,7 @@ export function useCreateBooking() {
       // Fetch branding settings for email
       const { data: branding } = await (supabase as any)
         .from('branding_settings')
-        .select('primary_domain, brand_name, brand_logo_url, brand_color, is_enabled')
+        .select('site_url, brand_name, brand_logo_url, brand_color, is_enabled')
         .eq('user_id', data.host_id)
         .maybeSingle();
 
@@ -214,7 +214,7 @@ export function useCreateBooking() {
             endTime: data.end_time,
             timezone: data.attendee_timezone,
             meetingLink: meetLink,
-            siteUrl: branding?.primary_domain ? `https://${branding.primary_domain}` : undefined,
+            siteUrl: branding?.site_url,
             branding: branding?.is_enabled ? {
               brandName: branding.brand_name,
               brandLogoUrl: branding.brand_logo_url,
@@ -299,7 +299,7 @@ export function useCancelBooking() {
         // Fetch branding settings
         const { data: branding } = await (supabase as any)
           .from('branding_settings')
-          .select('primary_domain, brand_name, brand_logo_url, brand_color, is_enabled')
+          .select('site_url, brand_name, brand_logo_url, brand_color, is_enabled')
           .eq('user_id', booking.host_id)
           .maybeSingle();
 
@@ -314,7 +314,7 @@ export function useCancelBooking() {
             startTime: booking.start_time,
             endTime: booking.end_time,
             timezone: booking.attendee_timezone,
-            siteUrl: branding?.primary_domain ? `https://${branding.primary_domain}` : undefined,
+            siteUrl: branding?.site_url,
             branding: branding?.is_enabled ? {
               brandName: branding.brand_name,
               brandLogoUrl: branding.brand_logo_url,

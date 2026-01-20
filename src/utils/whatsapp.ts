@@ -25,14 +25,14 @@ export async function sendWhatsAppNotification(
         // Fetch branding settings to get the primary domain
         const { data: branding } = await (supabase as any)
             .from('branding_settings')
-            .select('primary_domain')
+            .select('site_url')
             .eq('user_id', userId)
             .maybeSingle();
 
         // Add branding domain to settings
         const settingsWithDomain = {
             ...settings,
-            site_url: branding?.primary_domain ? `https://${branding.primary_domain}` : undefined
+            site_url: branding?.site_url
         };
 
         await supabase.functions.invoke('send-whatsapp-message', {
