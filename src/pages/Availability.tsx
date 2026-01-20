@@ -1,18 +1,25 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { format, isBefore, startOfDay } from 'date-fns';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { 
-  useAvailabilitySchedules, 
-  useCreateSchedule, 
+import {
+  useAvailabilitySchedules,
+  useCreateSchedule,
   useUpdateSchedule,
   useDeleteSchedule,
-  useScheduleAvailability, 
-  useUpdateScheduleAvailability 
+  useScheduleAvailability,
+  useUpdateScheduleAvailability
 } from '@/hooks/useAvailabilitySchedules';
+import {
+  useAvailabilityOverrides,
+  useCreateAvailabilityOverride,
+  useDeleteAvailabilityOverride,
+} from '@/hooks/useAvailabilityOverrides';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import {
   Select,
   SelectContent,
@@ -89,21 +96,71 @@ export default function Availability() {
   const updateScheduleMutation = useUpdateSchedule();
   const deleteSchedule = useDeleteSchedule();
   const updateScheduleAvailability = useUpdateScheduleAvailability();
-  
+
   // Selected schedule
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
-  
+
+  // Date overrides
+  const { data: overrides, isLoading: overridesLoading } = useAvailabilityOverrides();
+  const createOverride = useCreateAvailabilityOverride();
+  const deleteOverride = useDeleteAvailabilityOverride();
+
+  const [dateOverrideOpen, setDateOverrideOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [overrideStart, setOverrideStart] = useState<string>("540"); // 9:00 AM
+  const [overrideEnd, setOverrideEnd] = useState<string>("1020");   // 5:00 PM
+  const [isDateUnavailable, setIsDateUnavailable] = useState(false);
+
+  const handleCreateOverride = async () => {
+    if (!selectedDate) {
+      toast.error("Please select a date");
+      return;
+    }
+
+    try {
+      await createOverride.mutateAsync({
+        date: format(selectedDate, 'yyyy-MM-dd'),
+        start_time: isDateUnavailable ? null : parseInt(overrideStart),
+        end_time: isDateUnavailable ? null : parseInt(overrideEnd),
+        is_unavailable: isDateUnavailable
+      });
+      setDateOverrideOpen(false);
+      // Don't reset date to allow easy addition of more
+      toast.success('Date override set');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to set override');
+    }
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    if (date) {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const existing = overrides?.find(o => o.date === dateStr);
+      if (existing) {
+        setIsDateUnavailable(existing.is_unavailable);
+        if (existing.start_time) setOverrideStart(existing.start_time.toString());
+        if (existing.end_time) setOverrideEnd(existing.end_time.toString());
+      } else {
+        // Reset to defaults
+        setIsDateUnavailable(false);
+        setOverrideStart("540");
+        setOverrideEnd("1020");
+      }
+    }
+  };
+
   // Schedule availability data
   const { data: scheduleAvailability, isLoading: availabilityLoading } = useScheduleAvailability(selectedScheduleId);
-  
+
   // Weekly schedule state
   const [weeklySchedule, setWeeklySchedule] = useState<Record<number, DaySchedule>>({});
-  
+
   // New schedule dialog
   const [newScheduleDialogOpen, setNewScheduleDialogOpen] = useState(false);
   const [newScheduleName, setNewScheduleName] = useState('');
   const [editingSchedule, setEditingSchedule] = useState<{ id: string; name: string } | null>(null);
-  
+
   const [isSaving, setIsSaving] = useState(false);
 
   // Auto-select first schedule or default
@@ -118,17 +175,17 @@ export default function Availability() {
   useEffect(() => {
     if (scheduleAvailability) {
       const newSchedule: Record<number, DaySchedule> = {};
-      
+
       DAYS.forEach(day => {
         const daySlots = scheduleAvailability.filter(a => a.weekday === day.value);
         newSchedule[day.value] = {
           enabled: daySlots.length > 0,
-          slots: daySlots.length > 0 
+          slots: daySlots.length > 0
             ? daySlots.map(s => ({ start: s.start_time, end: s.end_time }))
             : [{ start: 540, end: 1020 }],
         };
       });
-      
+
       setWeeklySchedule(newSchedule);
     }
   }, [scheduleAvailability]);
@@ -196,12 +253,12 @@ export default function Availability() {
 
   const handleSave = async () => {
     if (!selectedScheduleId) return;
-    
+
     setIsSaving(true);
-    
+
     try {
       const slots: { weekday: number; start_time: number; end_time: number }[] = [];
-      
+
       Object.entries(weeklySchedule).forEach(([day, daySchedule]) => {
         if (daySchedule.enabled) {
           daySchedule.slots.forEach(slot => {
@@ -228,7 +285,7 @@ export default function Availability() {
       toast.error('Please enter a schedule name');
       return;
     }
-    
+
     try {
       const newSchedule = await createSchedule.mutateAsync({ name: newScheduleName.trim() });
       setSelectedScheduleId(newSchedule.id);
@@ -242,7 +299,7 @@ export default function Availability() {
 
   const handleUpdateScheduleName = async () => {
     if (!editingSchedule || !editingSchedule.name.trim()) return;
-    
+
     try {
       await updateScheduleMutation.mutateAsync({ id: editingSchedule.id, name: editingSchedule.name.trim() });
       setEditingSchedule(null);
@@ -388,7 +445,7 @@ export default function Availability() {
                         </DropdownMenuItem>
                       )}
                       {schedules.length > 1 && (
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => handleDeleteSchedule(schedule.id)}
                         >
@@ -604,6 +661,112 @@ export default function Availability() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Date-specific hours */}
+          <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
+                <h3 className="font-semibold">Date-specific hours</h3>
+              </div>
+              <Dialog open={dateOverrideOpen} onOpenChange={setDateOverrideOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Date Override
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Add Date Override</DialogTitle>
+                    <DialogDescription>
+                      Select a date to customize your availability or mark as unavailable.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="flex justify-center">
+                      <CalendarPicker
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={handleDateSelect}
+                        className="rounded-xl border border-border shadow-sm p-4"
+                        disabled={(date) => isBefore(date, startOfDay(new Date()))}
+                      />
+                    </div>
+                    {selectedDate && (
+                      <div className="space-y-4 bg-muted/30 p-4 rounded-xl border border-border/50">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-base">Mark as unavailable</Label>
+                          <Switch
+                            checked={isDateUnavailable}
+                            onCheckedChange={setIsDateUnavailable}
+                          />
+                        </div>
+                        {!isDateUnavailable && (
+                          <div className="flex items-center gap-2">
+                            <Select value={overrideStart} onValueChange={setOverrideStart}>
+                              <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {TIME_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value.toString()}>{opt.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <span className="text-muted-foreground">-</span>
+                            <Select value={overrideEnd} onValueChange={setOverrideEnd}>
+                              <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {TIME_OPTIONS.filter(o => parseInt(o.value.toString()) > parseInt(overrideStart)).map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value.toString()}>{opt.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={handleCreateOverride} className="w-full sm:w-auto">Save Override</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="space-y-2">
+              {overrides?.length === 0 && (
+                <p className="text-sm text-muted-foreground italic text-center py-4">No date-specific overrides set.</p>
+              )}
+              {overrides?.map((override) => (
+                <div key={override.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-background/50 hover:bg-background transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                      {format(new Date(override.date), 'd')}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm">
+                        {format(new Date(override.date), 'MMMM yyyy')}
+                      </span>
+                      <span className={cn("text-xs", override.is_unavailable ? "text-destructive" : "text-muted-foreground")}>
+                        {override.is_unavailable
+                          ? 'Unavailable'
+                          : `${formatTime(override.start_time!)} - ${formatTime(override.end_time!)}`
+                        }
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => deleteOverride.mutate(override.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
           </div>
         </div>

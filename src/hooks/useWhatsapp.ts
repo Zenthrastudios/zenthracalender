@@ -12,6 +12,9 @@ export interface WhatsappSettings {
     instructor_template_name: string;
     cancelled_template_name: string;
     rescheduled_template_name: string;
+    instructor_rescheduled_template_name: string;
+    reminder_template_name: string;
+    instructor_reminder_template_name: string;
     payment_failed_template_name: string;
     template_language: string;
     is_enabled: boolean;

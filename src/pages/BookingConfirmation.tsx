@@ -3,12 +3,12 @@ import { useBookingById, useCancelBooking } from '@/hooks/useBookings';
 import { useProfileById } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Calendar, 
-  CheckCircle, 
-  Clock, 
-  User, 
-  Video, 
+import {
+  Calendar,
+  CheckCircle,
+  Clock,
+  User,
+  Video,
   CalendarPlus,
   RefreshCw,
   XCircle,
@@ -59,7 +59,7 @@ const getLocationLabel = (locationType: string) => {
 export default function BookingConfirmation() {
   const { bookingId } = useParams();
   const navigate = useNavigate();
-  
+
   const { data: booking, isLoading } = useBookingById(bookingId);
   const { data: hostProfile } = useProfileById(booking?.host_id);
   const cancelBooking = useCancelBooking();
@@ -110,7 +110,7 @@ SUMMARY:${booking.event_type?.title || 'Meeting'}
 DESCRIPTION:Meeting with ${hostProfile?.name || 'Host'}${booking.meet_link ? `\\nJoin: ${booking.meet_link}` : ''}
 END:VEVENT
 END:VCALENDAR`;
-      
+
       const blob = new Blob([icsContent], { type: 'text/calendar' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -123,7 +123,11 @@ END:VCALENDAR`;
   };
 
   const handleReschedule = () => {
-    toast.info('Reschedule feature coming soon!');
+    if (booking?.reschedule_token) {
+      navigate(`/reschedule/${booking.reschedule_token}`);
+    } else {
+      toast.info('Reschedule not available.');
+    }
   };
 
   const handleCancel = async () => {
@@ -137,12 +141,18 @@ END:VCALENDAR`;
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Background Gradients */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] opacity-50 animate-glow" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-secondary/20 rounded-full blur-[100px] opacity-50 animate-glow" style={{ animationDelay: '2s' }} />
+      </div>
+
       {/* Header */}
-      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border">
+      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-white/10 relative z-10 glass-header">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-foreground flex items-center justify-center">
-            <span className="text-background text-sm font-bold">C</span>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center shadow-lg shadow-primary/25">
+            <Calendar className="w-5 h-5 text-white" />
           </div>
           <span className="font-semibold">CalSchedule</span>
         </Link>
@@ -153,11 +163,11 @@ END:VCALENDAR`;
       </header>
 
       {/* Main Content */}
-      <main className="max-w-xl mx-auto px-4 py-16">
+      <main className="max-w-xl mx-auto px-4 py-16 relative z-10">
         <div className="text-center mb-8 animate-fade-in">
           {/* Success Icon */}
-          <div className="w-16 h-16 rounded-full bg-primary mx-auto mb-6 flex items-center justify-center">
-            <CheckCircle className="w-8 h-8 text-primary-foreground" />
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-orange-500 mx-auto mb-6 flex items-center justify-center shadow-lg shadow-primary/30">
+            <CheckCircle className="w-8 h-8 text-white" />
           </div>
 
           <h1 className="text-3xl font-bold mb-2">Booking confirmed!</h1>
@@ -170,9 +180,9 @@ END:VCALENDAR`;
         </div>
 
         {/* Booking Details Card */}
-        <div className="bg-card rounded-2xl shadow-card p-6 mb-6 animate-slide-up">
+        <div className="bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-6 mb-6 animate-slide-up">
           {/* Host Info */}
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
             <Avatar className="h-12 w-12">
               <AvatarImage src={hostProfile?.avatar_url || ''} />
               <AvatarFallback className="bg-primary/10 text-primary">
@@ -205,7 +215,7 @@ END:VCALENDAR`;
             </div>
           </div>
 
-          <div className="border-t border-dashed border-border pt-4 mb-4">
+          <div className="border-t border-dashed border-white/10 pt-4 mb-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
               <Clock className="w-3 h-3" /> WHEN
             </p>
@@ -219,13 +229,13 @@ END:VCALENDAR`;
 
           {/* Meet Link */}
           {booking.meet_link && (
-            <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+            <div className="bg-primary/5 rounded-lg p-4 border border-primary/20 hover:bg-primary/10 transition-colors">
               <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
                 <Video className="w-3 h-3" /> JOIN MEETING
               </p>
-              <a 
-                href={booking.meet_link} 
-                target="_blank" 
+              <a
+                href={booking.meet_link}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-primary hover:underline font-medium"
               >
@@ -240,7 +250,7 @@ END:VCALENDAR`;
         <div className="flex flex-col items-center gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 shadow-lg shadow-primary/25">
                 <CalendarPlus className="w-4 h-4 mr-2" />
                 Add to Calendar
                 <ChevronDown className="w-4 h-4 ml-2" />

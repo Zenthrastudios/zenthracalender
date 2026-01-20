@@ -64,6 +64,9 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
     instructor_template_name: 'new_booking_instructor',
     cancelled_template_name: 'booking_cancelled',
     rescheduled_template_name: 'booking_rescheduled',
+    instructor_rescheduled_template_name: 'booking_rescheduled_instructor',
+    reminder_template_name: 'booking_reminder',
+    instructor_reminder_template_name: 'booking_reminder_instructor',
     payment_failed_template_name: 'payment_failed',
     template_language: 'en',
     is_enabled: true
@@ -79,6 +82,9 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
         instructor_template_name: settings.instructor_template_name || 'new_booking_instructor',
         cancelled_template_name: settings.cancelled_template_name || 'booking_cancelled',
         rescheduled_template_name: settings.rescheduled_template_name || 'booking_rescheduled',
+        instructor_rescheduled_template_name: settings.instructor_rescheduled_template_name || 'booking_rescheduled_instructor',
+        reminder_template_name: settings.reminder_template_name || 'booking_reminder',
+        instructor_reminder_template_name: settings.instructor_reminder_template_name || 'booking_reminder_instructor',
         payment_failed_template_name: settings.payment_failed_template_name || 'payment_failed',
         template_language: settings.template_language || 'en',
         is_enabled: settings.is_enabled ?? true
@@ -127,6 +133,27 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
       refName: 'booking_rescheduled',
       content: 'Booking Rescheduled: Hello {{1}}, your booking for {{2}} has been successfully rescheduled to a new time: {{3}}. You can view the updated confirmation and details using this link: {{4}}. We look forward to seeing you then!',
       params: ['Attendee Name', 'Event Title', 'New Date/Time', 'Confirmation Link']
+    },
+    {
+      id: 'reschedule_instructor',
+      name: 'Booking Rescheduled (Instructor)',
+      refName: 'booking_rescheduled_instructor',
+      content: 'Reschedule Alert: Hello {{1}}, the booking for {{2}} on {{3}} has been rescheduled by {{4}}. You can view updated details in your dashboard here: {{5}}. Please update your calendar.',
+      params: ['Instructor Name', 'Event Title', 'New Date/Time', 'Attendee Name', 'Dashboard Link']
+    },
+    {
+      id: 'reminder',
+      name: 'Booking Reminder (Customer)',
+      refName: 'booking_reminder',
+      content: 'Hi {{1}}! This is a friendly reminder for your upcoming session {{2}} scheduled for {{3}} with {{4}}. You can join using this link: {{5}}. See you soon!',
+      params: ['Customer Name', 'Event Title', 'Date/Time', 'Host Name', 'Meeting Link']
+    },
+    {
+      id: 'reminder_instructor',
+      name: 'Booking Reminder (Instructor)',
+      refName: 'booking_reminder_instructor',
+      content: 'Reminder: Hello {{1}}, you have a session for {{2}} starting at {{3}} with attendee {{4}}. You can find all details and links in your dashboard: {{5}}. Good luck!',
+      params: ['Instructor Name', 'Event Title', 'Date/Time', 'Attendee Name', 'Dashboard Link']
     },
     {
       id: 'payment_failed',
@@ -244,12 +271,39 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="rescheduled_template">Booking Rescheduled Template</Label>
+                    <Label htmlFor="rescheduled_template">Booking Rescheduled Template (Customer)</Label>
                     <Input
                       id="rescheduled_template"
                       placeholder="booking_rescheduled"
                       value={formData.rescheduled_template_name}
                       onChange={e => setFormData(prev => ({ ...prev, rescheduled_template_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="instructor_rescheduled_template">Booking Rescheduled Template (Instructor)</Label>
+                    <Input
+                      id="instructor_rescheduled_template"
+                      placeholder="booking_rescheduled_instructor"
+                      value={formData.instructor_rescheduled_template_name}
+                      onChange={e => setFormData(prev => ({ ...prev, instructor_rescheduled_template_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reminder_template">Booking Reminder Template (Customer)</Label>
+                    <Input
+                      id="reminder_template"
+                      placeholder="booking_reminder"
+                      value={formData.reminder_template_name}
+                      onChange={e => setFormData(prev => ({ ...prev, reminder_template_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="instructor_reminder_template">Booking Reminder Template (Instructor)</Label>
+                    <Input
+                      id="instructor_reminder_template"
+                      placeholder="booking_reminder_instructor"
+                      value={formData.instructor_reminder_template_name}
+                      onChange={e => setFormData(prev => ({ ...prev, instructor_reminder_template_name: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-2">

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useEventTypeBySlug } from '@/hooks/useEventTypes';
 import { useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useAvailability';
 import { useBookingAvailability } from '@/hooks/useAvailabilitySchedules';
+import { useAvailabilityOverridesByUserId } from '@/hooks/useAvailabilityOverrides';
 import { useCreateBooking } from '@/hooks/useBookings';
 import { useTestimonials } from '@/hooks/useTestimonials';
 import { sendWhatsAppNotification } from '@/utils/whatsapp';
@@ -23,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2, Star, Instagram, Facebook, Linkedin, Twitter, Youtube, Pin } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes, startOfDay, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { COUNTRY_DIAL_CODES } from '@/lib/countryDialCodes';
@@ -103,6 +104,7 @@ export default function PublicBookingPage() {
   // Get schedule_id from event type, or use default schedule
   const scheduleId = eventData?.eventType?.schedule_id || null;
   const { data: availability } = useBookingAvailability(eventData?.host?.id, scheduleId);
+  const { data: overrides } = useAvailabilityOverridesByUserId(eventData?.host?.id);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -180,57 +182,111 @@ export default function PublicBookingPage() {
 
   const firstDayOffset = startOfMonth(currentMonth).getDay();
 
-  const hasAvailability = (date: Date) => {
-    if (isBefore(date, new Date()) && !isToday(date)) return false;
+  const getSchedulesForDate = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const override = overrides?.find(o => o.date === dateStr);
+
+    if (override) {
+      if (override.is_unavailable) return [];
+      if (override.start_time !== null && override.end_time !== null) {
+        return [{
+          start_time: override.start_time,
+          end_time: override.end_time
+        }];
+      }
+      return [];
+    }
+
+    // Fallback to weekly schedule
     const dayOfWeek = date.getDay();
-    return availability?.some(a => a.weekday === dayOfWeek) ?? false;
+    return availability?.filter(a => a.weekday === dayOfWeek) || [];
+  };
+
+  const hasAvailability = (date: Date) => {
+    // Past check
+    if (isBefore(date, new Date()) && !isToday(date)) return false;
+
+    const schedules = getSchedulesForDate(date);
+    if (schedules.length === 0) return false;
+
+    // Minimum notice check
+    const minimumNotice = eventData?.eventType?.minimum_notice || 0;
+    const earliestTime = addMinutes(new Date(), minimumNotice);
+
+    // Check if any schedule has time after earliest allowed booking time
+    return schedules.some(s => {
+      const scheduleEnd = new Date(date);
+      scheduleEnd.setHours(0, 0, 0, 0); // Reset to start of day
+      // Add minutes. end_time is minutes from midnight
+      scheduleEnd.setMinutes(s.end_time);
+
+      return isAfter(scheduleEnd, earliestTime);
+    });
   };
 
   const timeSlots = useMemo<TimeSlot[]>(() => {
-    if (!selectedDate || !eventData?.eventType || !availability) return [];
+    if (!selectedDate || !eventData?.eventType) return [];
 
-    const dayOfWeek = selectedDate.getDay();
-    const dayAvailability = availability.filter(a => a.weekday === dayOfWeek);
+    const dayAvailability = getSchedulesForDate(selectedDate);
     if (dayAvailability.length === 0) return [];
 
     const slots: TimeSlot[] = [];
     const now = new Date();
+    const eventType = eventData.eventType;
+    const duration = eventType.duration;
+    const minimumNotice = eventType.minimum_notice || 60; // Default 1 hour
+    const bufferBefore = eventType.buffer_before || 0;
+    const bufferAfter = eventType.buffer_after || 0;
 
     dayAvailability.forEach(avail => {
       let currentTime = avail.start_time;
-      while (currentTime + eventData.eventType.duration <= avail.end_time) {
+      while (currentTime + duration <= avail.end_time) {
         const slotStart = new Date(selectedDate);
         slotStart.setHours(Math.floor(currentTime / 60), currentTime % 60, 0, 0);
-        const slotEnd = addMinutes(slotStart, eventData.eventType.duration);
+        const slotEnd = addMinutes(slotStart, duration);
 
-        const isAvailable = slotStart > now;
+        // Check minimum notice - slot must be at least minimumNotice minutes from now
+        const minutesUntilSlot = (slotStart.getTime() - now.getTime()) / 60000;
+        if (minutesUntilSlot < minimumNotice) {
+          currentTime += 30; // Increment by 30 mins (or configurable?)
+          continue;
+        }
 
-        // Check existing bookings conflict
+        // Calculate buffered times for conflict checking
+        const bufferedStart = addMinutes(slotStart, -bufferBefore);
+        const bufferedEnd = addMinutes(slotEnd, bufferAfter);
+
+        // Check existing bookings conflict (with buffer)
         const hasBookingConflict = existingBookings?.some(booking => {
           const bookingStart = new Date(booking.start_time);
           const bookingEnd = new Date(booking.end_time);
-          return slotStart < bookingEnd && slotEnd > bookingStart;
+
+          // Assuming existingBookings are active.
+          return bufferedStart < bookingEnd && bufferedEnd > bookingStart;
         });
 
-        // Check Google Calendar conflicts
+        // Check Google Calendar conflicts (with buffer)
         const hasGoogleConflict = googleCalendarConflicts?.some((conflict: { start: string; end: string }) => {
           const conflictStart = new Date(conflict.start);
           const conflictEnd = new Date(conflict.end);
-          return slotStart < conflictEnd && slotEnd > conflictStart;
+          return bufferedStart < conflictEnd && bufferedEnd > conflictStart;
         });
+
+        const isAvailable = !hasBookingConflict && !hasGoogleConflict;
 
         slots.push({
           time: format(slotStart, 'hh:mma').toLowerCase(),
-          available: isAvailable && !hasBookingConflict && !hasGoogleConflict,
+          available: isAvailable,
           startTime: slotStart,
           endTime: slotEnd,
         });
-        currentTime += 30;
+        currentTime += 30; // 30 min increments
       }
     });
 
     return slots;
-  }, [selectedDate, eventData, availability, existingBookings, googleCalendarConflicts]);
+  }, [selectedDate, eventData, availability, existingBookings, googleCalendarConflicts, overrides]);
+
 
   const updateCustomFieldValue = (fieldId: string, value: string | boolean) => {
     setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));

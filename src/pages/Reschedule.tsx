@@ -209,23 +209,24 @@ export default function Reschedule() {
       const startTime = new Date(selectedTime);
       const endTime = new Date(startTime.getTime() + booking.event_type.duration * 60000);
 
-      // Update booking
+      // Update booking - also reset reminder_sent so a new reminder can be sent
       const { error: updateError } = await supabase
         .from('bookings')
         .update({
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
           status: 'confirmed',
+          reminder_sent: false,
         })
         .eq('id', booking.id);
 
       if (updateError) throw updateError;
 
-      // Send confirmation email
+      // Send reschedule email to attendee
       try {
         await supabase.functions.invoke('send-booking-email', {
           body: {
-            type: 'confirmation',
+            type: 'reschedule',
             bookingId: booking.id,
             recipientEmail: booking.attendee_email,
             recipientName: booking.attendee_name,
@@ -236,13 +237,14 @@ export default function Reschedule() {
             timezone: booking.attendee_timezone,
             meetingLink: booking.meet_link,
             notes: booking.notes,
+            hostId: booking.host_id,
           }
         });
       } catch (emailError) {
-        console.error('Failed to send email:', emailError);
+        console.error('Failed to send reschedule email:', emailError);
       }
 
-      // Send WhatsApp reschedule
+      // Send WhatsApp reschedule to customer
       if (booking.attendee_phone) {
         await sendWhatsAppNotification(booking.host_id, 'reschedule', booking.attendee_phone, {
           ...booking,
@@ -250,6 +252,39 @@ export default function Reschedule() {
           end_time: endTime.toISOString(),
           host_name: hostProfile?.name || 'Host'
         });
+      }
+
+      // Send WhatsApp reschedule to instructor/host
+      try {
+        // Get instructor phone if assigned
+        const eventType = booking.event_type as any;
+        let instructorPhone: string | null = null;
+
+        if (eventType.instructor_id) {
+          const { data: instructor } = await supabase
+            .from('instructors')
+            .select('phone')
+            .eq('id', eventType.instructor_id)
+            .maybeSingle();
+          instructorPhone = instructor?.phone || null;
+        }
+
+        // Fallback to host phone
+        if (!instructorPhone && hostProfile?.phone) {
+          instructorPhone = hostProfile.phone;
+        }
+
+        if (instructorPhone) {
+          await sendWhatsAppNotification(booking.host_id, 'reschedule_instructor', instructorPhone, {
+            ...booking,
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            host_name: hostProfile?.name || 'Host',
+            attendee_name: booking.attendee_name,
+          });
+        }
+      } catch (instructorNotifyError) {
+        console.error('Failed to send instructor reschedule notification:', instructorNotifyError);
       }
 
       setIsRescheduled(true);
@@ -261,6 +296,7 @@ export default function Reschedule() {
       setIsSubmitting(false);
     }
   };
+
 
   const getLocationIcon = (type: string) => {
     switch (type) {
@@ -345,13 +381,19 @@ export default function Reschedule() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="w-full max-w-4xl mx-auto px-4 py-6 sm:py-8">
-        <Card>
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Background Gradients */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] opacity-50 animate-glow" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-secondary/20 rounded-full blur-[100px] opacity-50 animate-glow" style={{ animationDelay: '2s' }} />
+      </div>
+
+      <div className="w-full max-w-4xl mx-auto px-4 py-6 sm:py-8 relative z-10">
+        <Card className="bg-card/60 backdrop-blur-xl border-white/10 shadow-2xl overflow-hidden">
           <CardContent className="p-0">
             <div className="flex flex-col lg:flex-row">
               {/* Left Sidebar - Event Info */}
-              <div className="p-4 sm:p-6 border-b lg:border-b-0 lg:border-r border-border lg:w-[280px] lg:shrink-0">
+              <div className="p-4 sm:p-6 border-b lg:border-b-0 lg:border-r border-white/10 lg:w-[280px] lg:shrink-0 bg-muted/30">
                 {hostProfile && (
                   <div className="flex items-center gap-3 mb-6">
                     <Avatar className="h-12 w-12">
@@ -408,7 +450,7 @@ export default function Reschedule() {
                         setSelectedTime(null);
                       }}
                       disabled={(date) => !isDateAvailable(date)}
-                      className="rounded-lg border"
+                      className="rounded-lg border-white/10 p-2"
                       fromDate={new Date()}
                       toDate={addDays(new Date(), 60)}
                     />
@@ -429,8 +471,8 @@ export default function Reschedule() {
                               className={cn(
                                 "px-3 py-2.5 text-sm rounded-lg border transition-colors",
                                 selectedTime === slot.time
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "bg-background hover:bg-muted border-border"
+                                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
+                                  : "bg-background/50 hover:bg-muted border-white/10 hover:border-primary/50"
                               )}
                             >
                               {slot.label}
@@ -455,7 +497,7 @@ export default function Reschedule() {
 
                 {/* Confirm Button */}
                 {selectedTime && (
-                  <div className="mt-6 pt-6 border-t">
+                  <div className="mt-6 pt-6 border-t border-white/10">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div>
                         <p className="font-medium">
@@ -465,7 +507,7 @@ export default function Reschedule() {
                           {format(new Date(selectedTime), 'h:mm a')} ({booking.attendee_timezone})
                         </p>
                       </div>
-                      <Button onClick={handleReschedule} disabled={isSubmitting} className="w-full sm:w-auto">
+                      <Button onClick={handleReschedule} disabled={isSubmitting} className="w-full sm:w-auto shadow-lg shadow-primary/25">
                         {isSubmitting ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />

@@ -308,11 +308,11 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
       return {
         subject: `Reminder: ${data.eventTitle} with ${data.hostName}`,
         html: wrapEmail({
-          title: "Reminder",
-          subtitle: `Hi ${data.recipientName}, your meeting with ${data.hostName} is coming up soon.`,
-          badgeText: "REMINDER",
+          title: "Ready for your meeting?",
+          subtitle: `Hi ${data.recipientName}, this is a friendly reminder about your upcoming meeting with ${data.hostName}.`,
+          badgeText: "UPCOMING",
           accent: brandAccent || "#3B82F6",
-          bodyHtml: `${detailsCard}${actions}<div style="margin-top:14px;color:#CBD5E1;">Tip: join 2–3 minutes early so you can start on time.</div>`,
+          bodyHtml: `${detailsCard}${actions}<div style="margin-top:20px;text-align:center;color:#6B7280;font-size:14px;background:#F1F5F9;padding:12px;border-radius:8px;"><strong>Pro tip:</strong> Join 2–3 minutes early to test your audio and video.</div>`,
           brandName,
           brandLogoUrl,
         }),
@@ -322,12 +322,12 @@ const getEmailContent = (data: EmailRequest, links: { joinUrl?: string; myBookin
       return {
         subject: `Rescheduled: ${data.eventTitle} with ${data.hostName}`,
         html: wrapEmail({
-          title: "Booking rescheduled",
-          subtitle: `Hi ${data.recipientName}, your meeting time has been updated.`,
-          badgeText: "RESCHEDULED",
+          title: "New time confirmed",
+          subtitle: `Hi ${data.recipientName}, your meeting with ${data.hostName} has been successfully rescheduled.`,
+          badgeText: "UPDATED",
           accent: brandAccent || "#F59E0B",
           bodyHtml: `${detailsCard}${actions}${nextSteps}`,
-          footerHtml: "Your updated calendar invite is attached. Please replace the old one if needed.",
+          footerHtml: "We've attached an updated calendar invitation. Please accept it to update your calendar.",
           brandName,
           brandLogoUrl,
         }),
@@ -432,9 +432,9 @@ const getHostEmailContent = (
       return {
         subject: `Rescheduled: ${data.eventTitle} with ${attendee.name}`,
         html: wrapEmail({
-          title: 'Booking rescheduled',
-          subtitle: `Hi ${host.name}, the booking time has been updated.`,
-          badgeText: 'RESCHEDULED',
+          title: 'Booking Rescheduled',
+          subtitle: `Hi ${host.name}, the meeting time has been updated by the attendee.`,
+          badgeText: 'UPDATED',
           accent: brandAccent || '#F59E0B',
           bodyHtml: `${detailsCard}${actions}`,
           brandName,
@@ -445,11 +445,11 @@ const getHostEmailContent = (
       return {
         subject: `Reminder: ${data.eventTitle} with ${attendee.name}`,
         html: wrapEmail({
-          title: 'Reminder',
-          subtitle: `Hi ${host.name}, your meeting is coming up soon.`,
-          badgeText: 'REMINDER',
+          title: 'Meeting Reminder',
+          subtitle: `Hi ${host.name}, you have a meeting coming up soon.`,
+          badgeText: 'UPCOMING',
           accent: brandAccent || '#3B82F6',
-          bodyHtml: `${detailsCard}${actions}<div style="margin-top:14px;color:#CBD5E1;">Tip: join 2–3 minutes early so you can start on time.</div>`,
+          bodyHtml: `${detailsCard}${actions}`,
           brandName,
           brandLogoUrl,
         }),
