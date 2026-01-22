@@ -30,6 +30,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Share, Heart, Sparkle, Share2 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Share as CapacitorShare } from '@capacitor/share';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 const getLocationIcon = (locationType: string) => {
   switch (locationType) {
@@ -137,7 +141,35 @@ END:VCALENDAR`;
     toast.success('Calendar event added!');
   };
 
-  const handleReschedule = () => {
+  const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
+    if (Capacitor.isNativePlatform()) {
+      await Haptics.impact({ style });
+    }
+  };
+
+  const handleShare = async () => {
+    await triggerHaptic(ImpactStyle.Medium);
+    const url = window.location.href;
+    if (Capacitor.isNativePlatform()) {
+      await CapacitorShare.share({
+        title: 'Booking Confirmed!',
+        text: `I just booked a ${booking.event_type?.title} with ${hostProfile?.name}!`,
+        url: url,
+        dialogTitle: 'Share your booking'
+      });
+    } else if (navigator.share) {
+      await navigator.share({
+        title: 'Booking Confirmed!',
+        url: url
+      });
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success('Link copied to clipboard!');
+    }
+  };
+
+  const handleReschedule = async () => {
+    await triggerHaptic(ImpactStyle.Light);
     if (booking?.reschedule_token) {
       navigate(`/reschedule/${booking.reschedule_token}`);
     } else {
@@ -146,6 +178,7 @@ END:VCALENDAR`;
   };
 
   const handleCancel = async () => {
+    await triggerHaptic(ImpactStyle.Medium);
     try {
       await cancelBooking.mutateAsync(booking);
       toast.success('Booking cancelled');
@@ -178,96 +211,125 @@ END:VCALENDAR`;
         </div>
       </header>
 
+      {/* Confetti Background Effect (CSS Only) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-20">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-2 h-2 rounded-full animate-pulse"
+            style={{
+              top: `${Math.random() * 100}%`,
+              left: `${Math.random() * 100}%`,
+              backgroundColor: i % 2 === 0 ? accentColor : '#fff',
+              animationDelay: `${Math.random() * 2}s`,
+              animationDuration: `${2 + Math.random() * 3}s`
+            }}
+          />
+        ))}
+      </div>
+
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-12">
-        <div className="text-center mb-8">
-          <div className="inline-block mb-4">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 relative z-10">
+        <div className="text-center mb-8 animate-in fade-in zoom-in duration-700">
+          <div className="inline-block mb-6 relative group">
+            <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-150 group-hover:scale-175 transition-transform duration-500" />
             <div
-              className="w-16 h-16 rounded-full flex items-center justify-center"
-              style={{ background: accentColor }}
+              className="w-24 h-24 rounded-[2rem] flex items-center justify-center relative z-10 rotate-3 group-hover:rotate-0 transition-transform duration-500 shadow-2xl shadow-primary/40"
+              style={{ background: `linear-gradient(135deg, ${accentColor}, #FFB26B)` }}
             >
-              <CheckCircle className="w-8 h-8 text-white" />
+              <CheckCircle className="w-12 h-12 text-white drop-shadow-lg" />
+            </div>
+            <div className="absolute -top-2 -right-2">
+              <Sparkle className="w-6 h-6 text-primary animate-bounce" />
             </div>
           </div>
 
-          <h1 className="text-2xl font-semibold text-foreground mb-2">Booking Confirmed!</h1>
-          <p className="text-sm text-muted-foreground">
-            You are scheduled with <span className="text-foreground font-medium">{hostProfile?.name || 'the host'}</span>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3 tracking-tight">You're all set!</h1>
+          <p className="text-lg text-muted-foreground max-w-sm mx-auto leading-relaxed">
+            Your meeting with <span className="text-foreground font-bold">{hostProfile?.name || 'the host'}</span> is confirmed.
           </p>
-          <div className="mt-3 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-green-500/10 border border-green-500/20 w-fit mx-auto">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-            <span className="text-xs text-green-600 dark:text-green-400 font-medium">Confirmation email sent</span>
+          <div className="mt-6 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 w-fit mx-auto shadow-sm">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Email Confirmation Sent</span>
           </div>
         </div>
 
         {/* Booking Details Card */}
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="p-6">
+        <div className="bg-card/50 backdrop-blur-xl rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl shadow-black/20 animate-in slide-in-from-bottom-8 duration-700 delay-200 fill-mode-both">
+          <div className="p-8">
             {/* Host Section */}
-            <div className="flex items-center gap-3 mb-6 pb-6 border-b border-border">
-              <Avatar className="h-12 w-12 rounded-full border border-border">
-                <AvatarImage src={hostProfile?.avatar_url || ''} className="rounded-full object-cover" />
-                <AvatarFallback className="bg-muted text-muted-foreground font-medium">
-                  {hostProfile?.name?.charAt(0) || 'H'}
-                </AvatarFallback>
-              </Avatar>
+            <div className="flex items-center gap-4 mb-8 pb-8 border-b border-white/5">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/20 blur-lg rounded-full" />
+                <Avatar className="h-16 w-16 rounded-2xl border-2 border-white/10 relative z-10">
+                  <AvatarImage src={hostProfile?.avatar_url || ''} className="rounded-2xl object-cover" />
+                  <AvatarFallback className="bg-muted text-muted-foreground font-bold text-xl">
+                    {hostProfile?.name?.charAt(0) || 'H'}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
               <div>
-                <p className="text-base font-medium text-foreground">{hostProfile?.name || 'Host'}</p>
-                <p className="text-sm text-muted-foreground">@{hostProfile?.username || 'username'}</p>
+                <p className="text-lg font-bold text-foreground">{hostProfile?.name || 'Host'}</p>
+                <p className="text-sm text-muted-foreground font-medium">@{hostProfile?.username || 'username'}</p>
+              </div>
+              <div className="ml-auto">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-white/5 active:scale-90"
+                  onClick={handleShare}
+                >
+                  <Share className="w-5 h-5" />
+                </Button>
               </div>
             </div>
 
             {/* Grid Details */}
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <LocationIconComponent className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide">Event</span>
+            <div className="grid md:grid-cols-2 gap-8 mb-8">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 w-fit">
+                  <LocationIconComponent className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Event Type</span>
                 </div>
                 <div>
-                  <p className="text-base font-medium text-foreground">{booking.event_type?.title}</p>
-                  <p className="text-sm text-muted-foreground">{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</p>
+                  <p className="text-xl font-bold text-foreground leading-tight">{booking.event_type?.title}</p>
+                  <p className="text-sm text-muted-foreground font-medium mt-1">{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide">Attendee</span>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 w-fit">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Your Details</span>
                 </div>
                 <div>
-                  <p className="text-base font-medium text-foreground truncate">{booking.attendee_name}</p>
-                  <p className="text-sm text-muted-foreground truncate">{booking.attendee_email}</p>
-                  {booking.attendee_phone && (
-                    <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
-                      <Phone className="w-3 h-3" />
-                      <span>{booking.attendee_phone}</span>
-                    </div>
-                  )}
+                  <p className="text-lg font-bold text-foreground truncate">{booking.attendee_name}</p>
+                  <p className="text-sm text-muted-foreground font-medium truncate">{booking.attendee_email}</p>
                 </div>
               </div>
             </div>
 
             {/* When Section */}
-            <div className="bg-muted/30 rounded-lg p-5 border border-border space-y-3">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">When</span>
+            <div className="bg-white/5 rounded-[2rem] p-6 border border-white/5 space-y-4 group hover:border-primary/20 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Schedule</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-[10px] font-bold text-primary uppercase">
+                  <Globe className="w-3 h-3" />
+                  {booking.attendee_timezone?.split('/').pop()?.replace('_', ' ')}
+                </div>
               </div>
 
               <div className="space-y-1">
-                <p className="text-base font-medium text-foreground">
-                  {format(new Date(booking.start_time), 'EEEE, MMMM d, yyyy')}
+                <p className="text-2xl font-bold text-foreground">
+                  {format(new Date(booking.start_time), 'EEEE, MMM d')}
                 </p>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                  <span className="text-foreground font-medium">{format(new Date(booking.start_time), 'h:mm a')}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                  <span className="text-foreground font-medium">{format(new Date(booking.end_time), 'h:mm a')}</span>
-                  <span className="mx-1">·</span>
-                  <div className="flex items-center gap-1">
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>{booking.attendee_timezone?.replace('_', ' ').split('/').pop()}</span>
-                  </div>
+                <div className="flex items-center gap-3 text-lg text-muted-foreground">
+                  <span className="text-primary font-bold">{format(new Date(booking.start_time), 'h:mm a')}</span>
+                  <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                  <span className="font-medium">{format(new Date(booking.end_time), 'h:mm a')}</span>
                 </div>
               </div>
             </div>
@@ -301,62 +363,99 @@ END:VCALENDAR`;
         </div>
 
         {/* Actions */}
-        <div className="mt-8 space-y-6">
-          <div className="flex flex-col items-center gap-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="h-10 px-6 rounded-md font-medium">
-                  <CalendarPlus className="w-4 h-4 mr-2" />
-                  Add to Calendar
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-popover border-border rounded-md min-w-[180px]">
-                <DropdownMenuItem onClick={() => handleAddToCalendar('google')} className="cursor-pointer">
-                  Google Calendar
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddToCalendar('outlook')} className="cursor-pointer">
-                  Outlook Calendar
-                </DropdownMenuItem>
-                <div className="h-px bg-border my-1"></div>
-                <DropdownMenuItem onClick={() => handleAddToCalendar('ics')} className="cursor-pointer">
-                  Download .ics file
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+        <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500 fill-mode-both">
+          <div className="flex flex-col items-center gap-6">
+            <div className="flex flex-col sm:flex-row items-center gap-4 w-full">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="w-full sm:flex-1 h-14 rounded-2xl font-bold bg-foreground text-background hover:bg-foreground/90 transition-all shadow-xl active:scale-[0.98]">
+                    <CalendarPlus className="w-5 h-5 mr-3" />
+                    Add to Calendar
+                    <ChevronDown className="w-5 h-5 ml-2 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-card border-white/10 rounded-2xl min-w-[220px] p-2 shadow-2xl backdrop-blur-3xl">
+                  <DropdownMenuItem onClick={() => handleAddToCalendar('google')} className="cursor-pointer rounded-xl py-3 px-4 font-medium focus:bg-primary/10">
+                    <Calendar className="w-4 h-4 mr-3 text-blue-500" />
+                    Google Calendar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddToCalendar('outlook')} className="cursor-pointer rounded-xl py-3 px-4 font-medium focus:bg-primary/10">
+                    <Calendar className="w-4 h-4 mr-3 text-blue-600" />
+                    Outlook Calendar
+                  </DropdownMenuItem>
+                  <div className="h-px bg-white/5 my-2"></div>
+                  <DropdownMenuItem onClick={() => handleAddToCalendar('ics')} className="cursor-pointer rounded-xl py-3 px-4 font-medium focus:bg-primary/10">
+                    <ExternalLink className="w-4 h-4 mr-3 text-muted-foreground" />
+                    Download Apple ICS
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-            <div className="flex items-center gap-6">
+              <Button
+                variant="outline"
+                className="w-full sm:flex-1 h-14 rounded-2xl font-bold border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm active:scale-[0.98]"
+                onClick={handleShare}
+              >
+                <Share2 className="w-5 h-5 mr-3 text-primary" />
+                Share Booking
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-10">
               <button
                 onClick={handleReschedule}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="flex flex-col items-center gap-2 text-[10px] font-bold text-muted-foreground hover:text-primary transition-all uppercase tracking-widest group"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
+                <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center group-hover:border-primary group-hover:rotate-180 transition-all duration-500">
+                  <RefreshCw className="w-4 h-4" />
+                </div>
                 Reschedule
               </button>
 
               <button
                 onClick={handleCancel}
                 disabled={cancelBooking.isPending}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                className="flex flex-col items-center gap-2 text-[10px] font-bold text-muted-foreground hover:text-destructive transition-all uppercase tracking-widest group"
               >
-                <XCircle className="w-3.5 h-3.5" />
-                {cancelBooking.isPending ? 'Cancelling...' : 'Cancel'}
+                <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center group-hover:border-destructive transition-all">
+                  <XCircle className="w-4 h-4" />
+                </div>
+                {cancelBooking.isPending ? 'Wait...' : 'Cancel'}
               </button>
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="pt-8 border-t border-border flex flex-col items-center gap-6">
+          {/* Special App Note */}
+          {Capacitor.isNativePlatform() && (
+            <div className="bg-primary/5 rounded-[2rem] p-6 border border-dashed border-primary/20 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                <Heart className="w-6 h-6 text-primary animate-pulse" />
+              </div>
+              <div>
+                <p className="font-bold text-sm">Better on the App</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Get instant notifications and manage your bookings on the move with our mobile app.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Footer Navigation */}
+          <div className="pt-12 border-t border-white/5 flex flex-col items-center gap-8">
             <Link
               to="/my-bookings"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="group flex items-center gap-3 px-6 py-3 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all font-bold text-sm text-foreground shadow-sm active:scale-95"
             >
-              View all bookings
-              <ArrowRight className="w-4 h-4" />
+              My Bookings Dashboard
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
 
-            <div className="text-center">
-              <span className="text-xs text-muted-foreground">Powered by CalSchedule</span>
+            <div className="flex flex-col items-center gap-2 opacity-40 hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2">
+                <Sparkle className="w-3 h-3 text-primary" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Zenthra Calendar</span>
+                <Sparkle className="w-3 h-3 text-primary" />
+              </div>
             </div>
           </div>
         </div>

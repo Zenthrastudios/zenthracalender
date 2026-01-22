@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,6 +7,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
+import { Capacitor } from "@capacitor/core";
+import { App as AppPlugin } from "@capacitor/app";
+import { StatusBar, Style } from "@capacitor/status-bar";
 
 // Pages
 import Landing from "./pages/Landing";
@@ -26,6 +30,8 @@ import PublicProfile from "./pages/PublicProfile";
 import BookingConfirmation from "./pages/BookingConfirmation";
 import Reschedule from "./pages/Reschedule";
 import MyBookings from "./pages/MyBookings";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -132,7 +138,9 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={
+        Capacitor.isNativePlatform() ? <Navigate to="/auth" replace /> : <Landing />
+      } />
       <Route path="/auth" element={
         <AuthRoute>
           <Auth />
@@ -143,6 +151,8 @@ function AppRoutes() {
       <Route path="/booking/confirmed/:bookingId" element={<BookingConfirmation />} />
       <Route path="/reschedule/:token" element={<Reschedule />} />
       <Route path="/my-bookings" element={<MyBookings />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
 
       {/* Guest Route */}
       <Route path="/guest" element={
@@ -209,20 +219,44 @@ function AppRoutes() {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      // Handle back button for Android
+      AppPlugin.addListener('backButton', ({ canGoBack }) => {
+        if (!canGoBack) {
+          AppPlugin.exitApp();
+        } else {
+          window.history.back();
+        }
+      });
+
+      // Handle App State (Pause/Resume)
+      AppPlugin.addListener('appStateChange', ({ isActive }) => {
+        console.log('App state changed. Is active?', isActive);
+      });
+
+      // Configure Status Bar
+      StatusBar.setStyle({ style: Style.Dark });
+      StatusBar.setBackgroundColor({ color: '#000000' });
+    }
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </TooltipProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

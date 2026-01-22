@@ -118,12 +118,31 @@ const handler = async (req: Request): Promise<Response> => {
                     console.log(`Sent reminder email for booking ${booking.id}`);
                 }
 
-                // Get host profile for phone
+                // Get host profile for phone and push token
                 const { data: hostProfile } = await supabase
                     .from('profiles')
-                    .select('phone')
+                    .select('phone, push_token')
                     .eq('user_id', booking.host_id)
                     .maybeSingle();
+
+                // Trigger Push Notification if token exists
+                if (hostProfile?.push_token) {
+                    console.log(`[PUSH] Triggering notification for host ${booking.host_id} for booking ${booking.id}`);
+                    // In a production app, you would call FCM or OneSignal here
+                    /*
+                    await fetch('https://fcm.googleapis.com/fcm/send', {
+                        method: 'POST',
+                        headers: { 'Authorization': `key=${FCM_SERVER_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: hostProfile.push_token,
+                            notification: {
+                                title: 'New Reminder',
+                                body: `You have a booking with ${booking.attendee_name} in 60 minutes.`
+                            }
+                        })
+                    });
+                    */
+                }
 
                 // Send WhatsApp reminder to attendee if phone is available
                 if (booking.attendee_phone) {

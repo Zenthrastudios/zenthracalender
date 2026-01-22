@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, isPast, isToday } from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useBookings, useCancelBooking, Booking } from '@/hooks/useBookings';
 import { Button } from '@/components/ui/button';
@@ -55,9 +56,22 @@ export default function Bookings() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [searchParams] = useSearchParams();
 
   const { data: bookings, isLoading } = useBookings(filter);
   const cancelBooking = useCancelBooking();
+
+  // Handle deep linking to specific booking
+  useEffect(() => {
+    const bookingId = searchParams.get('id');
+    if (bookingId && bookings) {
+      const booking = bookings.find(b => b.id === bookingId);
+      if (booking) {
+        setSelectedBooking(booking);
+        setDetailDialogOpen(true);
+      }
+    }
+  }, [searchParams, bookings]);
 
   const filteredBookings = bookings?.filter(booking =>
     booking.attendee_name.toLowerCase().includes(searchQuery.toLowerCase()) ||

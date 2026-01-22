@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, Users, Zap, ArrowRight, Check, Star, Shield, Smartphone, Video, Code, MessageSquare, CreditCard, Globe, BarChart3, Bell, CheckCircle2, ChevronRight, PlayCircle } from 'lucide-react';
+import { Calendar, Clock, Users, Zap, ArrowRight, Check, Star, Shield, Smartphone, Video, Code, MessageSquare, CreditCard, Globe, BarChart3, Bell, CheckCircle2, ChevronRight, PlayCircle, Sparkles } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
 import {
   Accordion,
   AccordionContent,
@@ -593,6 +594,56 @@ export default function LandingPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Mobile App Section */}
+      <section className="py-24 px-6 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="order-2 lg:order-1 relative">
+              <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 to-orange-500/20 blur-2xl rounded-[3rem]" />
+              <div className="relative bg-card border border-white/10 rounded-[3rem] p-8 shadow-2xl overflow-hidden aspect-[4/3] flex items-center justify-center group hover:scale-[1.02] transition-transform duration-700">
+                <div className="text-center">
+                  <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-primary/20 group-hover:rotate-12 transition-transform duration-500">
+                    <Smartphone className="w-12 h-12 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-4">Native Experience</h3>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {['Push Notifications', 'Haptic Feedback', 'Native Sharing', 'Biometric Auth'].map((feat) => (
+                      <Badge key={feat} variant="secondary" className="bg-white/5 border-white/5 px-4 py-2 rounded-full text-sm font-medium">
+                        {feat}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="order-1 lg:order-2 space-y-8">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-bold uppercase tracking-wider">
+                <Sparkles className="w-4 h-4" />
+                Mobile App Ready
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold leading-tight">
+                Stay in sync, <br />
+                <span className="text-primary italic">anywhere</span> you go.
+              </h2>
+              <p className="text-xl text-muted-foreground leading-relaxed">
+                Take your schedule with you. Our native mobile app brings powerful reminders, haptic touch, and one-tap sharing to your pocket.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <Button size="lg" className="rounded-2xl h-14 px-8 font-bold gap-3 bg-white text-black hover:bg-white/90">
+                  Play Store
+                </Button>
+                <Button size="lg" variant="outline" className="rounded-2xl h-14 px-8 font-bold gap-3 border-white/10 bg-white/5">
+                  Connect Device
+                  <ArrowRight className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </section>

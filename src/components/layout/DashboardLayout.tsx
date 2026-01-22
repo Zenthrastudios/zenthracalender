@@ -63,7 +63,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="fixed inset-0 bg-gradient-mesh pointer-events-none" />
 
       {/* Mobile Header - Sticky */}
-      <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border/60 bg-card/80 backdrop-blur-xl sticky top-0 z-40">
+      <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border/60 bg-card/80 backdrop-blur-xl sticky top-0 z-40 pt-[calc(12px+env(safe-area-inset-top))]">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20">
             {profile?.name?.charAt(0) || profile?.username?.charAt(0) || 'C'}
