@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "914427923476",
+    "project_id": "zenthrashop",
+    "storage_bucket": "zenthrashop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:914427923476:android:e6249d934f209abb0beb01",
+        "android_client_info": {
+          "package_name": "cal.schedule"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "914427923476-j1cf86otvd1i6i9ucsdc66so66lv2dno.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWAezvxgh0xP9NC23NgkGvxHkeBfFaZ2Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "914427923476-j1cf86otvd1i6i9ucsdc66so66lv2dno.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:914427923476:android:140f7917db62293a0beb01",
+        "android_client_info": {
+          "package_name": "zenthra.shopapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "914427923476-j1cf86otvd1i6i9ucsdc66so66lv2dno.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWAezvxgh0xP9NC23NgkGvxHkeBfFaZ2Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "914427923476-j1cf86otvd1i6i9ucsdc66so66lv2dno.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
