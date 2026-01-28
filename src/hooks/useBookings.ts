@@ -89,7 +89,13 @@ export function useBookingById(id: string | undefined) {
         .from('bookings')
         .select(`
           *,
-          event_type:event_types(title, duration, location_type, description)
+          event_type:event_types(
+            title, 
+            duration, 
+            location_type, 
+            description,
+            instructor:instructors(*)
+          )
         `)
         .eq('id', id)
         .maybeSingle();
@@ -99,7 +105,7 @@ export function useBookingById(id: string | undefined) {
       return {
         ...data,
         custom_responses: (data.custom_responses as unknown as CustomResponse[]) || [],
-      } as Booking;
+      } as Booking & { event_type: { instructor: import('@/integrations/supabase/types').Tables<'instructors'> | null } };
     },
     enabled: !!id,
   });

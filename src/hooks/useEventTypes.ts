@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
- import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
- export type EventType = Tables<'event_types'>;
+export type EventType = Tables<'event_types'>;
 
 export function useEventTypes() {
   const { user } = useAuth();
@@ -12,7 +12,7 @@ export function useEventTypes() {
     queryKey: ['event-types', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
+
       const { data, error } = await supabase
         .from('event_types')
         .select('*')
@@ -41,10 +41,10 @@ export function useEventTypeBySlug(username: string | undefined, slug: string | 
 
       if (profileError || !profile) return null;
 
-      // Then get the event type
+      // Then get the event type along with instructor details
       const { data: eventType, error } = await supabase
         .from('event_types')
-        .select('*')
+        .select('*, instructor:instructors(*)')
         .eq('user_id', profile.user_id)
         .eq('slug', slug)
         .eq('is_active', true)
@@ -53,7 +53,7 @@ export function useEventTypeBySlug(username: string | undefined, slug: string | 
       if (error || !eventType) return null;
 
       return {
-        eventType: eventType as EventType,
+        eventType: eventType as EventType & { instructor: Tables<'instructors'> | null },
         host: {
           id: profile.user_id,
           name: profile.name,

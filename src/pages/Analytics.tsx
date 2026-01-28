@@ -282,7 +282,7 @@ export default function Analytics() {
                       <TrendingDown className="w-3 h-3 mr-1" />
                     )}
                     <span className="font-medium">{Math.abs(stats.bookingChange)}%</span>
-                    <span className="text-muted-foreground ml-1">from last week</span>
+                    <span className="text-muted-foreground ml-1">from last month</span>
                   </div>
                 </CardContent>
               </Card>
@@ -291,12 +291,12 @@ export default function Analytics() {
               <Card className="bg-card">
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between">
-                    <div className="p-2 rounded-lg bg-emerald-500/10">
-                      <IndianRupee className="h-5 w-5 text-emerald-500" />
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <IndianRupee className="h-5 w-5 text-primary" />
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-3">Revenue</p>
-                  <p className="text-2xl font-bold mt-1">₹{stats.thisMonthRevenue.toLocaleString('en-IN')}</p>
+                  <p className="text-2xl font-bold mt-1 text-foreground">₹{stats.thisMonthRevenue.toLocaleString('en-IN')}</p>
                   <div className={cn(
                     "flex items-center text-xs mt-2",
                     stats.revenueChange >= 0 ? "text-emerald-600" : "text-red-500"
@@ -307,7 +307,7 @@ export default function Analytics() {
                       <TrendingDown className="w-3 h-3 mr-1" />
                     )}
                     <span className="font-medium">{Math.abs(stats.revenueChange)}%</span>
-                    <span className="text-muted-foreground ml-1">from last week</span>
+                    <span className="text-muted-foreground ml-1">from last month</span>
                   </div>
                 </CardContent>
               </Card>
@@ -357,7 +357,7 @@ export default function Analytics() {
                     <div className="flex mb-1 ml-10">
                       {HOURS_RANGE.map(hour => (
                         <div key={hour} className="flex-1 text-[10px] text-muted-foreground text-center">
-                          {hour === 0 ? '12am' : hour === 12 ? '12pm' : hour > 12 ? `${hour-12}pm` : `${hour}am`}
+                          {hour === 0 ? '12am' : hour === 12 ? '12pm' : hour > 12 ? `${hour - 12}pm` : `${hour}am`}
                         </div>
                       ))}
                     </div>
@@ -410,18 +410,18 @@ export default function Analytics() {
                     <AreaChart data={dailyData}>
                       <defs>
                         <linearGradient id="colorBookings" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F5A623" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#F5A623" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#F5A623" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#F5A623" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                         interval="preserveStartEnd"
                       />
-                      <YAxis 
+                      <YAxis
                         axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}

@@ -398,7 +398,7 @@ export default function PublicBookingPage() {
         amount: orderResult.amount,
         currency: orderResult.currency,
         name: eventData.eventType.title,
-        description: `Booking with ${eventData.host.name}`,
+        description: `Booking with ${eventData.eventType.instructor?.name || eventData.host.name}`,
         order_id: orderResult.orderId,
         handler: async function (response: unknown) {
           try {
@@ -419,7 +419,7 @@ export default function PublicBookingPage() {
                   attendee_name: attendeeName,
                   event_type: { title: eventData.eventType.title },
                   start_time: selectedSlot.startTime.toISOString(),
-                  host: { username: username, name: eventData.host.name }
+                  host: { username: username, name: eventData.eventType.instructor?.name || eventData.host.name }
                 });
               }
             }
@@ -485,7 +485,7 @@ export default function PublicBookingPage() {
               attendee_name: attendeeName,
               event_type: { title: eventData.eventType.title, slug: eventSlug },
               start_time: selectedSlot.startTime.toISOString(),
-              host: { username: username, name: eventData.host.name }
+              host: { username: username, name: eventData.eventType.instructor?.name || eventData.host.name }
             });
           }
           setIsProcessingPayment(false);
@@ -504,7 +504,7 @@ export default function PublicBookingPage() {
               attendee_name: attendeeName,
               event_type: { title: eventData.eventType.title, slug: eventSlug },
               start_time: selectedSlot.startTime.toISOString(),
-              host: { username: username, name: eventData.host.name }
+              host: { username: username, name: eventData.eventType.instructor?.name || eventData.host.name }
             });
           }
         }
@@ -516,7 +516,7 @@ export default function PublicBookingPage() {
             attendee_name: attendeeName,
             event_type: { title: eventData.eventType.title, slug: eventSlug },
             start_time: selectedSlot.startTime.toISOString(),
-            host: { username: username, name: eventData.host.name }
+            host: { username: username, name: eventData.eventType.instructor?.name || eventData.host.name }
           });
         }
         setIsProcessingPayment(false);
@@ -695,14 +695,21 @@ export default function PublicBookingPage() {
             <div className="p-5 lg:p-6">
               <div className="flex items-center gap-3">
                 <Avatar className="w-12 h-12 rounded-full border border-border bg-muted">
-                  <AvatarImage src={eventData.host?.avatar_url || ''} className="rounded-full object-cover" />
+                  <AvatarImage
+                    src={eventData.eventType.instructor?.avatar_url || eventData.host?.avatar_url || ''}
+                    className="rounded-full object-cover"
+                  />
                   <AvatarFallback className="text-base font-medium bg-muted text-muted-foreground">
-                    {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase()}
+                    {eventData.eventType.instructor?.name?.charAt(0) || eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{eventData.host?.name || username}</p>
-                  <p className="text-xs text-muted-foreground">@{username}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {eventData.eventType.instructor?.name || eventData.host?.name || username}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {eventData.eventType.instructor?.specialization ? eventData.eventType.instructor.specialization : `@${username}`}
+                  </p>
                 </div>
               </div>
 

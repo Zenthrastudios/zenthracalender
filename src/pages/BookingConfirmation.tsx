@@ -246,7 +246,7 @@ END:VCALENDAR`;
 
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3 tracking-tight">You're all set!</h1>
           <p className="text-lg text-muted-foreground max-w-sm mx-auto leading-relaxed">
-            Your meeting with <span className="text-foreground font-bold">{hostProfile?.name || 'the host'}</span> is confirmed.
+            Your meeting with <span className="text-foreground font-bold">{booking?.event_type?.instructor?.name || hostProfile?.name || 'the host'}</span> is confirmed.
           </p>
           <div className="mt-6 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 w-fit mx-auto shadow-sm">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
@@ -262,15 +262,20 @@ END:VCALENDAR`;
               <div className="relative">
                 <div className="absolute inset-0 bg-primary/20 blur-lg rounded-full" />
                 <Avatar className="h-16 w-16 rounded-2xl border-2 border-white/10 relative z-10">
-                  <AvatarImage src={hostProfile?.avatar_url || ''} className="rounded-2xl object-cover" />
+                  <AvatarImage
+                    src={booking?.event_type?.instructor?.avatar_url || hostProfile?.avatar_url || ''}
+                    className="rounded-2xl object-cover"
+                  />
                   <AvatarFallback className="bg-muted text-muted-foreground font-bold text-xl">
-                    {hostProfile?.name?.charAt(0) || 'H'}
+                    {booking?.event_type?.instructor?.name?.charAt(0) || hostProfile?.name?.charAt(0) || 'H'}
                   </AvatarFallback>
                 </Avatar>
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{hostProfile?.name || 'Host'}</p>
-                <p className="text-sm text-muted-foreground font-medium">@{hostProfile?.username || 'username'}</p>
+                <p className="text-lg font-bold text-foreground">{booking?.event_type?.instructor?.name || hostProfile?.name || 'Host'}</p>
+                <p className="text-sm text-muted-foreground font-medium">
+                  {booking?.event_type?.instructor?.specialization || (hostProfile?.username ? `@${hostProfile.username}` : 'username')}
+                </p>
               </div>
               <div className="ml-auto">
                 <Button

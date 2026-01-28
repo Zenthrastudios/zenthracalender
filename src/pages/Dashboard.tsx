@@ -188,7 +188,7 @@ export default function Dashboard() {
                           <div className="flex items-center gap-2">
                             <h3 className="font-bold text-lg leading-tight">{eventType.title}</h3>
                             {eventType.is_paid && (eventType.price || 0) > 0 && (
-                              <Badge className="bg-primary/10 text-primary border-none font-bold">
+                              <Badge className="bg-primary text-primary-foreground border-none font-bold shadow-sm">
                                 ₹{eventType.price}
                               </Badge>
                             )}

@@ -182,6 +182,7 @@ export default function EventTypeEditor() {
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const testimonialAvatarFileInputRef = useRef<HTMLInputElement>(null);
   const [testimonialAvatarFile, setTestimonialAvatarFile] = useState<File | null>(null);
+  const lastFieldRef = useRef<HTMLDivElement>(null);
 
   // Get availability for selected schedule
   const { data: scheduleAvailability } = useScheduleAvailability(scheduleId);
@@ -395,6 +396,11 @@ export default function EventTypeEditor() {
       placeholder: '',
     };
     setCustomFields([...customFields, newField]);
+
+    // Auto-scroll to the new field after state update
+    setTimeout(() => {
+      lastFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   };
 
   const updateCustomField = (id: string, updates: Partial<CustomField>) => {
@@ -1128,7 +1134,8 @@ export default function EventTypeEditor() {
                 {customFields.map((field, index) => (
                   <div
                     key={field.id}
-                    className="p-4 border border-border rounded-lg bg-background space-y-4"
+                    className="p-4 border border-border rounded-lg bg-background space-y-4 shadow-sm"
+                    ref={index === customFields.length - 1 ? lastFieldRef : null}
                   >
                     <div className="flex items-start gap-4">
                       <div className="flex items-center gap-2 text-muted-foreground cursor-grab">
@@ -1214,6 +1221,18 @@ export default function EventTypeEditor() {
                     </div>
                   </div>
                 ))}
+
+                <div className="pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-dashed py-6 group"
+                    onClick={addCustomField}
+                  >
+                    <Plus className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+                    Add another question
+                  </Button>
+                </div>
               </div>
             )}
           </div>

@@ -216,7 +216,7 @@ export default function Bookings() {
                         <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
                           {booking.event_type?.title || 'Meeting'}
                           {booking.is_rescheduled && (
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none text-[10px] h-5">
+                            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-none text-[10px] h-5 whitespace-nowrap">
                               Rescheduled
                             </Badge>
                           )}
@@ -313,9 +313,9 @@ export default function Bookings() {
                       {selectedBooking.event_type?.title || 'Meeting Details'}
                     </DialogTitle>
                     {selectedBooking.status === 'cancelled' ? (
-                      <Badge variant="destructive">Cancelled</Badge>
+                      <Badge variant="destructive" className="font-bold">Cancelled</Badge>
                     ) : (
-                      <Badge className="bg-emerald-500 text-white">Confirmed</Badge>
+                      <Badge className="bg-emerald-500 text-white font-bold">Confirmed</Badge>
                     )}
                   </div>
                 </DialogHeader>
