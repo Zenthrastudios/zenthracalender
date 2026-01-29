@@ -22,6 +22,8 @@ import {
     X,
     GraduationCap,
     Settings,
+    Gauge,
+    Monitor,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -132,6 +134,7 @@ export default function CourseViewer() {
     const [playbackRate, setPlaybackRate] = useState(1);
     const [showSettings, setShowSettings] = useState(false);
     const [currentQuality, setCurrentQuality] = useState('Auto');
+    const [settingsView, setSettingsView] = useState<'main' | 'speed' | 'quality'>('main');
     const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const progressUpdateRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -649,12 +652,14 @@ export default function CourseViewer() {
     }, [lessons, progress]);
 
     const toggleSettings = () => {
-        setShowSettings(!showSettings);
         if (!showSettings) {
+            setSettingsView('main');
+            setShowSettings(true);
             // Keep controls visible while settings are open
             if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
             setShowControls(true);
         } else {
+            setShowSettings(false);
             showControlsTemporarily();
         }
     };
@@ -848,71 +853,106 @@ export default function CourseViewer() {
                                                         <>
                                                             {/* Backdrop to close settings */}
                                                             <div
-                                                                className="fixed inset-0 z-40"
-                                                                onClick={() => setShowSettings(false)}
+                                                                className="fixed inset-0 z-40 cursor-default"
+                                                                onClick={toggleSettings}
                                                             />
 
-                                                            {/* Settings Menu */}
-                                                            <div className="absolute bottom-12 right-0 w-64 bg-zinc-950/95 border border-white/10 rounded-lg p-2 z-50 text-white backdrop-blur-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                                                                <div className="space-y-4 p-2">
+                                                            {/* YouTube-Style Settings Menu */}
+                                                            <div className="absolute bottom-full right-0 mb-3 w-52 max-h-[160px] sm:max-h-[240px] overflow-y-auto scrollbar-none bg-zinc-900/95 border border-white/10 rounded-xl z-50 text-white shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
 
-                                                                    {/* Playback Speed */}
-                                                                    <div className="space-y-2">
-                                                                        <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Playback Speed</div>
-                                                                        <div className="grid grid-cols-4 gap-1">
+                                                                {/* MAIN VIEW */}
+                                                                {settingsView === 'main' && (
+                                                                    <div className="py-1.5">
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setSettingsView('quality'); }}
+                                                                            className="w-full px-3.5 py-2 flex items-center justify-between hover:bg-white/10 transition-colors"
+                                                                        >
+                                                                            <div className="flex items-center gap-2.5">
+                                                                                <Monitor className="w-3.5 h-3.5 text-zinc-400" />
+                                                                                <span className="text-xs font-medium">Quality</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1 text-zinc-500">
+                                                                                <span className="text-[10px]">{currentQuality}</span>
+                                                                                <ChevronRight className="w-3.5 h-3.5" />
+                                                                            </div>
+                                                                        </button>
+
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setSettingsView('speed'); }}
+                                                                            className="w-full px-3.5 py-2 flex items-center justify-between hover:bg-white/10 transition-colors"
+                                                                        >
+                                                                            <div className="flex items-center gap-2.5">
+                                                                                <Gauge className="w-3.5 h-3.5 text-zinc-400" />
+                                                                                <span className="text-xs font-medium">Playback speed</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1 text-zinc-500">
+                                                                                <span className="text-[10px]">{playbackRate === 1 ? 'Normal' : playbackRate + 'x'}</span>
+                                                                                <ChevronRight className="w-3.5 h-3.5" />
+                                                                            </div>
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* SPEED VIEW */}
+                                                                {settingsView === 'speed' && (
+                                                                    <div className="py-1">
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }}
+                                                                            className="w-full px-3 py-1.5 flex items-center gap-2 border-b border-white/5 hover:bg-white/5 transition-colors mb-1"
+                                                                        >
+                                                                            <ChevronLeft className="w-3.5 h-3.5" />
+                                                                            <span className="text-xs font-semibold">Playback speed</span>
+                                                                        </button>
+                                                                        <div className="max-h-32 overflow-y-auto scrollbar-none">
                                                                             {[0.5, 0.75, 1, 1.25, 1.5, 2].map(rate => (
                                                                                 <button
                                                                                     key={rate}
                                                                                     onClick={(e) => {
                                                                                         e.stopPropagation();
                                                                                         handlePlaybackRateChange(rate);
+                                                                                        setSettingsView('main');
                                                                                     }}
-                                                                                    className={cn(
-                                                                                        "px-2 py-1.5 rounded text-xs font-medium transition-colors border",
-                                                                                        playbackRate === rate
-                                                                                            ? "bg-white text-black border-white"
-                                                                                            : "bg-white/5 text-zinc-300 border-transparent hover:bg-white/10"
-                                                                                    )}
+                                                                                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-white/10 transition-colors"
                                                                                 >
-                                                                                    {rate}x
+                                                                                    <span className="text-xs ml-6">{rate === 1 ? 'Normal' : rate + 'x'}</span>
+                                                                                    {playbackRate === rate && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
                                                                                 </button>
                                                                             ))}
                                                                         </div>
                                                                     </div>
+                                                                )}
 
-                                                                    <div className="h-px bg-white/10" />
-
-                                                                    <div className="space-y-2">
-                                                                        <div className="flex items-center justify-between">
-                                                                            <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Quality</div>
-                                                                            <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase">{currentQuality}</span>
-                                                                        </div>
-                                                                        <div className="space-y-1">
+                                                                {/* QUALITY VIEW */}
+                                                                {settingsView === 'quality' && (
+                                                                    <div className="py-1">
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setSettingsView('main'); }}
+                                                                            className="w-full px-3 py-1.5 flex items-center gap-2 border-b border-white/5 hover:bg-white/5 transition-colors mb-1"
+                                                                        >
+                                                                            <ChevronLeft className="w-3.5 h-3.5" />
+                                                                            <span className="text-xs font-semibold">Quality</span>
+                                                                        </button>
+                                                                        <div className="max-h-32 overflow-y-auto scrollbar-none space-y-0.5">
                                                                             {['Auto', '1080p', '720p', '480p'].map((q) => (
                                                                                 <button
                                                                                     key={q}
                                                                                     onClick={(e) => {
                                                                                         e.stopPropagation();
                                                                                         setCurrentQuality(q);
+                                                                                        setSettingsView('main');
                                                                                     }}
-                                                                                    className={cn(
-                                                                                        "w-full px-3 py-2 rounded text-xs font-medium flex items-center justify-between transition-colors",
-                                                                                        currentQuality === q
-                                                                                            ? "bg-white/10 text-white border border-white/20"
-                                                                                            : "text-zinc-400 hover:bg-white/5 hover:text-white"
-                                                                                    )}
+                                                                                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-white/10 transition-colors"
                                                                                 >
-                                                                                    <span>{q === 'Auto' ? 'Auto (Recommended)' : q}</span>
-                                                                                    {currentQuality === q && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                                                    <span className="text-xs ml-6">{q}</span>
+                                                                                    {currentQuality === q && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
                                                                                 </button>
                                                                             ))}
                                                                         </div>
-                                                                        <p className="text-[10px] text-zinc-500 mt-1">
-                                                                            Choose preferred quality. Higher quality uses more data.
+                                                                        <p className="px-9 py-1.5 text-[9px] text-zinc-500 leading-tight">
+                                                                            Auto quality delivers the best experience for your connection.
                                                                         </p>
                                                                     </div>
-
-                                                                </div>
+                                                                )}
                                                             </div>
                                                         </>
                                                     )}
