@@ -23,6 +23,7 @@ export default function ProductViewer() {
     const [pageNumber, setPageNumber] = useState(1);
     const [scale, setScale] = useState(1.2);
     const viewStartTime = useRef<number>(Date.now());
+    const analyticsId = useRef<string | null>(null);
     const [isBlurred, setIsBlurred] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -108,14 +109,25 @@ export default function ProductViewer() {
                 setProductTitle(purchase.product?.title || 'Document');
                 setCustomerEmail(purchase.customer_email || '');
 
-                // Fetch seller's brand/name for watermark
+                // Fetch seller's branding for watermark
                 if (purchase.product?.user_id) {
-                    const { data: sellerProfile } = await supabase
-                        .from('profiles')
-                        .select('name, username')
+                    const { data: branding } = await supabase
+                        .from('branding_settings')
+                        .select('brand_name, is_enabled')
                         .eq('user_id', purchase.product.user_id)
                         .single();
-                    setBrandName(sellerProfile?.name || sellerProfile?.username || 'Licensed Content');
+
+                    if (branding?.is_enabled && branding?.brand_name) {
+                        setBrandName(branding.brand_name);
+                    } else {
+                        // Fallback to profile name if branding not enabled
+                        const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('name')
+                            .eq('user_id', purchase.product.user_id)
+                            .single();
+                        setBrandName(profile?.name || 'Licensed Content');
+                    }
                 }
 
                 const { data: accessData, error: accessError } = await supabase.functions.invoke('secure-product-access', {
@@ -128,12 +140,19 @@ export default function ProductViewer() {
 
                 setFileUrl(accessData.url);
 
-                await supabase
+                // Log the view and save the analytics ID
+                const { data: analyticsRecord } = await supabase
                     .from('product_analytics')
                     .insert({
                         purchase_id: purchase.id,
                         device_info: navigator.userAgent
-                    });
+                    })
+                    .select('id')
+                    .single();
+
+                if (analyticsRecord) {
+                    analyticsId.current = analyticsRecord.id;
+                }
 
             } catch (err: any) {
                 console.error(err);
@@ -145,11 +164,40 @@ export default function ProductViewer() {
 
         loadContent();
 
-        return () => {
-            const duration = Math.floor((Date.now() - viewStartTime.current) / 1000);
-            if (duration > 5) {
-                console.log('View duration:', duration);
+        // Update duration periodically and on page unload
+        const updateDuration = async () => {
+            if (analyticsId.current) {
+                const duration = Math.floor((Date.now() - viewStartTime.current) / 1000);
+                if (duration > 3) {
+                    try {
+                        await supabase
+                            .from('product_analytics')
+                            .update({ duration_seconds: duration })
+                            .eq('id', analyticsId.current);
+                        console.log('View duration updated:', duration, 'seconds');
+                    } catch (e) {
+                        console.error('Failed to update duration:', e);
+                    }
+                }
             }
+        };
+
+        // Periodic update every 30 seconds
+        const intervalId = setInterval(updateDuration, 30000);
+
+        // Also update on visibility change (tab switch, minimize)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                updateDuration();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(intervalId);
+            updateDuration();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [accessToken]);
 

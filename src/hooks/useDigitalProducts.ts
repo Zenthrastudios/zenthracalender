@@ -73,14 +73,32 @@ export function useProductBySlug(username: string | undefined, slug: string | un
 
             if (error || !product) return null;
 
+            // Fetch branding settings
+            const { data: branding } = await supabase
+                .from('branding_settings')
+                .select('brand_name, brand_logo_url, is_enabled')
+                .eq('user_id', profile.user_id)
+                .single();
+
+            // Use branding if enabled, otherwise fallback to profile
+            const isBrandingEnabled = branding?.is_enabled === true;
+            const displayName = isBrandingEnabled && branding?.brand_name?.trim()
+                ? branding.brand_name
+                : profile.name;
+            // Only use brand logo if it exists and is not empty
+            const displayLogo = isBrandingEnabled && branding?.brand_logo_url?.trim()
+                ? branding.brand_logo_url
+                : null; // Use null to show fallback initial instead of profile avatar
+
             return {
                 product: product as DigitalProduct,
                 seller: {
-                    name: profile.name,
+                    name: displayName,
                     username,
-                    avatar_url: profile.avatar_url,
+                    avatar_url: displayLogo,
                     id: profile.user_id
-                }
+                },
+                branding: isBrandingEnabled ? branding : null
             };
         },
         enabled: !!username && !!slug,
