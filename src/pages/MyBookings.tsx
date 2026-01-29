@@ -25,6 +25,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useUserBranding } from '@/hooks/useProfile';
+import { FileText, Download as DownloadIcon } from 'lucide-react';
 
 interface Booking {
   id: string;
@@ -52,6 +53,19 @@ interface Booking {
   } | null;
 }
 
+interface ProductPurchase {
+  id: string;
+  created_at: string;
+  amount: number;
+  access_token: string;
+  product: {
+    id: string;
+    title: string;
+    description: string | null;
+    thumbnail_url: string | null;
+  } | null;
+}
+
 type BookingQueryRow = Omit<Booking, 'event_type' | 'host'> & {
   event_type: Booking['event_type'] | Booking['event_type'][];
 };
@@ -61,6 +75,7 @@ export default function MyBookings() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [purchases, setPurchases] = useState<ProductPurchase[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -142,6 +157,24 @@ export default function MyBookings() {
       }));
 
       setBookings(transformedBookings as Booking[]);
+
+      // Also fetch purchased products for this email
+      console.log('Fetching products for email:', searchEmail.trim());
+      const { data: productData, error: productError } = await supabase
+        .from('product_purchases')
+        .select('id, created_at, amount, access_token, product:digital_products(id, title, description, thumbnail_url)')
+        .eq('customer_email', searchEmail.trim())
+        .eq('status', 'paid')
+        .order('created_at', { ascending: false });
+
+      console.log('Product query result:', { productData, productError });
+
+      if (productError) {
+        console.error('Error fetching products:', productError);
+      } else {
+        console.log('Setting purchases:', productData);
+        setPurchases(productData as unknown as ProductPurchase[] || []);
+      }
     } catch (error: any) {
       console.error('Error fetching bookings:', error);
       toast.error('Failed to fetch bookings');
@@ -284,14 +317,74 @@ export default function MyBookings() {
         {/* Results Grid */}
         {(hasSearched || user) && !isLoading && (
           <div className="space-y-16">
-            {bookings.length === 0 ? (
+            {bookings.length === 0 && purchases.length === 0 ? (
               <div className="bg-[#1C1C1E] rounded-[2.5rem] border border-white/5 p-20 text-center shadow-inner">
                 <Calendar className="w-16 h-16 mx-auto text-gray-800 mb-6" />
-                <h3 className="text-2xl font-black text-white mb-2">No bookings found</h3>
-                <p className="text-gray-500 font-medium">We couldn't find any appointments for this email.</p>
+                <h3 className="text-2xl font-black text-white mb-2">No bookings or purchases found</h3>
+                <p className="text-gray-500 font-medium">We couldn't find any appointments or digital products for this email.</p>
               </div>
             ) : (
               <div className="grid gap-16">
+                {/* Digital Products Section */}
+                {purchases.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-primary" />
+                      </div>
+                      <h2 className="text-2xl font-black text-white tracking-tight">My Digital Products</h2>
+                      <div className="h-px flex-1 bg-white/5"></div>
+                      <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest bg-white/[0.02] px-3 py-1 rounded-full border border-white/5">{purchases.length} Total</span>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {purchases.map((purchase) => (
+                        <div key={purchase.id} className="group bg-[#1C1C1E] rounded-[2rem] border border-white/5 overflow-hidden hover:border-white/10 transition-all duration-300 hover:shadow-2xl">
+                          {/* Thumbnail */}
+                          <div className="aspect-video w-full bg-gradient-to-br from-primary/10 to-primary/5 relative overflow-hidden">
+                            {purchase.product?.thumbnail_url ? (
+                              <img
+                                src={purchase.product.thumbnail_url}
+                                alt={purchase.product.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <FileText className="w-12 h-12 text-muted-foreground/30" />
+                              </div>
+                            )}
+                            <div className="absolute top-3 right-3">
+                              <span className="px-3 py-1 rounded-lg bg-green-500/90 backdrop-blur-sm text-white text-[10px] font-black uppercase tracking-widest">Purchased</span>
+                            </div>
+                          </div>
+
+                          {/* Content */}
+                          <div className="p-6 space-y-4">
+                            <div>
+                              <h3 className="text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-primary transition-colors">{purchase.product?.title || 'Digital Product'}</h3>
+                              <p className="text-xs text-gray-500 font-medium">{format(new Date(purchase.created_at), 'MMM d, yyyy')}</p>
+                            </div>
+
+                            <p className="text-sm text-gray-400 line-clamp-2">{purchase.product?.description || 'Digital product'}</p>
+
+                            <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                              <span className="text-sm font-bold text-white">₹{purchase.amount}</span>
+                              <Button
+                                size="sm"
+                                onClick={() => navigate(`/view/${purchase.access_token}`)}
+                                className="rounded-xl font-bold bg-white text-black hover:bg-gray-200 transition-all active:scale-95"
+                              >
+                                View Product
+                                <ExternalLink className="w-3 h-3 ml-2" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Upcoming Section */}
                 {upcomingBookings.length > 0 && (
                   <div>

@@ -14,6 +14,141 @@ export type Database = {
   }
   public: {
     Tables: {
+      digital_products: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          description: string | null
+          price: number
+          file_url: string
+          file_type: string
+          thumbnail_url: string | null
+          slug: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          description?: string | null
+          price: number
+          file_url: string
+          file_type?: string
+          thumbnail_url?: string | null
+          slug: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          description?: string | null
+          price?: number
+          file_url?: string
+          file_type?: string
+          thumbnail_url?: string | null
+          slug?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "digital_products_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      product_purchases: {
+        Row: {
+          id: string
+          product_id: string
+          customer_email: string
+          customer_phone: string | null
+          customer_name: string
+          amount: number
+          status: string
+          payment_provider: string | null
+          payment_id: string | null
+          access_token: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          customer_email: string
+          customer_phone?: string | null
+          customer_name: string
+          amount: number
+          status?: string
+          payment_provider?: string | null
+          payment_id?: string | null
+          access_token?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          customer_email?: string
+          customer_phone?: string | null
+          customer_name?: string
+          amount?: number
+          status?: string
+          payment_provider?: string | null
+          payment_id?: string | null
+          access_token?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_purchases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "digital_products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      product_analytics: {
+        Row: {
+          id: string
+          purchase_id: string
+          viewed_at: string
+          duration_seconds: number | null
+          device_info: string | null
+        }
+        Insert: {
+          id?: string
+          purchase_id: string
+          viewed_at?: string
+          duration_seconds?: number | null
+          device_info?: string | null
+        }
+        Update: {
+          id?: string
+          purchase_id?: string
+          viewed_at?: string
+          duration_seconds?: number | null
+          device_info?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_analytics_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "product_purchases"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       availability: {
         Row: {
           created_at: string

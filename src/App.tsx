@@ -33,6 +33,11 @@ import MyBookings from "./pages/MyBookings";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
+import DigitalProducts from "./pages/DigitalProducts";
+import DigitalProductEditor from "./pages/DigitalProductEditor";
+import PublicProduct from "./pages/PublicProduct";
+import ProductViewer from "./pages/ProductViewer";
+import MyPurchases from "./pages/MyPurchases";
 
 const queryClient = new QueryClient();
 
@@ -151,8 +156,12 @@ function AppRoutes() {
       <Route path="/booking/confirmed/:bookingId" element={<BookingConfirmation />} />
       <Route path="/reschedule/:token" element={<Reschedule />} />
       <Route path="/my-bookings" element={<MyBookings />} />
+      <Route path="/my-purchases" element={<MyPurchases />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
+
+      <Route path="/store/:username/:slug" element={<PublicProduct />} />
+      <Route path="/view/:accessToken" element={<ProductViewer />} />
 
       {/* Guest Route */}
       <Route path="/guest" element={
@@ -170,6 +179,21 @@ function AppRoutes() {
       <Route path="/dashboard/bookings" element={
         <AdminRoute>
           <Bookings />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/products" element={
+        <AdminRoute>
+          <DigitalProducts />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/products/new" element={
+        <AdminRoute>
+          <DigitalProductEditor />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/products/:id" element={
+        <AdminRoute>
+          <DigitalProductEditor />
         </AdminRoute>
       } />
       <Route path="/dashboard/events/:id" element={

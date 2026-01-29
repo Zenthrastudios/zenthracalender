@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, User, Mail, Video, MapPin, LogOut, ExternalLink } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar, Clock, User, LogOut, Video, MapPin, FileText, ExternalLink, Package } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -32,25 +33,40 @@ interface Booking {
   } | null;
 }
 
+interface ProductPurchase {
+  id: string;
+  created_at: string;
+  amount: number;
+  access_token: string;
+  product: {
+    id: string;
+    title: string;
+    description: string | null;
+    thumbnail_url: string | null;
+  } | null;
+}
+
 export default function GuestDashboard() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [products, setProducts] = useState<ProductPurchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (user?.email) {
-      fetchBookings();
+      fetchData();
     }
   }, [user?.email]);
 
-  const fetchBookings = async () => {
+  const fetchData = async () => {
     if (!user?.email) return;
 
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase
+      // Fetch Bookings
+      const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
         .select(`
           id,
@@ -73,14 +89,15 @@ export default function GuestDashboard() {
         .ilike('attendee_email', user.email)
         .order('start_time', { ascending: true });
 
-      if (error) throw error;
+      if (bookingsError) throw bookingsError;
 
-      const rows = (data || []).map((booking: any) => ({
+      // Transform Bookings
+      const bookingRows = (bookingsData || []).map((booking: any) => ({
         ...booking,
         event_type: Array.isArray(booking.event_type) ? booking.event_type[0] : booking.event_type,
       }));
 
-      const hostIds = Array.from(new Set(rows.map((b: any) => b.host_id).filter(Boolean)));
+      const hostIds = Array.from(new Set(bookingRows.map((b: any) => b.host_id).filter(Boolean)));
       let hostByUserId = new Map<string, { name: string; username: string | null }>();
 
       if (hostIds.length > 0) {
@@ -89,23 +106,35 @@ export default function GuestDashboard() {
           .select('user_id, name, username')
           .in('user_id', hostIds);
 
-        if (hostError) throw hostError;
-
-        (hostProfiles || []).forEach((p: any) => {
-          hostByUserId.set(p.user_id, { name: p.name, username: p.username });
-        });
+        if (!hostError && hostProfiles) {
+          hostProfiles.forEach((p: any) => {
+            hostByUserId.set(p.user_id, { name: p.name, username: p.username });
+          });
+        }
       }
 
-      const transformed = rows.map((b: any) => ({
+      const transformedBookings = bookingRows.map((b: any) => ({
         ...b,
         host: hostByUserId.get(b.host_id) || null,
       }));
 
-      setBookings(transformed as Booking[]);
+      setBookings(transformedBookings as Booking[]);
+
+      // Fetch Products
+      const { data: productsData, error: productsError } = await supabase
+        .from('product_purchases')
+        .select('id, created_at, amount, access_token, product:digital_products(id, title, description, thumbnail_url)')
+        .eq('customer_email', user.email)
+        .eq('status', 'paid')
+        .order('created_at', { ascending: false });
+
+      if (productsError) throw productsError;
+
+      setProducts(productsData as unknown as ProductPurchase[] || []);
+
     } catch (error: any) {
-      console.error('Error fetching guest bookings:', error);
-      toast.error(error?.message || 'Failed to load your bookings');
-      setBookings([]);
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
       setIsLoading(false);
     }
@@ -116,6 +145,7 @@ export default function GuestDashboard() {
     navigate('/');
   };
 
+  // ... helpers ...
   const upcomingBookings = bookings.filter(
     b => b.status === 'confirmed' && !isPast(parseISO(b.end_time))
   );
@@ -145,10 +175,8 @@ export default function GuestDashboard() {
   const getJoinLink = (booking: Booking) => {
     const meetLink = booking.meet_link;
     if (meetLink) return meetLink;
-
     const lv = booking.event_type?.location_value;
     if (lv && /^https?:\/\//i.test(lv)) return lv;
-
     return null;
   };
 
@@ -156,7 +184,7 @@ export default function GuestDashboard() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
               <User className="w-5 h-5 text-primary" />
@@ -174,141 +202,198 @@ export default function GuestDashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-foreground mb-2">My Bookings</h2>
-          <p className="text-muted-foreground">View and manage your scheduled sessions</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">My Library</h2>
+          <p className="text-muted-foreground">Access your bookings, purchases, and resources.</p>
         </div>
 
-        {isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-pulse text-muted-foreground">Loading your bookings...</div>
-          </div>
-        ) : bookings.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No bookings yet</h3>
-              <p className="text-muted-foreground">
-                You haven't booked any sessions. Check out available sessions to get started.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-8">
-            {/* Upcoming Bookings */}
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="bookings">Bookings</TabsTrigger>
+            <TabsTrigger value="products">Products</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-8">
+            {/* Quick Overview Section */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Upcoming Sessions</CardTitle>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{upcomingBookings.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">My Products</CardTitle>
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{products.length}</div>
+                </CardContent>
+              </Card>
+            </div>
+
             {upcomingBookings.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary" />
-                  Upcoming Sessions ({upcomingBookings.length})
-                </h3>
-                <div className="space-y-4">
-                  {upcomingBookings.map((booking) => (
-                    <Card key={booking.id} className="overflow-hidden">
-                      <CardContent className="p-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-semibold text-foreground">
-                                {booking.event_type?.title || 'Session'}
-                              </h4>
-                              {getStatusBadge(booking.status, booking.end_time)}
-                            </div>
-                            
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                {format(parseISO(booking.start_time), 'EEEE, MMMM d, yyyy')}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                {format(parseISO(booking.start_time), 'h:mm a')} - {format(parseISO(booking.end_time), 'h:mm a')}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {getLocationIcon(booking.event_type?.location_type || 'in_person')}
-                                {booking.event_type?.duration} min
-                              </div>
-                            </div>
-
-                            {booking.host && (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <User className="w-4 h-4" />
-                                Host: {booking.host.name}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            {getJoinLink(booking) ? (
-                              <Button asChild>
-                                <a href={getJoinLink(booking) as string} target="_blank" rel="noopener noreferrer">
-                                  <Video className="w-4 h-4 mr-2" />
-                                  Join Meeting
-                                </a>
-                              </Button>
-                            ) : booking.event_type?.location_type === 'google_meet' ? (
-                              <Button disabled>
-                                <Video className="w-4 h-4 mr-2" />
-                                Link pending
-                              </Button>
-                            ) : null}
-                            {booking.reschedule_token && (
-                              <Button variant="outline" asChild>
-                                <Link to={`/reschedule/${booking.reschedule_token}`}>
-                                  Reschedule
-                                </Link>
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                <h3 className="text-lg font-semibold mb-4">Next Session</h3>
+                <Card className="overflow-hidden border-l-4 border-l-primary">
+                  <CardContent className="p-6">
+                    {/* Render just the first upcoming booking as a summary */}
+                    <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+                      <div>
+                        <h4 className="font-semibold text-lg">{upcomingBookings[0].event_type?.title}</h4>
+                        <p className="text-muted-foreground flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          {format(parseISO(upcomingBookings[0].start_time), 'EEEE, MMMM d, yyyy • h:mm a')}
+                        </p>
+                      </div>
+                      {getJoinLink(upcomingBookings[0]) && (
+                        <Button asChild>
+                          <a href={getJoinLink(upcomingBookings[0]) as string} target="_blank" rel="noopener noreferrer">Download / Join</a>
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
+          </TabsContent>
 
-            {/* Past Bookings */}
-            {pastBookings.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-muted-foreground mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  Past Sessions ({pastBookings.length})
-                </h3>
-                <div className="space-y-4 opacity-75">
-                  {pastBookings.map((booking) => (
-                    <Card key={booking.id}>
-                      <CardContent className="p-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium text-foreground">
-                                {booking.event_type?.title || 'Session'}
-                              </h4>
-                              {getStatusBadge(booking.status, booking.end_time)}
+          <TabsContent value="bookings" className="space-y-6">
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-pulse text-muted-foreground">Loading bookings...</div>
+              </div>
+            ) : bookings.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No bookings yet</h3>
+                  <p className="text-muted-foreground">You haven't booked any sessions yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-8">
+                {/* Upcoming Bookings Listing (Reuse existing logic) */}
+                {upcomingBookings.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-primary" /> Upcoming
+                    </h3>
+                    {upcomingBookings.map((booking) => (
+                      <Card key={booking.id}>
+                        <CardContent className="p-6">
+                          <div className="flex flex-col md:flex-row justify-between gap-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold">{booking.event_type?.title}</h4>
+                                {getStatusBadge(booking.status, booking.end_time)}
+                              </div>
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4" />
+                                  {format(parseISO(booking.start_time), 'MMM d, h:mm a')} - {format(parseISO(booking.end_time), 'h:mm a')}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {getLocationIcon(booking.event_type?.location_type || '')}
+                                  {booking.event_type?.location_type}
+                                </div>
+                              </div>
                             </div>
-                            
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                {format(parseISO(booking.start_time), 'MMM d, yyyy')}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                {format(parseISO(booking.start_time), 'h:mm a')}
-                              </div>
+                            <div className="flex items-center gap-2">
+                              {getJoinLink(booking) && (
+                                <Button asChild size="sm">
+                                  <a href={getJoinLink(booking) as string} target="_blank" rel="noopener noreferrer">
+                                    Join
+                                  </a>
+                                </Button>
+                              )}
+                              {booking.reschedule_token && (
+                                <Button variant="outline" size="sm" asChild>
+                                  <Link to={`/reschedule/${booking.reschedule_token}`}>Reschedule</Link>
+                                </Button>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {pastBookings.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 text-muted-foreground">
+                      <Clock className="w-5 h-5" /> Past
+                    </h3>
+                    {pastBookings.map((booking) => (
+                      <Card key={booking.id} className="opacity-75">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium">{booking.event_type?.title}</p>
+                              <p className="text-sm text-muted-foreground">{format(parseISO(booking.start_time), 'MMM d, yyyy')}</p>
+                            </div>
+                            {getStatusBadge(booking.status, booking.end_time)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
+          </TabsContent>
+
+          <TabsContent value="products" className="space-y-6">
+            {isLoading ? (
+              <div className="text-center py-12">Loading products...</div>
+            ) : products.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Package className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No products found</h3>
+                  <p className="text-muted-foreground">You haven't purchased any digital products yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {products.map((purchase) => (
+                  <Card key={purchase.id} className="overflow-hidden flex flex-col group hover:shadow-lg transition-all">
+                    <div className="aspect-video w-full bg-muted relative overflow-hidden">
+                      {purchase.product?.thumbnail_url ? (
+                        <img
+                          src={purchase.product.thumbnail_url}
+                          alt={purchase.product.title}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <FileText className="w-12 h-12 text-muted-foreground/30" />
+                        </div>
+                      )}
+                      <Badge className="absolute top-2 right-2 bg-green-500/90 hover:bg-green-500">Purchased</Badge>
+                    </div>
+                    <CardHeader>
+                      <CardTitle className="line-clamp-1 text-lg">{purchase.product?.title}</CardTitle>
+                      <CardDescription className="line-clamp-2">{purchase.product?.description}</CardDescription>
+                    </CardHeader>
+                    <CardFooter className="mt-auto pt-0">
+                      <Button className="w-full" onClick={() => navigate(`/view/${purchase.access_token}`)}>
+                        View Content <ExternalLink className="w-4 h-4 ml-2" />
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

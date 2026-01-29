@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export type WhatsAppEventType = 'customer' | 'instructor' | 'cancellation' | 'reschedule' | 'reschedule_instructor' | 'payment_failed' | 'reminder' | 'reminder_instructor';
+export type WhatsAppEventType = 'customer' | 'instructor' | 'cancellation' | 'reschedule' | 'reschedule_instructor' | 'payment_failed' | 'reminder' | 'reminder_instructor' | 'product_purchase';
 
 
 export async function sendWhatsAppNotification(
