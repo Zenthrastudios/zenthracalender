@@ -36,6 +36,8 @@ import {
   FileText,
   Timer,
   BarChart3,
+  GraduationCap,
+  CheckCircle,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -115,6 +117,55 @@ export default function Analytics() {
         products: products || [],
         purchases: purchases || [],
         analytics: analytics
+      };
+    },
+    enabled: !!user,
+  });
+
+  // Fetch course analytics
+  const { data: courseData, isLoading: coursesLoading } = useQuery({
+    queryKey: ['analytics-courses', user?.id],
+    queryFn: async () => {
+      if (!user) return { courses: [], purchases: [], progress: [] };
+
+      // Fetch all courses
+      const { data: courses, error: coursesError } = await (supabase as any)
+        .from('courses')
+        .select('*, lessons:course_lessons(id)')
+        .eq('user_id', user.id);
+
+      if (coursesError) throw coursesError;
+
+      const courseIds = (courses || []).map(c => c.id);
+      if (courseIds.length === 0) {
+        return { courses: courses || [], purchases: [], progress: [] };
+      }
+
+      // Fetch all purchases for user's courses
+      const { data: purchases, error: purchasesError } = await (supabase as any)
+        .from('course_purchases')
+        .select('*')
+        .in('course_id', courseIds)
+        .eq('status', 'paid');
+
+      if (purchasesError) throw purchasesError;
+
+      // Fetch all progress for these purchases
+      const purchaseIds = (purchases || []).map(p => p.id);
+      let progress: any[] = [];
+      if (purchaseIds.length > 0) {
+        const { data: progressData, error: progressError } = await (supabase as any)
+          .from('course_progress')
+          .select('*')
+          .in('purchase_id', purchaseIds);
+
+        if (!progressError) progress = progressData || [];
+      }
+
+      return {
+        courses: courses || [],
+        purchases: purchases || [],
+        progress: progress
       };
     },
     enabled: !!user,
@@ -248,10 +299,22 @@ export default function Analytics() {
       };
     }).sort((a, b) => b.revenue - a.revenue);
 
-    // Recent purchases list
+    // Recent purchases list with view data
     const recentPurchases = [...purchases]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 10);
+      .slice(0, 20)
+      .map(p => {
+        const purchaseAnalytics = analytics.filter(a => a.purchase_id === p.id);
+        const viewsCount = purchaseAnalytics.length;
+        const totalDuration = purchaseAnalytics.reduce((sum, a) => sum + (a.duration_seconds || 0), 0);
+
+        return {
+          ...p,
+          viewsCount,
+          avgDuration: viewsCount > 0 ? Math.round(totalDuration / viewsCount) : 0,
+          productTitle: p.product?.title || 'Unknown Product'
+        };
+      });
 
     // Daily purchase data for chart
     const dailyData = eachDayOfInterval({
@@ -295,6 +358,111 @@ export default function Analytics() {
       dailyData,
     };
   }, [productData]);
+
+  // Calculate course stats
+  const courseStats = useMemo(() => {
+    if (!courseData) return null;
+
+    const { courses, purchases, progress } = courseData;
+    const now = new Date();
+    const thirtyDaysAgo = subDays(now, 30);
+    const sixtyDaysAgo = subDays(now, 60);
+
+    const thisMonthPurchases = purchases.filter(p => new Date(p.created_at) >= thirtyDaysAgo);
+    const lastMonthPurchases = purchases.filter(p => {
+      const date = new Date(p.created_at);
+      return date >= sixtyDaysAgo && date < thirtyDaysAgo;
+    });
+
+    const totalRevenue = purchases.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const thisMonthRevenue = thisMonthPurchases.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const lastMonthRevenue = lastMonthPurchases.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    const revenueChange = lastMonthRevenue > 0
+      ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(1)
+      : thisMonthRevenue > 0 ? 100 : 0;
+
+    // Completion rate
+    const totalLessons = courses.reduce((sum, c) => sum + (c.lessons?.length || 0), 0);
+    const completedLessons = progress.filter(p => p.is_completed).length;
+    const overallCompletionRate = totalLessons > 0 ? (completedLessons / (purchases.length * totalLessons) * 100) : 0;
+
+    // Breakdown per course
+    const courseBreakdown = courses.map(course => {
+      const coursePurchases = purchases.filter(p => p.course_id === course.id);
+      const courseRevenue = coursePurchases.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+      const purchaseIds = coursePurchases.map(p => p.id);
+      const courseProgress = progress.filter(p => purchaseIds.includes(p.purchase_id));
+      const courseLessonsCount = course.lessons?.length || 0;
+
+      const completedCount = courseProgress.filter(p => p.is_completed).length;
+      const completionRate = (coursePurchases.length > 0 && courseLessonsCount > 0)
+        ? (completedCount / (coursePurchases.length * courseLessonsCount) * 100)
+        : 0;
+
+      return {
+        id: course.id,
+        title: course.title,
+        price: course.price,
+        enrollments: coursePurchases.length,
+        revenue: courseRevenue,
+        completionRate: Math.round(completionRate),
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+
+    // Recent enrollments with progress
+    const recentEnrollments = [...purchases]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 20)
+      .map(p => {
+        const course = courses.find(c => c.id === p.course_id);
+        const courseLessonsCount = course?.lessons?.length || 0;
+        const userProgress = progress.filter(pr => pr.purchase_id === p.id);
+        const completedCount = userProgress.filter(pr => pr.is_completed).length;
+        const completionRate = courseLessonsCount > 0 ? (completedCount / courseLessonsCount * 100) : 0;
+
+        return {
+          ...p,
+          courseTitle: course?.title || 'Unknown Course',
+          completionRate: Math.round(completionRate),
+          lastWatched: userProgress.sort((a, b) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime())[0]?.last_watched_at
+        };
+      });
+
+    // Daily trend
+    const dailyData = eachDayOfInterval({
+      start: subDays(new Date(), 29),
+      end: new Date(),
+    }).map(day => {
+      const dayStart = startOfDay(day);
+      const dayEnd = endOfDay(day);
+
+      const dayPurchases = purchases.filter(p => {
+        const date = new Date(p.created_at);
+        return date >= dayStart && date <= dayEnd;
+      });
+
+      return {
+        date: format(day, 'MMM d'),
+        enrollments: dayPurchases.length,
+        revenue: dayPurchases.reduce((sum, p) => sum + Number(p.amount || 0), 0),
+      };
+    });
+
+    return {
+      totalCourses: courses.length,
+      totalEnrollments: purchases.length,
+      thisMonthEnrollments: thisMonthPurchases.length,
+      totalRevenue,
+      thisMonthRevenue,
+      revenueChange: Number(revenueChange),
+      overallCompletionRate: Math.round(overallCompletionRate),
+      courseBreakdown,
+      recentEnrollments,
+      dailyData,
+    };
+  }, [courseData]);
 
   // Popular time slots for bookings
   const timeSlotData = useMemo(() => {
@@ -421,6 +589,10 @@ export default function Analytics() {
               <TabsTrigger value="bookings" className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 Bookings
+              </TabsTrigger>
+              <TabsTrigger value="courses" className="flex items-center gap-2">
+                <GraduationCap className="w-4 h-4" />
+                Courses
               </TabsTrigger>
               <TabsTrigger value="products" className="flex items-center gap-2">
                 <Package className="w-4 h-4" />
@@ -678,6 +850,199 @@ export default function Analytics() {
               </div>
             </TabsContent>
 
+            {/* COURSES TAB */}
+            <TabsContent value="courses" className="space-y-6">
+              {/* Course Stats Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="p-2 rounded-lg bg-orange-500/10 w-fit">
+                      <Users className="h-5 w-5 text-orange-500" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">Total Enrollments</p>
+                    <p className="text-2xl font-bold mt-1">{courseStats?.totalEnrollments || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {courseStats?.thisMonthEnrollments || 0} this month
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="p-2 rounded-lg bg-emerald-500/10 w-fit">
+                      <IndianRupee className="h-5 w-5 text-emerald-500" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">Course Revenue</p>
+                    <p className="text-2xl font-bold mt-1">₹{(courseStats?.totalRevenue || 0).toLocaleString('en-IN')}</p>
+                    <div className={cn(
+                      "flex items-center text-xs mt-1",
+                      (courseStats?.revenueChange || 0) >= 0 ? "text-emerald-600" : "text-red-500"
+                    )}>
+                      {(courseStats?.revenueChange || 0) >= 0 ? (
+                        <TrendingUp className="w-3 h-3 mr-1" />
+                      ) : (
+                        <TrendingDown className="w-3 h-3 mr-1" />
+                      )}
+                      <span>{Math.abs(courseStats?.revenueChange || 0)}% from last month</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="p-2 rounded-lg bg-blue-500/10 w-fit">
+                      <CheckCircle className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">Completion Rate</p>
+                    <p className="text-2xl font-bold mt-1">{courseStats?.overallCompletionRate || 0}%</p>
+                    <p className="text-xs text-muted-foreground mt-1">Average across all users</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="p-2 rounded-lg bg-violet-500/10 w-fit">
+                      <GraduationCap className="h-5 w-5 text-violet-500" />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">Total Courses</p>
+                    <p className="text-2xl font-bold mt-1">{courseStats?.totalCourses || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Active digital courses</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Charts Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Enrollment Trends */}
+                <Card className="lg:col-span-2">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Enrollment Trends</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={courseStats?.dailyData || []}>
+                          <defs>
+                            <linearGradient id="colorEnrollments" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#F56565" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#F56565" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <XAxis
+                            dataKey="date"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                            interval="preserveStartEnd"
+                          />
+                          <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'hsl(var(--card))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: '8px',
+                            }}
+                          />
+                          <Area type="monotone" dataKey="enrollments" name="Enrollments" stroke="#F56565" strokeWidth={2} fill="url(#colorEnrollments)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Course Breakdown Table */}
+                <Card className="lg:col-span-1">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Top Courses</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="text-xs">Title</TableHead>
+                          <TableHead className="text-right text-xs">Rev</TableHead>
+                          <TableHead className="text-right text-xs">Cmpl%</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {courseStats?.courseBreakdown.slice(0, 5).map((course) => (
+                          <TableRow key={course.id}>
+                            <TableCell className="text-xs font-medium line-clamp-1">{course.title}</TableCell>
+                            <TableCell className="text-right text-xs">₹{course.revenue}</TableCell>
+                            <TableCell className="text-right text-xs">{course.completionRate}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Enrollment Activity Table */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base text-primary">Student Activity</CardTitle>
+                      <CardDescription>Track individual student progress and engagement</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="text-xs">Customer</TableHead>
+                        <TableHead className="text-xs">Course</TableHead>
+                        <TableHead className="text-right text-xs">Progress</TableHead>
+                        <TableHead className="text-right text-xs">Last Activity</TableHead>
+                        <TableHead className="text-right text-xs">Joined</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {courseStats?.recentEnrollments.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            No student activity tracked yet
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        courseStats?.recentEnrollments.map((enrollment) => (
+                          <TableRow key={enrollment.id} className="hover:bg-muted/30">
+                            <TableCell className="font-medium">
+                              <div className="flex flex-col">
+                                <span className="text-sm truncate max-w-[150px]">{enrollment.customer_email}</span>
+                                <span className="text-[10px] text-muted-foreground">{enrollment.customer_phone || 'N/A'}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs">{enrollment.courseTitle}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <span className="text-[10px] font-medium">{enrollment.completionRate}%</span>
+                                <div className="w-12 h-1 bg-muted rounded-full overflow-hidden">
+                                  <div className="h-full bg-orange-500" style={{ width: `${enrollment.completionRate}%` }} />
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right text-[10px] text-muted-foreground">
+                              {enrollment.lastWatched ? format(new Date(enrollment.lastWatched), 'MMM d, p') : 'Never'}
+                            </TableCell>
+                            <TableCell className="text-right text-[10px] text-muted-foreground">
+                              {format(new Date(enrollment.created_at), 'MMM d')}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* PRODUCTS TAB */}
             <TabsContent value="products" className="space-y-6">
               {/* Product Stats Cards */}
@@ -870,56 +1235,64 @@ export default function Analytics() {
                 </CardContent>
               </Card>
 
-              {/* Recent Purchases */}
+              {/* Recent Activity & Sales */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <ShoppingBag className="w-5 h-5" />
-                    Recent Purchases
+                    <ShoppingBag className="w-5 h-5 text-primary" />
+                    Customer Activity
                   </CardTitle>
-                  <CardDescription>Latest customers who purchased your products</CardDescription>
+                  <CardDescription>Latest customer engagement and sales tracking</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  {productStats?.recentPurchases?.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p>No purchases yet.</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Customer</TableHead>
-                            <TableHead>Product</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead className="text-right">Date</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {productStats?.recentPurchases?.map((purchase: any) => (
-                            <TableRow key={purchase.id}>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                    <span className="text-xs font-medium text-primary">
-                                      {purchase.customer_email?.charAt(0).toUpperCase()}
-                                    </span>
-                                  </div>
-                                  <span className="text-sm">{purchase.customer_email}</span>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="text-xs">Customer</TableHead>
+                        <TableHead className="text-xs">Product</TableHead>
+                        <TableHead className="text-right text-xs">Engagement</TableHead>
+                        <TableHead className="text-right text-xs">Revenue</TableHead>
+                        <TableHead className="text-right text-xs">Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {productStats?.recentPurchases?.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            No product activity tracked yet
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        productStats?.recentPurchases?.map((purchase: any) => (
+                          <TableRow key={purchase.id} className="hover:bg-muted/30">
+                            <TableCell className="font-medium">
+                              <div className="flex flex-col">
+                                <span className="text-sm truncate max-w-[150px]">{purchase.customer_email}</span>
+                                <span className="text-[10px] text-muted-foreground">{purchase.customer_phone || 'N/A'}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">{purchase.productTitle}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center gap-1.5">
+                                  <Eye className="w-3 h-3 text-blue-500" />
+                                  <span className="text-xs font-medium">{purchase.viewsCount} views</span>
                                 </div>
-                              </TableCell>
-                              <TableCell>{purchase.product?.title || 'Unknown'}</TableCell>
-                              <TableCell className="text-right font-medium">₹{purchase.amount}</TableCell>
-                              <TableCell className="text-right text-muted-foreground text-sm">
-                                {format(new Date(purchase.created_at), 'MMM d, h:mm a')}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="w-3 h-3 text-violet-500" />
+                                  <span className="text-[10px] text-muted-foreground">{formatDuration(purchase.avgDuration)} avg</span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-emerald-600 truncate">₹{purchase.amount}</TableCell>
+                            <TableCell className="text-right text-[10px] text-muted-foreground">
+                              {format(new Date(purchase.created_at), 'MMM d, h:mm a')}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             </TabsContent>

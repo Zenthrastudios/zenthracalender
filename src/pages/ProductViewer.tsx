@@ -201,6 +201,23 @@ export default function ProductViewer() {
         };
     }, [accessToken]);
 
+    // Set initial scale based on window width
+    useEffect(() => {
+        const updateScale = () => {
+            const width = window.innerWidth;
+            if (width < 640) { // Mobile
+                setScale(0.7);
+            } else if (width < 1024) { // Tablet
+                setScale(1.0);
+            } else {
+                setScale(1.2);
+            }
+        };
+        updateScale();
+        // window.addEventListener('resize', updateScale); // Optional: update on resize
+        // return () => window.removeEventListener('resize', updateScale);
+    }, []);
+
     const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
         setNumPages(numPages);
     }, []);
@@ -228,20 +245,30 @@ export default function ProductViewer() {
     return (
         <div className="flex flex-col h-screen bg-zinc-900 overflow-hidden select-none">
             {/* Header */}
-            <div className="h-14 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between px-4 z-10 shrink-0">
-                <div className="flex items-center gap-2 text-zinc-200">
-                    <Lock className="w-4 h-4 text-green-500" />
-                    <span className="font-medium text-sm truncate max-w-[200px] sm:max-w-md">{productTitle}</span>
+            <div className="h-14 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between px-3 sm:px-4 z-10 shrink-0">
+                <div className="flex items-center gap-2 text-zinc-200 overflow-hidden">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 text-zinc-400 hover:text-white"
+                        onClick={() => navigate('/guest')}
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </Button>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <Lock className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                        <span className="font-medium text-xs sm:text-sm truncate">{productTitle}</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-500 hidden sm:block">
-                        Page {pageNumber} of {numPages}
+                <div className="flex items-center gap-1 sm:gap-2">
+                    <span className="text-[10px] sm:text-xs text-zinc-500 whitespace-nowrap">
+                        {pageNumber} / {numPages}
                     </span>
-                    <div className="flex gap-1">
+                    <div className="flex">
                         <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
+                            onClick={() => setScale(s => Math.max(0.4, s - 0.1))}
                             className="h-8 w-8 text-zinc-400 hover:text-white"
                         >
                             <ZoomOut className="w-4 h-4" />
@@ -249,7 +276,7 @@ export default function ProductViewer() {
                         <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
+                            onClick={() => setScale(s => Math.min(3.0, s + 0.1))}
                             className="h-8 w-8 text-zinc-400 hover:text-white"
                         >
                             <ZoomIn className="w-4 h-4" />
@@ -301,32 +328,36 @@ export default function ProductViewer() {
             </div>
 
             {/* Navigation Footer */}
-            <div className="h-16 bg-zinc-950 border-t border-zinc-800 flex items-center justify-center gap-4 shrink-0">
+            <div className="h-14 sm:h-16 bg-zinc-950 border-t border-zinc-800 flex items-center justify-center gap-3 sm:gap-4 shrink-0">
                 <Button
                     variant="outline"
                     size="sm"
+                    className="h-8 sm:h-9"
                     onClick={() => setPageNumber(p => Math.max(1, p - 1))}
                     disabled={pageNumber <= 1}
                 >
-                    <ChevronLeft className="w-4 h-4 mr-1" />
-                    Previous
+                    <ChevronLeft className="w-4 h-4" />
+                    <span className="hidden sm:inline ml-1">Previous</span>
                 </Button>
-                <span className="text-sm text-zinc-400 min-w-[60px] text-center">
-                    {pageNumber} / {numPages}
-                </span>
+                <div className="bg-zinc-900 px-3 py-1 rounded-md border border-zinc-800">
+                    <span className="text-xs sm:text-sm font-medium text-zinc-300">
+                        {pageNumber} / {numPages}
+                    </span>
+                </div>
                 <Button
                     variant="outline"
                     size="sm"
+                    className="h-8 sm:h-9"
                     onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
                     disabled={pageNumber >= numPages}
                 >
-                    Next
-                    <ChevronRight className="w-4 h-4 ml-1" />
+                    <span className="hidden sm:inline mr-1">Next</span>
+                    <ChevronRight className="w-4 h-4" />
                 </Button>
             </div>
 
             {/* Terms Footer */}
-            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-zinc-900/90 backdrop-blur-sm border border-zinc-700 rounded-lg px-4 py-2 text-xs text-zinc-400 pointer-events-none">
+            <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 bg-zinc-900/90 backdrop-blur-sm border border-zinc-700/50 rounded-full px-3 py-1 text-[10px] sm:text-xs text-zinc-400 pointer-events-none whitespace-nowrap max-w-[90vw] truncate">
                 Licensed to {customerEmail} • {brandName}
             </div>
 

@@ -337,10 +337,6 @@ export default function PublicProductPage() {
                 </div>
             </Card>
 
-            {/* Footer Branding */}
-            <div className="mt-8 text-center text-muted-foreground/60 text-sm">
-                Powered by CalSchedule
-            </div>
         </div>
     );
 }

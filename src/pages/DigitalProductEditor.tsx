@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Upload, FileText, Image as ImageIcon, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { getShortFilename } from '@/lib/fileUtils';
 
 export default function DigitalProductEditor() {
     const { id } = useParams();
@@ -251,10 +252,12 @@ export default function DigitalProductEditor() {
                                             </Button>
                                         </div>
                                     ) : existingFileUrl ? (
-                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                        <div className="flex items-center gap-2 text-primary font-medium">
                                             <FileText className="w-8 h-8" />
-                                            <span>Current File Uploaded</span>
-                                            <p className="text-xs text-muted-foreground">(Click to replace)</p>
+                                            <div className="flex flex-col items-start bg-muted px-2 py-1 rounded">
+                                                <span className="text-xs text-muted-foreground">Current File:</span>
+                                                <span className="truncate max-w-[200px]">{getShortFilename(existingFileUrl)}</span>
+                                            </div>
                                         </div>
                                     ) : (
                                         <>

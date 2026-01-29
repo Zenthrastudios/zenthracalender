@@ -13,7 +13,8 @@ const corsHeaders = {
 
 interface CreateOrderRequest {
   action: "create-order";
-  bookingId: string;
+  bookingId?: string;
+  coursePurchaseId?: string;
   amount: number; // Amount in paise
   currency?: string;
   customerName: string;
@@ -34,7 +35,7 @@ const handler = async (req: Request): Promise<Response> => {
     const body = await req.json();
 
     if (body.action === "create-order") {
-      const { bookingId, amount, currency = "INR", customerName, customerEmail, hostId } = body as CreateOrderRequest;
+      const { bookingId, coursePurchaseId, amount, currency = "INR", customerName, customerEmail, hostId } = body as CreateOrderRequest;
 
       // Fetch user-specific Razorpay settings
       const { data: settings, error: settingsError } = await supabase
@@ -55,13 +56,20 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       const authHeader = btoa(`${keyId}:${keySecret}`);
+      const referenceId = bookingId || coursePurchaseId || `temp_${Date.now()}`;
+
+      // Truncate receipt to max 40 chars
+      // Use last 12 chars of ID + short timestamp
+      const shortId = referenceId.slice(-12);
+      const shortTs = Date.now().toString().slice(-8);
 
       const orderPayload = {
         amount: amount, // Amount in paise
         currency: currency,
-        receipt: `receipt_${bookingId}_${Date.now()}`,
+        receipt: `rcpt_${shortId}_${shortTs}`, // e.g. rcpt_abc123..._12345678 (approx 25-30 chars)
         notes: {
           booking_id: bookingId,
+          course_purchase_id: coursePurchaseId,
           customer_name: customerName,
           customer_email: customerEmail,
           host_id: hostId,
@@ -87,8 +95,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       // Store payment record
-      await supabase.from("payments").insert({
-        booking_id: bookingId.startsWith('temp_') ? null : bookingId,
+      const { error: insertError } = await supabase.from("payments").insert({
+        booking_id: bookingId && !bookingId.startsWith('temp_') ? bookingId : null,
+        course_purchase_id: coursePurchaseId || null,
         provider: "razorpay",
         order_id: orderResult.id,
         amount: amount / 100, // Convert paise to rupees
@@ -97,8 +106,14 @@ const handler = async (req: Request): Promise<Response> => {
         metadata: { host_id: hostId }
       });
 
+      if (insertError) {
+        console.error("Failed to insert payment record:", insertError);
+        throw new Error(`Database error: ${insertError.message}`);
+      }
+
       return new Response(JSON.stringify({
         success: true,
+        id: orderResult.id,
         orderId: orderResult.id,
         amount: orderResult.amount,
         currency: orderResult.currency,
@@ -111,15 +126,27 @@ const handler = async (req: Request): Promise<Response> => {
     } else if (body.action === "verify-payment") {
       const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
 
-      // Fetch the host ID from the payment record
+      console.log(`Verifying payment for Order ID: ${razorpayOrderId}`);
+
+      // Fetch the host ID and purchase IDs from the payment record
       const { data: payment, error: paymentError } = await supabase
         .from("payments")
-        .select("metadata")
+        .select("metadata, order_id, booking_id, course_purchase_id")
         .eq("order_id", razorpayOrderId)
-        .single();
+        .maybeSingle();
 
-      if (paymentError || !payment || !payment.metadata || typeof payment.metadata !== 'object') {
-        throw new Error("Payment record not found");
+      if (paymentError) {
+        console.error("Database error fetching payment:", paymentError);
+        throw new Error(`Database error: ${paymentError.message}`);
+      }
+
+      if (!payment) {
+        throw new Error(`Payment record not found for ID: ${razorpayOrderId}`);
+      }
+
+      // Check metadata
+      if (!payment.metadata || typeof payment.metadata !== 'object') {
+        throw new Error("Payment record corrupted (missing metadata)");
       }
 
       const hostId = (payment.metadata as any).host_id;
@@ -147,7 +174,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.log("Signature verification:", { isValid, razorpayOrderId, razorpayPaymentId });
 
       if (isValid) {
-        // Update payment record
+        // 1. Update payment record
         await supabase
           .from("payments")
           .update({
@@ -157,10 +184,28 @@ const handler = async (req: Request): Promise<Response> => {
           })
           .eq("order_id", razorpayOrderId);
 
+        // 2. Update the associated entity (booking or course purchase)
+        if (payment.course_purchase_id) {
+          console.log(`Updating course purchase ${payment.course_purchase_id} to paid`);
+          await supabase
+            .from("course_purchases")
+            .update({
+              status: "paid",
+              payment_id: razorpayPaymentId
+            })
+            .eq("id", payment.course_purchase_id);
+        } else if (payment.booking_id) {
+          console.log(`Updating booking ${payment.booking_id} to confirmed`);
+          await supabase
+            .from("bookings")
+            .update({ status: "confirmed" })
+            .eq("id", payment.booking_id);
+        }
+
         return new Response(JSON.stringify({
           success: true,
           verified: true,
-          message: "Payment verified successfully",
+          message: "Payment verified and records updated",
         }), {
           status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, User, LogOut, Video, MapPin, FileText, ExternalLink, Package } from 'lucide-react';
+import { Calendar, Clock, User, LogOut, Video, MapPin, FileText, ExternalLink, Package, GraduationCap, Play } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -46,11 +46,30 @@ interface ProductPurchase {
   } | null;
 }
 
+interface CoursePurchase {
+  id: string;
+  created_at: string;
+  amount: number;
+  access_token: string;
+  course: {
+    id: string;
+    title: string;
+    description: string | null;
+    thumbnail_url: string | null;
+    instructor: {
+      name: string;
+    } | null;
+  } | null;
+}
+
+const db = supabase as any;
+
 export default function GuestDashboard() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [products, setProducts] = useState<ProductPurchase[]>([]);
+  const [courses, setCourses] = useState<CoursePurchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -132,6 +151,29 @@ export default function GuestDashboard() {
 
       setProducts(productsData as unknown as ProductPurchase[] || []);
 
+      // Fetch Courses
+      const { data: coursesData, error: coursesError } = await db
+        .from('course_purchases')
+        .select(`
+          id, 
+          created_at, 
+          amount, 
+          access_token, 
+          course:courses(
+            id, 
+            title, 
+            description, 
+            thumbnail_url
+          )
+        `)
+        .eq('customer_email', user.email)
+        .eq('status', 'paid')
+        .order('created_at', { ascending: false });
+
+      if (coursesError) throw coursesError;
+
+      setCourses(coursesData as unknown as CoursePurchase[] || []);
+
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
       toast.error('Failed to load dashboard data');
@@ -212,7 +254,8 @@ export default function GuestDashboard() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
-            <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="courses">Courses</TabsTrigger>
+            <TabsTrigger value="products">Digital Products</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-8">
@@ -229,7 +272,16 @@ export default function GuestDashboard() {
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">My Products</CardTitle>
+                  <CardTitle className="text-sm font-medium">Enrolled Courses</CardTitle>
+                  <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{courses.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Digital Products</CardTitle>
                   <Package className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -257,6 +309,43 @@ export default function GuestDashboard() {
                           <a href={getJoinLink(upcomingBookings[0]) as string} target="_blank" rel="noopener noreferrer">Download / Join</a>
                         </Button>
                       )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Recent Course Access Prompt */}
+            {courses.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Jump Back In</h3>
+                <Card className="overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="flex flex-col md:flex-row">
+                      <div className="w-full md:w-48 h-32 bg-muted relative">
+                        {courses[0].course?.thumbnail_url ? (
+                          <img
+                            src={courses[0].course?.thumbnail_url}
+                            alt={courses[0].course?.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                            <GraduationCap className="w-8 h-8 text-zinc-600" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-6 flex-1 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                          <h4 className="font-semibold text-lg">{courses[0].course?.title}</h4>
+                          <p className="text-sm text-muted-foreground line-clamp-1">{courses[0].course?.description}</p>
+                        </div>
+                        <Button asChild>
+                          <Link to={`/course/${courses[0].access_token}`}>
+                            <Play className="w-4 h-4 mr-2" /> Continue Learning
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -346,6 +435,58 @@ export default function GuestDashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="courses" className="space-y-6">
+            {isLoading ? (
+              <div className="text-center py-12">Loading courses...</div>
+            ) : courses.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <GraduationCap className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No courses found</h3>
+                  <p className="text-muted-foreground">You haven't enrolled in any courses yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {courses.map((purchase) => (
+                  <Card key={purchase.id} className="overflow-hidden flex flex-col group hover:shadow-lg transition-all border-zinc-800">
+                    <div className="aspect-video w-full bg-zinc-900 relative overflow-hidden">
+                      {purchase.course?.thumbnail_url ? (
+                        <img
+                          src={purchase.course.thumbnail_url}
+                          alt={purchase.course.title}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                          <GraduationCap className="w-12 h-12 text-zinc-600" />
+                        </div>
+                      )}
+                      <Badge className="absolute top-2 right-2 bg-blue-500/90 hover:bg-blue-500">Enrolled</Badge>
+                    </div>
+                    <CardHeader className="p-4">
+                      <CardTitle className="line-clamp-1 text-lg">{purchase.course?.title}</CardTitle>
+                      <CardDescription className="line-clamp-2 mt-1">{purchase.course?.description}</CardDescription>
+                      {purchase.course?.instructor?.name && (
+                        <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {purchase.course.instructor.name}
+                        </div>
+                      )}
+                    </CardHeader>
+                    <CardFooter className="mt-auto p-4 pt-0">
+                      <Button className="w-full" asChild>
+                        <Link to={`/course/${purchase.access_token}`}>
+                          Go to Course <Play className="w-4 h-4 ml-2" />
+                        </Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
               </div>
             )}
           </TabsContent>

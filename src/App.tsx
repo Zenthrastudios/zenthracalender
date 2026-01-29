@@ -38,6 +38,10 @@ import DigitalProductEditor from "./pages/DigitalProductEditor";
 import PublicProduct from "./pages/PublicProduct";
 import ProductViewer from "./pages/ProductViewer";
 import MyPurchases from "./pages/MyPurchases";
+import Courses from "./pages/Courses";
+import CourseEditor from "./pages/CourseEditor";
+import PublicCourse from "./pages/PublicCourse";
+import CourseViewer from "./pages/CourseViewer";
 
 const queryClient = new QueryClient();
 
@@ -236,6 +240,20 @@ function AppRoutes() {
           <Branding />
         </AdminRoute>
       } />
+      <Route path="/dashboard/courses" element={
+        <AdminRoute>
+          <Courses />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/courses/:id" element={
+        <AdminRoute>
+          <CourseEditor />
+        </AdminRoute>
+      } />
+
+      {/* Public Course Routes */}
+      <Route path="/:username/course/:slug" element={<PublicCourse />} />
+      <Route path="/course/:accessToken" element={<CourseViewer />} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

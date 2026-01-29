@@ -105,10 +105,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    // Get the proper redirect URL
+    // In production, use the actual domain; in development, use current origin
+    const origin = window.location.origin;
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+
+    // If we're on localhost but accessing from a different device (like mobile testing),
+    // use the production URL if available, otherwise use current origin
+    let redirectUrl = origin;
+
+    // Check if we have a production URL configured
+    const productionUrl = import.meta.env.VITE_APP_URL;
+    if (productionUrl && !isLocalhost) {
+      redirectUrl = productionUrl;
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: `${redirectUrl}/dashboard`,
       }
     });
 

@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment and credentials
+.env
+.env.local
+.env.*.local
+.r2-credentials
+*.credentials
