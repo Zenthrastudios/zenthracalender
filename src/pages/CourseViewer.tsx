@@ -21,7 +21,21 @@ import {
     Menu,
     X,
     GraduationCap,
+    Settings,
 } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuSubContent,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import ViewerResources from '@/components/course/ViewerResources';
 import LessonAdPopup from '@/components/course/LessonAdPopup';
@@ -108,12 +122,16 @@ export default function CourseViewer() {
 
     // Video player state
     const videoRef = useRef<HTMLVideoElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const playerContainerRef = useRef<HTMLDivElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [showControls, setShowControls] = useState(true);
+    const [isScrubbing, setIsScrubbing] = useState(false);
+    const [playbackRate, setPlaybackRate] = useState(1);
+    const [showSettings, setShowSettings] = useState(false);
+    const [currentQuality, setCurrentQuality] = useState('Auto');
     const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const progressUpdateRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -217,7 +235,7 @@ export default function CourseViewer() {
 
     // 6. Disable text selection on video container
     useEffect(() => {
-        const container = containerRef.current;
+        const container = playerContainerRef.current;
         if (container) {
             container.style.userSelect = 'none';
             container.style.webkitUserSelect = 'none';
@@ -367,7 +385,7 @@ export default function CourseViewer() {
 
     // Video event handlers
     const handleTimeUpdate = useCallback(() => {
-        if (videoRef.current) {
+        if (videoRef.current && !isScrubbing) {
             const time = videoRef.current.currentTime;
             const videoDuration = videoRef.current.duration;
             setCurrentTime(time);
@@ -382,7 +400,7 @@ export default function CourseViewer() {
                 }
             }
         }
-    }, [currentLesson?.id, progress, purchase, currentLesson, updateProgress]);
+    }, [currentLesson?.id, progress, purchase, currentLesson, updateProgress, isScrubbing]);
 
     const handleLoadedMetadata = useCallback(() => {
         if (videoRef.current) {
@@ -559,7 +577,35 @@ export default function CourseViewer() {
         if (document.fullscreenElement) {
             document.exitFullscreen();
         } else {
-            containerRef.current?.requestFullscreen();
+            // Prefer the player container for fullscreen to keep controls visible
+            playerContainerRef.current?.requestFullscreen();
+        }
+    };
+
+    const handlePlaybackRateChange = (rate: number) => {
+        if (videoRef.current) {
+            videoRef.current.playbackRate = rate;
+            setPlaybackRate(rate);
+        }
+    };
+
+    const handleScrubStart = () => {
+        setIsScrubbing(true);
+        if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+
+    const handleScrubChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const time = Number(e.target.value);
+        setCurrentTime(time);
+        if (videoRef.current) {
+            videoRef.current.currentTime = time;
+        }
+    };
+
+    const handleScrubEnd = () => {
+        setIsScrubbing(false);
+        if (isPlaying) {
+            showControlsTemporarily(); // Restart hiding timer
         }
     };
 
@@ -602,6 +648,17 @@ export default function CourseViewer() {
         return (currentTotalProgress / totalPossibleProgress) * 100;
     }, [lessons, progress]);
 
+    const toggleSettings = () => {
+        setShowSettings(!showSettings);
+        if (!showSettings) {
+            // Keep controls visible while settings are open
+            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+            setShowControls(true);
+        } else {
+            showControlsTemporarily();
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-950 text-white gap-4">
@@ -625,456 +682,545 @@ export default function CourseViewer() {
 
     return (
         <>
-        <div
-            ref={containerRef}
-            className="flex flex-col h-screen bg-black text-white font-sans selection:bg-primary/30 overflow-hidden"
-            onContextMenu={(e) => e.preventDefault()}
-        >
-            {/* Desktop Header - Global Full Width */}
-            <header className="hidden lg:flex h-16 items-center justify-between px-6 border-b border-white/5 bg-zinc-950 z-30 flex-shrink-0">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-zinc-400 hover:text-white"
-                        onClick={() => setSidebarOpen(!sidebarOpen)}
-                    >
-                        <Menu className="w-5 h-5" />
-                    </Button>
-                    <div className="w-px h-6 bg-white/10" />
-                    <div>
-                        <h1 className="font-semibold text-zinc-100 line-clamp-1 max-w-md">{currentLesson?.title || 'Course Viewer'}</h1>
-                        <p className="text-xs text-zinc-500">
-                            {purchase?.course.title} • Lesson {currentLessonIndex + 1} of {lessons.length}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    {currentLesson && (
-                        <ViewerResources
-                            lessonId={currentLesson.id}
-                            lessonTitle={currentLesson.title}
-                        />
-                    )}
-                    <div className="flex items-center gap-1 bg-zinc-900 border border-white/5 rounded-lg p-1">
+            <div
+                className="flex flex-col h-screen bg-black text-white font-sans selection:bg-primary/30 overflow-hidden"
+                onContextMenu={(e) => e.preventDefault()}
+            >
+                {/* Desktop Header - Global Full Width */}
+                <header className="hidden lg:flex h-16 items-center justify-between px-6 border-b border-white/5 bg-zinc-950 z-30 flex-shrink-0">
+                    <div className="flex items-center gap-4">
                         <Button
                             variant="ghost"
-                            size="sm"
-                            disabled={currentLessonIndex === 0}
-                            onClick={() => goToLesson(currentLessonIndex - 1)}
-                            className="h-8 text-zinc-400 hover:text-white"
+                            size="icon"
+                            className="text-zinc-400 hover:text-white"
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
                         >
-                            <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+                            <Menu className="w-5 h-5" />
                         </Button>
-                        <div className="w-px h-4 bg-white/10" />
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={currentLessonIndex === lessons.length - 1}
-                            onClick={() => goToLesson(currentLessonIndex + 1)}
-                            className="h-8 text-zinc-400 hover:text-white"
-                        >
-                            Next <ChevronRight className="w-4 h-4 ml-1" />
-                        </Button>
-                    </div>
-                </div>
-            </header>
-
-            <div className="flex-1 flex overflow-hidden relative">
-                {/* Main Content Area (Video + Details) */}
-                <div className="flex-1 flex flex-col h-full min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800 bg-black">
-
-                    {/* Video Player Section */}
-                    {/* On Desktop: We want it to be large but constrained if needed, or full width container */}
-                    <div className={cn(
-                        "flex-shrink-0 bg-black relative w-full group",
-                        "aspect-video lg:w-full lg:max-h-[80vh] lg:aspect-video mx-auto"
-                    )}>
-                        {currentLesson?.video_url ? (
-                            <>
-                                <video
-                                    ref={videoRef}
-                                    src={currentLesson.video_url}
-                                    className="w-full h-full object-contain"
-                                    onTimeUpdate={handleTimeUpdate}
-                                    onLoadedMetadata={handleLoadedMetadata}
-                                    onEnded={handleVideoEnd}
-                                    onPlay={() => setIsPlaying(true)}
-                                    onPause={() => setIsPlaying(false)}
-                                    controlsList="nodownload nofullscreen noremoteplayback"
-                                    disablePictureInPicture
-                                    playsInline
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        togglePlay();
-                                    }}
-                                />
-
-                                {/* Clickable Overlay */}
-                                <div
-                                    className="absolute inset-0 z-10 cursor-pointer"
-                                    onClick={togglePlay}
-                                />
-
-                                {/* Play/Pause Overlay */}
-                                <div className={cn(
-                                    "absolute inset-0 flex items-center justify-center z-30 transition-all duration-300 pointer-events-none",
-                                    !isPlaying ? "bg-black/40 opacity-100" : "opacity-0"
-                                )}>
-                                    {!isPlaying && (
-                                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/90 flex items-center justify-center shadow-2xl scale-100 hover:scale-110 transition-transform duration-200">
-                                            <Play className="w-8 h-8 sm:w-10 sm:h-10 text-white ml-2" fill="white" />
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Controls Overlay */}
-                                <div
-                                    className={cn(
-                                        'absolute bottom-0 left-0 right-0 p-3 sm:p-6 transition-all duration-300 z-40 bg-gradient-to-t from-black/90 via-black/50 to-transparent',
-                                        showControls || !isPlaying ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-                                    )}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    {/* Progress Bar */}
-                                    <div className="group/progress relative h-1 sm:h-1.5 mb-3 cursor-pointer flex items-center">
-                                        <input
-                                            type="range"
-                                            min={0}
-                                            max={duration || 100}
-                                            value={currentTime}
-                                            onChange={(e) => {
-                                                if (videoRef.current) {
-                                                    videoRef.current.currentTime = Number(e.target.value);
-                                                }
-                                            }}
-                                            className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
-                                        />
-                                        <div className="absolute inset-0 bg-white/20 rounded-full" />
-                                        <div
-                                            className="absolute left-0 top-0 bottom-0 bg-primary rounded-full transition-all duration-100"
-                                            style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
-                                        >
-                                            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-opacity" />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 w-8 h-8" onClick={togglePlay}>
-                                                {isPlaying ? <Pause className="w-5 h-5" fill="white" /> : <Play className="w-5 h-5" fill="white" />}
-                                            </Button>
-
-                                            <div className="flex items-center gap-2">
-                                                <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-white/80 hover:text-white w-8 h-8" onClick={() => seek(-10)}>
-                                                    <SkipBack className="w-4 h-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-white/80 hover:text-white w-8 h-8" onClick={() => seek(10)}>
-                                                    <SkipForward className="w-4 h-4" />
-                                                </Button>
-
-                                                <div className="flex items-center gap-2 group/volume ml-2">
-                                                    <Button variant="ghost" size="icon" className="text-white/80 hover:text-white w-8 h-8" onClick={toggleMute}>
-                                                        {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                                                    </Button>
-                                                    <span className="text-xs font-medium text-zinc-300">
-                                                        {formatTime(currentTime)} / {formatTime(duration)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="text-white/80 hover:text-white w-8 h-8"
-                                            onClick={toggleFullscreen}
-                                        >
-                                            <Maximize className="w-5 h-5" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 bg-zinc-900 border-b border-white/5">
-                                <AlertCircle className="w-10 h-10 mb-2 opacity-50" />
-                                <p className="text-sm font-medium">Video Unavailable</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Desktop Details (Description etc) */}
-                    <div className="hidden lg:block">
-                        <div className="max-w-[1600px] mx-auto p-8 space-y-8">
-                            <div className="grid grid-cols-1 gap-8">
-                                <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="bg-primary/20 text-primary px-2 py-0.5 rounded text-xs font-bold tracking-wider uppercase">
-                                                Episode {currentLessonIndex + 1}
-                                            </span>
-                                            <span className="text-zinc-500 text-sm">•</span>
-                                            <span className="text-zinc-500 text-sm">{formatTime(currentLesson?.video_duration || 0)}</span>
-                                        </div>
-                                        <h2 className="text-2xl font-bold text-white leading-tight">{currentLesson?.title}</h2>
-                                    </div>
-
-                                    {currentLesson?.description && (
-                                        <div className="bg-zinc-900/30 rounded-xl border border-white/5 p-6">
-                                            <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-3">About this lesson</h3>
-                                            <div className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-base">
-                                                <div className={cn("relative", !showFullDescription && "max-h-24 overflow-hidden")}>
-                                                    {currentLesson.description}
-                                                    {!showFullDescription && currentLesson.description.length > 200 && (
-                                                        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-zinc-900/80 to-transparent" />
-                                                    )}
-                                                </div>
-                                                {currentLesson.description.length > 200 && (
-                                                    <button
-                                                        onClick={() => setShowFullDescription(!showFullDescription)}
-                                                        className="text-primary text-sm font-medium mt-2 hover:underline"
-                                                    >
-                                                        {showFullDescription ? 'Show less' : 'Show more'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Desktop Resources */}
-                                    {currentLesson && (
-                                        <ViewerResources
-                                            lessonId={currentLesson.id}
-                                            lessonTitle={currentLesson.title}
-                                            variant="inline"
-                                        />
-                                    )}
-                                </div>
-                            </div>
+                        <div className="w-px h-6 bg-white/10" />
+                        <div>
+                            <h1 className="font-semibold text-zinc-100 line-clamp-1 max-w-md">{currentLesson?.title || 'Course Viewer'}</h1>
+                            <p className="text-xs text-zinc-500">
+                                {purchase?.course.title} • Lesson {currentLessonIndex + 1} of {lessons.length}
+                            </p>
                         </div>
                     </div>
 
-                    {/* Mobile Content (Title, Actions, List) - Hidden on desktop */}
-                    <div className="lg:hidden p-4 space-y-6 bg-zinc-950 pb-20">
-                        {/* Title & Info Section */}
-                        <div className="space-y-3">
-                            <div>
-                                <h1 className="text-lg font-bold text-white leading-snug line-clamp-2">
-                                    {currentLesson?.title}
-                                </h1>
-                                <div className="flex items-center gap-2 mt-1 text-xs text-zinc-400 font-medium">
-                                    <span className="bg-white/10 text-zinc-300 px-1.5 py-0.5 rounded text-xs leading-none font-bold">EP {currentLessonIndex + 1}</span>
-                                    <span>•</span>
-                                    <span>{lessons.length} Episodes</span>
-                                </div>
-                            </div>
-
-                            {/* Mobile Nav */}
-                            <div className="flex items-center gap-2 pb-2">
-                                <div className="flex-1" />
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    disabled={currentLessonIndex === 0}
-                                    onClick={() => goToLesson(currentLessonIndex - 1)}
-                                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-white/5 h-9"
-                                >
-                                    <ChevronLeft className="w-4 h-4 mr-1" /> Prev
-                                </Button>
-
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    disabled={currentLessonIndex === lessons.length - 1}
-                                    onClick={() => goToLesson(currentLessonIndex + 1)}
-                                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-white/5 h-9"
-                                >
-                                    Next <ChevronRight className="w-4 h-4 ml-1" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Mobile Description with Show More */}
-                        <div className="bg-zinc-900/50 rounded-lg p-4 border border-white/5">
-                            <h3 className="font-bold text-sm text-white mb-2">Description</h3>
-                            <div className={cn("text-xs text-zinc-300 leading-relaxed", !showFullDescription && "line-clamp-3")}>
-                                {currentLesson?.description || "No description available."}
-                            </div>
-                            {currentLesson?.description && currentLesson.description.length > 100 && (
-                                <button
-                                    onClick={() => setShowFullDescription(!showFullDescription)}
-                                    className="text-[10px] font-bold text-white mt-1 uppercase tracking-wide opacity-70 hover:opacity-100"
-                                >
-                                    {showFullDescription ? 'Show less' : '...more'}
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Resources Section */}
+                    <div className="flex items-center gap-3">
                         {currentLesson && (
                             <ViewerResources
                                 lessonId={currentLesson.id}
                                 lessonTitle={currentLesson.title}
-                                variant="inline"
                             />
                         )}
+                        <div className="flex items-center gap-1 bg-zinc-900 border border-white/5 rounded-lg p-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={currentLessonIndex === 0}
+                                onClick={() => goToLesson(currentLessonIndex - 1)}
+                                className="h-8 text-zinc-400 hover:text-white"
+                            >
+                                <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+                            </Button>
+                            <div className="w-px h-4 bg-white/10" />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={currentLessonIndex === lessons.length - 1}
+                                onClick={() => goToLesson(currentLessonIndex + 1)}
+                                className="h-8 text-zinc-400 hover:text-white"
+                            >
+                                Next <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
+                        </div>
+                    </div>
+                </header>
 
-                        {/* Up Next - Mobile */}
-                        {lessons.length > 0 && (
-                            <div>
-                                <h3 className="font-bold text-sm text-white mb-3 px-1">Up Next</h3>
-                                <div className="space-y-3">
-                                    {lessons.map((lesson, index) => {
-                                        const lessonProgress = getLessonProgress(lesson.id);
-                                        const isCompleted = lessonProgress?.is_completed;
-                                        const isCurrent = index === currentLessonIndex;
+                <div className="flex-1 flex overflow-hidden relative">
+                    {/* Main Content Area (Video + Details) */}
+                    <div className="flex-1 flex flex-col h-full min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800 bg-black">
 
-                                        return (
-                                            <button
-                                                key={lesson.id}
-                                                onClick={() => {
-                                                    goToLesson(index);
-                                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                                }}
-                                                className={cn(
-                                                    'w-full flex gap-3 p-3 rounded-xl text-left transition-all border',
-                                                    isCurrent
-                                                        ? 'bg-zinc-900 border-primary/30 shadow-sm'
-                                                        : 'bg-transparent border-transparent hover:bg-zinc-900/50'
-                                                )}
+                        {/* Video Player Section */}
+                        {/* On Desktop: We want it to be large but constrained if needed, or full width container */}
+                        <div
+                            ref={playerContainerRef}
+                            className={cn(
+                                "flex-shrink-0 bg-black relative w-full group",
+                                "aspect-video lg:w-full lg:max-h-[80vh] lg:aspect-video mx-auto"
+                            )}>
+                            {currentLesson?.video_url ? (
+                                <>
+                                    <video
+                                        ref={videoRef}
+                                        src={currentLesson.video_url}
+                                        className="w-full h-full object-contain"
+                                        onTimeUpdate={handleTimeUpdate}
+                                        onLoadedMetadata={handleLoadedMetadata}
+                                        onEnded={handleVideoEnd}
+                                        onPlay={() => setIsPlaying(true)}
+                                        onPause={() => setIsPlaying(false)}
+                                        controlsList="nodownload nofullscreen noremoteplayback"
+                                        disablePictureInPicture
+                                        playsInline
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            togglePlay();
+                                        }}
+                                    />
+
+                                    {/* Clickable Overlay */}
+                                    <div
+                                        className="absolute inset-0 z-10 cursor-pointer"
+                                        onClick={togglePlay}
+                                    />
+
+                                    {/* Play/Pause Overlay */}
+                                    <div className={cn(
+                                        "absolute inset-0 flex items-center justify-center z-30 transition-all duration-300 pointer-events-none",
+                                        !isPlaying ? "bg-black/40 opacity-100" : "opacity-0"
+                                    )}>
+                                        {!isPlaying && (
+                                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/90 flex items-center justify-center shadow-2xl scale-100 hover:scale-110 transition-transform duration-200">
+                                                <Play className="w-8 h-8 sm:w-10 sm:h-10 text-white ml-2" fill="white" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Controls Overlay */}
+                                    <div
+                                        className={cn(
+                                            'absolute bottom-0 left-0 right-0 p-3 sm:p-6 transition-all duration-300 z-40 bg-gradient-to-t from-black/90 via-black/50 to-transparent',
+                                            showControls || !isPlaying || showSettings ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+                                        )}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <div className="group/progress relative h-1 sm:h-1.5 mb-3 cursor-pointer flex items-center">
+                                            <input
+                                                type="range"
+                                                min={0}
+                                                max={duration || 100}
+                                                value={currentTime}
+                                                onMouseDown={handleScrubStart}
+                                                onTouchStart={handleScrubStart}
+                                                onChange={handleScrubChange}
+                                                onMouseUp={handleScrubEnd}
+                                                onTouchEnd={handleScrubEnd}
+                                                className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer"
+                                            />
+                                            <div className="absolute inset-0 bg-white/20 rounded-full" />
+                                            <div
+                                                className="absolute left-0 top-0 bottom-0 bg-primary rounded-full transition-all duration-100"
+                                                style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
                                             >
-                                                <div className="relative w-28 aspect-video bg-zinc-900 rounded-lg overflow-hidden flex-shrink-0 border border-white/5">
-                                                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
-                                                        <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
+                                                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-opacity" />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 w-8 h-8" onClick={togglePlay}>
+                                                    {isPlaying ? <Pause className="w-5 h-5" fill="white" /> : <Play className="w-5 h-5" fill="white" />}
+                                                </Button>
+
+                                                <div className="flex items-center gap-2">
+                                                    <Button variant="ghost" size="icon" className="text-white/80 hover:text-white w-8 h-8" onClick={() => seek(-10)}>
+                                                        <SkipBack className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="text-white/80 hover:text-white w-8 h-8" onClick={() => seek(10)}>
+                                                        <SkipForward className="w-4 h-4" />
+                                                    </Button>
+
+                                                    <div className="flex items-center gap-2 group/volume ml-2">
+                                                        <Button variant="ghost" size="icon" className="text-white/80 hover:text-white w-8 h-8" onClick={toggleMute}>
+                                                            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                                                        </Button>
+                                                        <span className="text-xs font-medium text-zinc-300">
+                                                            {formatTime(currentTime)} / {formatTime(duration)}
+                                                        </span>
                                                     </div>
-                                                    {isCurrent && (
-                                                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                                            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                                                                <div className="w-2 h-2 bg-primary rounded-full animate-ping" />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <div className="relative">
+                                                    {showSettings && (
+                                                        <>
+                                                            {/* Backdrop to close settings */}
+                                                            <div
+                                                                className="fixed inset-0 z-40"
+                                                                onClick={() => setShowSettings(false)}
+                                                            />
+
+                                                            {/* Settings Menu */}
+                                                            <div className="absolute bottom-12 right-0 w-64 bg-zinc-950/95 border border-white/10 rounded-lg p-2 z-50 text-white backdrop-blur-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                                                                <div className="space-y-4 p-2">
+
+                                                                    {/* Playback Speed */}
+                                                                    <div className="space-y-2">
+                                                                        <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Playback Speed</div>
+                                                                        <div className="grid grid-cols-4 gap-1">
+                                                                            {[0.5, 0.75, 1, 1.25, 1.5, 2].map(rate => (
+                                                                                <button
+                                                                                    key={rate}
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handlePlaybackRateChange(rate);
+                                                                                    }}
+                                                                                    className={cn(
+                                                                                        "px-2 py-1.5 rounded text-xs font-medium transition-colors border",
+                                                                                        playbackRate === rate
+                                                                                            ? "bg-white text-black border-white"
+                                                                                            : "bg-white/5 text-zinc-300 border-transparent hover:bg-white/10"
+                                                                                    )}
+                                                                                >
+                                                                                    {rate}x
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="h-px bg-white/10" />
+
+                                                                    <div className="space-y-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Quality</div>
+                                                                            <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase">{currentQuality}</span>
+                                                                        </div>
+                                                                        <div className="space-y-1">
+                                                                            {['Auto', '1080p', '720p', '480p'].map((q) => (
+                                                                                <button
+                                                                                    key={q}
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setCurrentQuality(q);
+                                                                                    }}
+                                                                                    className={cn(
+                                                                                        "w-full px-3 py-2 rounded text-xs font-medium flex items-center justify-between transition-colors",
+                                                                                        currentQuality === q
+                                                                                            ? "bg-white/10 text-white border border-white/20"
+                                                                                            : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                                                                                    )}
+                                                                                >
+                                                                                    <span>{q === 'Auto' ? 'Auto (Recommended)' : q}</span>
+                                                                                    {currentQuality === q && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                        <p className="text-[10px] text-zinc-500 mt-1">
+                                                                            Choose preferred quality. Higher quality uses more data.
+                                                                        </p>
+                                                                    </div>
+
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        </>
                                                     )}
-                                                    {isCompleted && (
-                                                        <div className="absolute top-1 right-1 bg-black/50 rounded-full p-0.5">
-                                                            <CheckCircle2 className="w-3 h-3 text-primary" />
-                                                        </div>
-                                                    )}
-                                                    <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 rounded text-[9px] font-medium text-white">
-                                                        {formatTime(lesson.video_duration || 0)}
+
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className={cn("text-white/80 hover:text-white w-8 h-8 transition-transform duration-200", showSettings && "rotate-45 text-white")}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleSettings();
+                                                        }}
+                                                    >
+                                                        <Settings className="w-5 h-5" />
+                                                    </Button>
+                                                </div>
+
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-white/80 hover:text-white w-8 h-8"
+                                                    onClick={toggleFullscreen}
+                                                >
+                                                    <Maximize className="w-5 h-5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 bg-zinc-900 border-b border-white/5">
+                                    <AlertCircle className="w-10 h-10 mb-2 opacity-50" />
+                                    <p className="text-sm font-medium">Video Unavailable</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Desktop Details (Description etc) */}
+                        <div className="hidden lg:block">
+                            <div className="max-w-[1600px] mx-auto p-8 space-y-8">
+                                <div className="grid grid-cols-1 gap-8">
+                                    <div className="space-y-6">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="bg-primary/20 text-primary px-2 py-0.5 rounded text-xs font-bold tracking-wider uppercase">
+                                                    Episode {currentLessonIndex + 1}
+                                                </span>
+                                                <span className="text-zinc-500 text-sm">•</span>
+                                                <span className="text-zinc-500 text-sm">{formatTime(currentLesson?.video_duration || 0)}</span>
+                                            </div>
+                                            <h2 className="text-2xl font-bold text-white leading-tight">{currentLesson?.title}</h2>
+                                        </div>
+
+                                        {currentLesson?.description && (
+                                            <div className="bg-zinc-900/30 rounded-xl border border-white/5 p-6">
+                                                <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-3">About this lesson</h3>
+                                                <div className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-base">
+                                                    <div className={cn("relative", !showFullDescription && "max-h-24 overflow-hidden")}>
+                                                        {currentLesson.description}
+                                                        {!showFullDescription && currentLesson.description.length > 200 && (
+                                                            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-zinc-900/80 to-transparent" />
+                                                        )}
                                                     </div>
+                                                    {currentLesson.description.length > 200 && (
+                                                        <button
+                                                            onClick={() => setShowFullDescription(!showFullDescription)}
+                                                            className="text-primary text-sm font-medium mt-2 hover:underline"
+                                                        >
+                                                            {showFullDescription ? 'Show less' : 'Show more'}
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <div className="flex-1 min-w-0 py-1">
-                                                    <h4 className={cn("text-xs font-bold leading-snug line-clamp-2", isCurrent ? "text-primary" : "text-zinc-200")}>
-                                                        {lesson.title}
-                                                    </h4>
-                                                    <p className="text-[10px] text-zinc-500 mt-1 line-clamp-1">
-                                                        {lesson.description || 'No description'}
-                                                    </p>
-                                                    {isCompleted && <span className="text-[10px] text-primary flex items-center gap-1 mt-1"><CheckCircle2 className="w-3 h-3" /> Watched</span>}
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
+                                            </div>
+                                        )}
+
+                                        {/* Desktop Resources */}
+                                        {currentLesson && (
+                                            <ViewerResources
+                                                lessonId={currentLesson.id}
+                                                lessonTitle={currentLesson.title}
+                                                variant="inline"
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Right Sidebar - Desktop Lesson List */}
-                <aside
-                    className={cn(
-                        'hidden lg:flex flex-col w-96 border-l border-white/5 bg-zinc-950 flex-shrink-0 transition-all duration-300',
-                        !sidebarOpen && 'w-0 border-l-0 opacity-0 overflow-hidden'
-                    )}
-                >
-                    <div className="p-4 border-b border-white/5 flex items-center justify-between bg-zinc-950/50 backdrop-blur-sm">
-                        <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm tracking-wide text-zinc-100">Course Content</span>
-                            <span className="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">{completedCount}/{lessons.length}</span>
                         </div>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-zinc-400 hover:text-white"
-                            onClick={() => setSidebarOpen(false)}
-                        >
-                            <X className="w-4 h-4" />
-                        </Button>
-                    </div>
 
-                    <ScrollArea className="flex-1 p-4">
-                        <div className="space-y-2">
-                            {lessons.map((lesson, index) => {
-                                const lessonProgress = getLessonProgress(lesson.id);
-                                const isCompleted = lessonProgress?.is_completed;
-                                const isCurrent = index === currentLessonIndex;
+                        {/* Mobile Content (Title, Actions, List) - Hidden on desktop */}
+                        <div className="lg:hidden p-4 space-y-6 bg-zinc-950 pb-20">
+                            {/* Title & Info Section */}
+                            <div className="space-y-3">
+                                <div>
+                                    <h1 className="text-lg font-bold text-white leading-snug line-clamp-2">
+                                        {currentLesson?.title}
+                                    </h1>
+                                    <div className="flex items-center gap-2 mt-1 text-xs text-zinc-400 font-medium">
+                                        <span className="bg-white/10 text-zinc-300 px-1.5 py-0.5 rounded text-xs leading-none font-bold">EP {currentLessonIndex + 1}</span>
+                                        <span>•</span>
+                                        <span>{lessons.length} Episodes</span>
+                                    </div>
+                                </div>
 
-                                return (
-                                    <button
-                                        key={lesson.id}
-                                        onClick={() => goToLesson(index)}
-                                        className={cn(
-                                            'w-full flex gap-3 p-2 rounded-lg text-left transition-all hover:bg-white/5 group',
-                                            isCurrent && 'bg-white/5'
-                                        )}
+                                {/* Mobile Nav */}
+                                <div className="flex items-center gap-2 pb-2">
+                                    <div className="flex-1" />
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        disabled={currentLessonIndex === 0}
+                                        onClick={() => goToLesson(currentLessonIndex - 1)}
+                                        className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-white/5 h-9"
                                     >
-                                        <div className="relative w-32 aspect-video bg-zinc-900 rounded overflow-hidden flex-shrink-0 border border-white/5 group-hover:border-white/10 transition-colors">
-                                            <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
-                                                <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
-                                            </div>
-                                            {lessonProgress && !isCompleted && lessonProgress.progress_seconds > 0 && (
-                                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-zinc-800">
-                                                    <div
-                                                        className="h-full bg-primary"
-                                                        style={{ width: `${(lessonProgress.progress_seconds / (lesson.video_duration || 1)) * 100}%` }}
-                                                    />
-                                                </div>
-                                            )}
-                                            <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 rounded text-[9px] font-medium text-white">
-                                                {formatTime(lesson.video_duration || 0)}
-                                            </div>
-                                            {isCompleted && (
-                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                                    <CheckCircle2 className="w-5 h-5 text-primary" />
-                                                </div>
-                                            )}
-                                            {isCurrent && (
-                                                <div className="absolute inset-0 ring-2 ring-primary/50 rounded pointer-events-none" />
-                                            )}
-                                        </div>
+                                        <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+                                    </Button>
 
-                                        <div className="flex-1 min-w-0 py-0.5">
-                                            <h4 className={cn("text-sm font-medium line-clamp-2 leading-snug group-hover:text-primary transition-colors", isCurrent ? "text-primary" : "text-zinc-200")}>
-                                                {lesson.title}
-                                            </h4>
-                                            <p className="text-xs text-zinc-500 mt-1 line-clamp-1">
-                                                {lesson.description || 'No description'}
-                                            </p>
-                                        </div>
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        disabled={currentLessonIndex === lessons.length - 1}
+                                        onClick={() => goToLesson(currentLessonIndex + 1)}
+                                        className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-white/5 h-9"
+                                    >
+                                        Next <ChevronRight className="w-4 h-4 ml-1" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Mobile Description with Show More */}
+                            <div className="bg-zinc-900/50 rounded-lg p-4 border border-white/5">
+                                <h3 className="font-bold text-sm text-white mb-2">Description</h3>
+                                <div className={cn("text-xs text-zinc-300 leading-relaxed", !showFullDescription && "line-clamp-3")}>
+                                    {currentLesson?.description || "No description available."}
+                                </div>
+                                {currentLesson?.description && currentLesson.description.length > 100 && (
+                                    <button
+                                        onClick={() => setShowFullDescription(!showFullDescription)}
+                                        className="text-[10px] font-bold text-white mt-1 uppercase tracking-wide opacity-70 hover:opacity-100"
+                                    >
+                                        {showFullDescription ? 'Show less' : '...more'}
                                     </button>
-                                );
-                            })}
-                        </div>
-                    </ScrollArea>
-                </aside>
-            </div>
-        </div>
+                                )}
+                            </div>
 
-        {currentLesson?.ad_settings?.enabled && (
-            <LessonAdPopup
-                isOpen={showAdPopup}
-                onClose={() => {
-                    setShowAdPopup(false);
-                    if (currentLessonIndex < lessons.length - 1) {
-                        goToLesson(currentLessonIndex + 1);
-                    }
-                }}
-                settings={currentLesson.ad_settings}
-                lessonId={currentLesson.id}
-            />
-        )}
+                            {/* Resources Section */}
+                            {currentLesson && (
+                                <ViewerResources
+                                    lessonId={currentLesson.id}
+                                    lessonTitle={currentLesson.title}
+                                    variant="inline"
+                                />
+                            )}
+
+                            {/* Up Next - Mobile */}
+                            {lessons.length > 0 && (
+                                <div>
+                                    <h3 className="font-bold text-sm text-white mb-3 px-1">Up Next</h3>
+                                    <div className="space-y-3">
+                                        {lessons.map((lesson, index) => {
+                                            const lessonProgress = getLessonProgress(lesson.id);
+                                            const isCompleted = lessonProgress?.is_completed;
+                                            const isCurrent = index === currentLessonIndex;
+
+                                            return (
+                                                <button
+                                                    key={lesson.id}
+                                                    onClick={() => {
+                                                        goToLesson(index);
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                    }}
+                                                    className={cn(
+                                                        'w-full flex gap-3 p-3 rounded-xl text-left transition-all border',
+                                                        isCurrent
+                                                            ? 'bg-zinc-900 border-primary/30 shadow-sm'
+                                                            : 'bg-transparent border-transparent hover:bg-zinc-900/50'
+                                                    )}
+                                                >
+                                                    <div className="relative w-28 aspect-video bg-zinc-900 rounded-lg overflow-hidden flex-shrink-0 border border-white/5">
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
+                                                            <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
+                                                        </div>
+                                                        {isCurrent && (
+                                                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                                                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                                                                    <div className="w-2 h-2 bg-primary rounded-full animate-ping" />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {isCompleted && (
+                                                            <div className="absolute top-1 right-1 bg-black/50 rounded-full p-0.5">
+                                                                <CheckCircle2 className="w-3 h-3 text-primary" />
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 rounded text-[9px] font-medium text-white">
+                                                            {formatTime(lesson.video_duration || 0)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0 py-1">
+                                                        <h4 className={cn("text-xs font-bold leading-snug line-clamp-2", isCurrent ? "text-primary" : "text-zinc-200")}>
+                                                            {lesson.title}
+                                                        </h4>
+                                                        <p className="text-[10px] text-zinc-500 mt-1 line-clamp-1">
+                                                            {lesson.description || 'No description'}
+                                                        </p>
+                                                        {isCompleted && <span className="text-[10px] text-primary flex items-center gap-1 mt-1"><CheckCircle2 className="w-3 h-3" /> Watched</span>}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right Sidebar - Desktop Lesson List */}
+                    <aside
+                        className={cn(
+                            'hidden lg:flex flex-col w-96 border-l border-white/5 bg-zinc-950 flex-shrink-0 transition-all duration-300',
+                            !sidebarOpen && 'w-0 border-l-0 opacity-0 overflow-hidden'
+                        )}
+                    >
+                        <div className="p-4 border-b border-white/5 flex items-center justify-between bg-zinc-950/50 backdrop-blur-sm">
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm tracking-wide text-zinc-100">Course Content</span>
+                                <span className="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">{completedCount}/{lessons.length}</span>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-zinc-400 hover:text-white"
+                                onClick={() => setSidebarOpen(false)}
+                            >
+                                <X className="w-4 h-4" />
+                            </Button>
+                        </div>
+
+                        <ScrollArea className="flex-1 p-4">
+                            <div className="space-y-2">
+                                {lessons.map((lesson, index) => {
+                                    const lessonProgress = getLessonProgress(lesson.id);
+                                    const isCompleted = lessonProgress?.is_completed;
+                                    const isCurrent = index === currentLessonIndex;
+
+                                    return (
+                                        <button
+                                            key={lesson.id}
+                                            onClick={() => goToLesson(index)}
+                                            className={cn(
+                                                'w-full flex gap-3 p-2 rounded-lg text-left transition-all hover:bg-white/5 group',
+                                                isCurrent && 'bg-white/5'
+                                            )}
+                                        >
+                                            <div className="relative w-32 aspect-video bg-zinc-900 rounded overflow-hidden flex-shrink-0 border border-white/5 group-hover:border-white/10 transition-colors">
+                                                <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
+                                                    <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
+                                                </div>
+                                                {lessonProgress && !isCompleted && lessonProgress.progress_seconds > 0 && (
+                                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-zinc-800">
+                                                        <div
+                                                            className="h-full bg-primary"
+                                                            style={{ width: `${(lessonProgress.progress_seconds / (lesson.video_duration || 1)) * 100}%` }}
+                                                        />
+                                                    </div>
+                                                )}
+                                                <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 rounded text-[9px] font-medium text-white">
+                                                    {formatTime(lesson.video_duration || 0)}
+                                                </div>
+                                                {isCompleted && (
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                                                    </div>
+                                                )}
+                                                {isCurrent && (
+                                                    <div className="absolute inset-0 ring-2 ring-primary/50 rounded pointer-events-none" />
+                                                )}
+                                            </div>
+
+                                            <div className="flex-1 min-w-0 py-0.5">
+                                                <h4 className={cn("text-sm font-medium line-clamp-2 leading-snug group-hover:text-primary transition-colors", isCurrent ? "text-primary" : "text-zinc-200")}>
+                                                    {lesson.title}
+                                                </h4>
+                                                <p className="text-xs text-zinc-500 mt-1 line-clamp-1">
+                                                    {lesson.description || 'No description'}
+                                                </p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </ScrollArea>
+                    </aside>
+                </div>
+            </div>
+
+            {currentLesson?.ad_settings?.enabled && (
+                <LessonAdPopup
+                    isOpen={showAdPopup}
+                    onClose={() => {
+                        setShowAdPopup(false);
+                        if (currentLessonIndex < lessons.length - 1) {
+                            goToLesson(currentLessonIndex + 1);
+                        }
+                    }}
+                    settings={currentLesson.ad_settings}
+                    lessonId={currentLesson.id}
+                />
+            )}
         </>
     );
 }

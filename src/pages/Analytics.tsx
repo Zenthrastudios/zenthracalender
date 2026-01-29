@@ -38,6 +38,9 @@ import {
   BarChart3,
   GraduationCap,
   CheckCircle,
+  Megaphone,
+  MousePointerClick,
+  Percent,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -170,6 +173,64 @@ export default function Analytics() {
     },
     enabled: !!user,
   });
+
+  // Fetch Ad Analytics
+  const { data: adData, isLoading: adsLoading } = useQuery({
+    queryKey: ['analytics-ads', user?.id],
+    queryFn: async () => {
+      if (!user) return { events: [], daily: [] };
+
+      // Fetch all ad events for user's courses
+      const { data: events, error } = await supabase
+        .from('lesson_ad_events')
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching ad events:', error);
+        return { events: [], daily: [] };
+      }
+
+      return { events: events || [] };
+    },
+    enabled: !!user,
+  });
+
+  // Calculate Ad Stats
+  const adStats = useMemo(() => {
+    if (!adData?.events) return null;
+
+    const events = adData.events;
+    const views = events.filter((e: any) => e.event_type === 'view').length;
+    const clicks = events.filter((e: any) => e.event_type === 'click').length;
+    const ctr = views > 0 ? ((clicks / views) * 100).toFixed(1) : 0;
+
+    // Daily stats for chart
+    const dailyData = eachDayOfInterval({
+      start: subDays(new Date(), 29),
+      end: new Date(),
+    }).map(day => {
+      const dayStart = startOfDay(day);
+      const dayEnd = endOfDay(day);
+
+      const dayEvents = events.filter((e: any) => {
+        const date = new Date(e.created_at);
+        return date >= dayStart && date <= dayEnd;
+      });
+
+      return {
+        date: format(day, 'MMM d'),
+        views: dayEvents.filter((e: any) => e.event_type === 'view').length,
+        clicks: dayEvents.filter((e: any) => e.event_type === 'click').length,
+      };
+    });
+
+    return {
+      views,
+      clicks,
+      ctr,
+      dailyData
+    };
+  }, [adData]);
 
   // Calculate booking stats
   const bookingStats = useMemo(() => {
@@ -597,6 +658,10 @@ export default function Analytics() {
               <TabsTrigger value="products" className="flex items-center gap-2">
                 <Package className="w-4 h-4" />
                 Products
+              </TabsTrigger>
+              <TabsTrigger value="ads" className="flex items-center gap-2">
+                <Megaphone className="w-4 h-4" />
+                Ads
               </TabsTrigger>
             </TabsList>
 
@@ -1296,9 +1361,86 @@ export default function Analytics() {
                 </CardContent>
               </Card>
             </TabsContent>
+            {/* ADS TAB */}
+            <TabsContent value="ads" className="space-y-6">
+              {adStats ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Views */}
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="p-2 bg-blue-500/10 rounded-lg">
+                            <Eye className="w-5 h-5 text-blue-500" />
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">Total Ad Views</p>
+                        <h3 className="text-2xl font-bold mt-1">{adStats.views}</h3>
+                      </CardContent>
+                    </Card>
+
+                    {/* Clicks */}
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="p-2 bg-green-500/10 rounded-lg">
+                            <MousePointerClick className="w-5 h-5 text-green-500" />
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">Total Clicks</p>
+                        <h3 className="text-2xl font-bold mt-1">{adStats.clicks}</h3>
+                      </CardContent>
+                    </Card>
+
+                    {/* CTR */}
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="p-2 bg-purple-500/10 rounded-lg">
+                            <Percent className="w-5 h-5 text-purple-500" />
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">Click-Through Rate</p>
+                        <h3 className="text-2xl font-bold mt-1">{adStats.ctr}%</h3>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Chart */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Ad Performance (Las 30 Days)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={adStats.dailyData}>
+                          <defs>
+                            <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                            </linearGradient>
+                            <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip />
+                          <Area type="monotone" dataKey="views" stroke="#3B82F6" fillOpacity={1} fill="url(#colorViews)" name="Views" />
+                          <Area type="monotone" dataKey="clicks" stroke="#10B981" fillOpacity={1} fill="url(#colorClicks)" name="Clicks" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <div className="text-center py-10">No ad data available yet.</div>
+              )}
+            </TabsContent>
           </Tabs>
         </div>
       </div>
-    </DashboardLayout>
+    </DashboardLayout >
   );
 }
