@@ -1259,6 +1259,9 @@ export default function CourseViewer() {
                     }}
                     settings={currentLesson.ad_settings}
                     lessonId={currentLesson.id}
+                    purchaseId={purchase?.id}
+                    customerEmail={purchase?.customer_email}
+                    courseId={purchase?.course.id}
                 />
             )}
         </>

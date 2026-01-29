@@ -15,9 +15,12 @@ interface LessonAdPopupProps {
     onClose: () => void;
     settings: LessonAdSettings;
     lessonId: string;
+    purchaseId?: string;
+    customerEmail?: string;
+    courseId?: string;
 }
 
-export default function LessonAdPopup({ isOpen, onClose, settings, lessonId }: LessonAdPopupProps) {
+export default function LessonAdPopup({ isOpen, onClose, settings, lessonId, purchaseId, customerEmail, courseId }: LessonAdPopupProps) {
     const { trackAdEvent } = useAdAnalytics();
     const navigate = useNavigate();
     const [targetUrl, setTargetUrl] = useState('');
@@ -26,7 +29,12 @@ export default function LessonAdPopup({ isOpen, onClose, settings, lessonId }: L
 
     useEffect(() => {
         if (!isOpen) return;
-        trackAdEvent(lessonId, 'view', { type: settings.type });
+        trackAdEvent(lessonId, 'view', {
+            purchaseId,
+            customerEmail,
+            courseId,
+            metadata: { type: settings.type }
+        });
 
         async function fetchDetails() {
             if (settings.type === 'custom' && settings.link_url) {
@@ -95,7 +103,12 @@ export default function LessonAdPopup({ isOpen, onClose, settings, lessonId }: L
 
     const handleAction = () => {
         console.log('Ad Action Clicked. Target URL:', targetUrl);
-        trackAdEvent(lessonId, 'click', { type: settings.type });
+        trackAdEvent(lessonId, 'click', {
+            purchaseId,
+            customerEmail,
+            courseId,
+            metadata: { type: settings.type }
+        });
 
         if (!targetUrl) {
             toast.error("Link unavailable. The instructor may need to set their username.");

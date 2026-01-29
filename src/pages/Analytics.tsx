@@ -183,7 +183,8 @@ export default function Analytics() {
       // Fetch all ad events for user's courses
       const { data: events, error } = await supabase
         .from('lesson_ad_events')
-        .select('*');
+        .select('*, course:courses(title), lesson:course_lessons(title)')
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching ad events:', error);
@@ -1409,7 +1410,7 @@ export default function Analytics() {
                   {/* Chart */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Ad Performance (Las 30 Days)</CardTitle>
+                      <CardTitle>Ad Performance (Last 30 Days)</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1424,13 +1425,90 @@ export default function Analytics() {
                               <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <XAxis dataKey="date" />
-                          <YAxis />
-                          <Tooltip />
-                          <Area type="monotone" dataKey="views" stroke="#3B82F6" fillOpacity={1} fill="url(#colorViews)" name="Views" />
-                          <Area type="monotone" dataKey="clicks" stroke="#10B981" fillOpacity={1} fill="url(#colorClicks)" name="Clicks" />
+                          <XAxis dataKey="date" axisLine={false} tickLine={false} />
+                          <YAxis axisLine={false} tickLine={false} />
+                          <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                          <Area type="monotone" dataKey="views" stroke="#3B82F6" fillOpacity={1} fill="url(#colorViews)" name="Views" strokeWidth={2} />
+                          <Area type="monotone" dataKey="clicks" stroke="#10B981" fillOpacity={1} fill="url(#colorClicks)" name="Clicks" strokeWidth={2} />
                         </AreaChart>
                       </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  {/* Detailed Ad Events Log */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-zinc-500" />
+                        Detailed Ad Activity
+                      </CardTitle>
+                      <CardDescription>Real-time log of ad interactions and user details</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/30">
+                              <TableHead className="text-xs">User / Participant</TableHead>
+                              <TableHead className="text-xs">Course & Lesson</TableHead>
+                              <TableHead className="text-xs">Event</TableHead>
+                              <TableHead className="text-xs">Context</TableHead>
+                              <TableHead className="text-right text-xs">Time</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {adData.events.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                                  No ad activity recorded yet.
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              adData.events.slice(0, 50).map((event: any) => (
+                                <TableRow key={event.id} className="hover:bg-muted/20 transition-colors">
+                                  <TableCell>
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-medium">{event.customer_email || 'Anonymous'}</span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-tight">
+                                        {event.metadata?.device || 'Desktop'} • {event.metadata?.language || 'en'}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col">
+                                      <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-tighter">
+                                        {event.course?.title || 'Unknown Course'}
+                                      </span>
+                                      <span className="text-sm">{event.lesson?.title || 'Untitled Lesson'}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={event.event_type === 'click' ? 'default' : 'secondary'} className="rounded-md font-bold px-2 py-0">
+                                      {event.event_type === 'click' ? (
+                                        <MousePointerClick className="w-3 h-3 mr-1 inline" />
+                                      ) : (
+                                        <Eye className="w-3 h-3 mr-1 inline" />
+                                      )}
+                                      {event.event_type.toUpperCase()}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="text-[10px] text-muted-foreground max-w-[150px] truncate" title={event.metadata?.userAgent}>
+                                      {event.metadata?.screen || 'N/A'} • {event.metadata?.type || 'ad'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex flex-col items-end">
+                                      <span className="text-sm">{format(new Date(event.created_at), 'h:mm a')}</span>
+                                      <span className="text-[10px] text-muted-foreground">{format(new Date(event.created_at), 'MMM d')}</span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </CardContent>
                   </Card>
                 </>
