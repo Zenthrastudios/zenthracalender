@@ -15,6 +15,7 @@ import {
     Volume2,
     VolumeX,
     Maximize,
+    Minimize,
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
@@ -135,6 +136,7 @@ export default function CourseViewer() {
     const [showSettings, setShowSettings] = useState(false);
     const [currentQuality, setCurrentQuality] = useState('Auto');
     const [settingsView, setSettingsView] = useState<'main' | 'speed' | 'quality'>('main');
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const progressUpdateRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -243,6 +245,30 @@ export default function CourseViewer() {
             container.style.userSelect = 'none';
             container.style.webkitUserSelect = 'none';
         }
+    }, []);
+
+    // 7. Fullscreen change detection
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!(
+                document.fullscreenElement ||
+                (document as any).webkitFullscreenElement ||
+                (document as any).mozFullScreenElement ||
+                (document as any).msFullscreenElement
+            ));
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+        };
     }, []);
 
     // ==================== END SECURITY ====================
@@ -577,11 +603,36 @@ export default function CourseViewer() {
     };
 
     const toggleFullscreen = () => {
-        if (document.fullscreenElement) {
-            document.exitFullscreen();
+        const container = playerContainerRef.current;
+        if (!container) return;
+
+        if (!isFullscreen) {
+            try {
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                } else if ((container as any).webkitRequestFullscreen) {
+                    (container as any).webkitRequestFullscreen();
+                } else if ((container as any).msRequestFullscreen) {
+                    (container as any).msRequestFullscreen();
+                } else if (videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
+                    // Fallback for iOS Safari which only supports fullscreen on video element
+                    (videoRef.current as any).webkitEnterFullscreen();
+                }
+            } catch (err) {
+                console.error("Fullscreen error:", err);
+            }
         } else {
-            // Prefer the player container for fullscreen to keep controls visible
-            playerContainerRef.current?.requestFullscreen();
+            try {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if ((document as any).webkitExitFullscreen) {
+                    (document as any).webkitExitFullscreen();
+                } else if ((document as any).msExitFullscreen) {
+                    (document as any).msExitFullscreen();
+                }
+            } catch (err) {
+                console.error("Exit fullscreen error:", err);
+            }
         }
     };
 
@@ -765,7 +816,7 @@ export default function CourseViewer() {
                                         onEnded={handleVideoEnd}
                                         onPlay={() => setIsPlaying(true)}
                                         onPause={() => setIsPlaying(false)}
-                                        controlsList="nodownload nofullscreen noremoteplayback"
+                                        controlsList="nodownload noremoteplayback"
                                         disablePictureInPicture
                                         playsInline
                                         onClick={(e) => {
@@ -976,7 +1027,7 @@ export default function CourseViewer() {
                                                     className="text-white/80 hover:text-white w-8 h-8"
                                                     onClick={toggleFullscreen}
                                                 >
-                                                    <Maximize className="w-5 h-5" />
+                                                    {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                                                 </Button>
                                             </div>
                                         </div>
