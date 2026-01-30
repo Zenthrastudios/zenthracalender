@@ -111,7 +111,16 @@ async function processChange(change: any, supabase: any, businessAccountId: stri
 
         if (!rules || rules.length === 0) return;
 
+        // Get the media_id from the comment if available
+        const commentMediaId = value.media?.id || value.media_id;
+
         for (const rule of rules) {
+            // Check if rule is for a specific media (content-specific automation)
+            if (rule.media_id && commentMediaId && rule.media_id !== commentMediaId) {
+                console.log(`Skipping rule ${rule.id}: media_id mismatch (rule: ${rule.media_id}, comment: ${commentMediaId})`);
+                continue;
+            }
+
             // Check keywords
             if (rule.trigger_keywords && rule.trigger_keywords.length > 0) {
                 const text = value.text.toLowerCase();
@@ -141,6 +150,12 @@ async function processChange(change: any, supabase: any, businessAccountId: stri
 async function processEvent(event: any, supabase: any) {
     // Handle DMs and Story Interactions
     if (event.message) {
+        // Skip message echoes (messages sent by the bot itself)
+        if (event.message.is_echo) {
+            console.log('Skipping message echo (bot sent message)');
+            return;
+        }
+
         const senderId = event.sender.id;
         const recipientId = event.recipient.id; // Usually the Page ID or IG ID
         const text = event.message.text;

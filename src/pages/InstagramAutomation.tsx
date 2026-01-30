@@ -51,7 +51,9 @@ const db = supabase as any;
 interface InstagramIntegration {
     id: string;
     instagram_user_id: string;
+    instagram_account_id: string;
     instagram_username: string;
+    access_token: string;
     profile_picture_url: string | null;
     is_active: boolean;
     created_at: string;
@@ -65,8 +67,19 @@ interface AutomationRule {
     response_type: 'dm' | 'comment_reply';
     response_message: string;
     response_image_url: string | null;
+    media_id: string | null;
     is_active: boolean;
     created_at: string;
+}
+
+interface InstagramMedia {
+    id: string;
+    media_type: 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM';
+    media_url: string;
+    thumbnail_url?: string;
+    caption: string;
+    permalink: string;
+    timestamp: string;
 }
 
 interface MessageTemplate {
@@ -122,6 +135,7 @@ export default function InstagramAutomation() {
 
     const [scheduleMessage, setScheduleMessage] = useState('');
     const [scheduleDateTime, setScheduleDateTime] = useState('');
+    const [selectedMediaId, setSelectedMediaId] = useState<string>('');
 
     // Fetch integration
     const { data: integration, isLoading: integrationLoading } = useQuery({
@@ -170,6 +184,29 @@ export default function InstagramAutomation() {
             return data as MessageTemplate[];
         },
         enabled: !!user,
+    });
+
+    // Fetch Instagram media (posts/reels)
+    const { data: media = [], isLoading: mediaLoading } = useQuery({
+        queryKey: ['instagram-media', integration?.id],
+        queryFn: async () => {
+            if (!integration?.access_token) return [];
+            try {
+                const response = await fetch(
+                    `https://graph.instagram.com/${integration.instagram_account_id}/media?fields=id,media_type,media_url,thumbnail_url,caption,permalink,timestamp&limit=50&access_token=${integration.access_token}`
+                );
+                const data = await response.json();
+                if (data.error) {
+                    console.error('Error fetching media:', data.error);
+                    return [];
+                }
+                return (data.data || []) as InstagramMedia[];
+            } catch (error) {
+                console.error('Failed to fetch Instagram media:', error);
+                return [];
+            }
+        },
+        enabled: !!integration?.access_token,
     });
 
     // Fetch scheduled messages
@@ -298,6 +335,7 @@ export default function InstagramAutomation() {
                 response_type: responseType,
                 response_message: responseMessage,
                 response_image_url: responseImageUrl || null,
+                media_id: selectedMediaId || null,
                 is_active: true,
             };
 
@@ -427,6 +465,7 @@ export default function InstagramAutomation() {
         setResponseType('dm');
         setResponseMessage('');
         setResponseImageUrl('');
+        setSelectedMediaId('');
         setEditingRule(null);
     };
 
@@ -447,6 +486,7 @@ export default function InstagramAutomation() {
         setResponseType(rule.response_type);
         setResponseMessage(rule.response_message);
         setResponseImageUrl(rule.response_image_url || '');
+        setSelectedMediaId(rule.media_id || '');
         setShowRuleDialog(true);
     };
 
@@ -991,7 +1031,7 @@ export default function InstagramAutomation() {
 
             {/* Create/Edit Rule Dialog */}
             <Dialog open={showRuleDialog} onOpenChange={setShowRuleDialog}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-6xl max-h-[90vh]">
                     <DialogHeader>
                         <DialogTitle>{editingRule ? 'Edit Rule' : 'Create Automation Rule'}</DialogTitle>
                         <DialogDescription>
@@ -999,7 +1039,69 @@ export default function InstagramAutomation() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4 py-4">
+                    <div className="flex gap-6 py-4 overflow-hidden">
+                        {/* Left Sidebar - Media Selector (only for comment triggers) */}
+                        {triggerType === 'comment' && media.length > 0 && (
+                            <div className="w-80 flex-shrink-0 border-r pr-6">
+                                <Label className="mb-3 block">Select Post/Reel</Label>
+                                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+                                    <div
+                                        onClick={() => setSelectedMediaId('')}
+                                        className={cn(
+                                            "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+                                            !selectedMediaId ? "bg-primary/10 border-2 border-primary" : "hover:bg-muted/50 border border-border"
+                                        )}
+                                    >
+                                        <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-2xl">✨</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-sm">All Posts</p>
+                                            <p className="text-xs text-muted-foreground">Any post</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {media.map((item) => (
+                                        <div
+                                            key={item.id}
+                                            onClick={() => setSelectedMediaId(item.id)}
+                                            className={cn(
+                                                "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+                                                selectedMediaId === item.id ? "bg-primary/10 border-2 border-primary" : "hover:bg-muted/50 border border-border"
+                                            )}
+                                        >
+                                            <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                                                <img
+                                                    src={item.media_type === 'VIDEO' ? item.thumbnail_url : item.media_url}
+                                                    alt={item.caption || 'Post'}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        e.currentTarget.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-2xl">${item.media_type === 'VIDEO' ? '🎥' : '📷'}</div>`;
+                                                    }}
+                                                />
+                                                {item.media_type === 'VIDEO' && (
+                                                    <div className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                                                        VIDEO
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium line-clamp-2">
+                                                    {item.caption || 'No caption'}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    {new Date(item.timestamp).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Right Side - Form Fields */}
+                        <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[60vh]">
                         <div>
                             <Label>Rule Name</Label>
                             <Input
@@ -1049,6 +1151,40 @@ export default function InstagramAutomation() {
                             <p className="text-xs text-muted-foreground mt-1">
                                 Leave empty to trigger on all {triggerType}s
                             </p>
+                        </div>
+
+
+                        <div>
+                            <Label>Use Template (optional)</Label>
+                            {templates.length > 0 ? (
+                                <>
+                                    <Select onValueChange={(templateId) => {
+                                        const template = templates.find(t => t.id === templateId);
+                                        if (template) {
+                                            setResponseMessage(template.message_text);
+                                            setResponseImageUrl(template.image_url || '');
+                                        }
+                                    }}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a template..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {templates.map((template) => (
+                                                <SelectItem key={template.id} value={template.id}>
+                                                    {template.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Select a template to auto-fill the message
+                                    </p>
+                                </>
+                            ) : (
+                                <p className="text-sm text-muted-foreground py-2">
+                                    No templates yet. Create templates in the Templates tab to use them here.
+                                </p>
+                            )}
                         </div>
 
                         <div>

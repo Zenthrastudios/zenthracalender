@@ -81,50 +81,35 @@ serve(async (req) => {
                 accessToken = longLivedData.access_token
             }
 
-            // --- Step 4. Discover Business IGID & Page Token ---
-            console.log('--- Discovery Phase Start ---')
+            // --- Step 4. Get Instagram Profile Info ---
+            console.log('--- Fetching Instagram Profile ---')
             let username = 'Instagram User'
-            let finalIgId = instagramUserId // Fallback to scoped ID
+            let finalIgId = instagramUserId // Use the Instagram-scoped user ID
             let finalToken = accessToken
 
             try {
-                // Method A: Check Graph Instagram Profile (No version in path as per docs)
-                const meRes = await fetch(`https://graph.instagram.com/me?fields=id,username,ig_id&access_token=${accessToken}`)
+                // Get Instagram profile info (username only - ig_id not available with Business Login)
+                const meRes = await fetch(`https://graph.instagram.com/me?fields=id,username&access_token=${accessToken}`)
                 const meData = await meRes.json()
-                console.log('Graph Instagram Profile:', JSON.stringify(meData))
-                if (meData.username) username = meData.username
-                if (meData.ig_id) {
-                    finalIgId = meData.ig_id.toString()
-                    console.log('Success Method A (ig_id):', finalIgId)
+                console.log('Instagram Profile Response:', JSON.stringify(meData))
+                
+                if (meData.username) {
+                    username = meData.username
+                    console.log('✓ Username retrieved:', username)
                 }
-
-                // Method B: Discover via Facebook Me (Self Profile Discovery)
-                const fbMeRes = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name,instagram_business_account&access_token=${accessToken}`)
-                const fbMeData = await fbMeRes.json()
-                console.log('Graph Facebook Profile:', JSON.stringify(fbMeData))
-                if (fbMeData.instagram_business_account?.id) {
-                    finalIgId = fbMeData.instagram_business_account.id
-                    console.log('Success Method B (fb_me_ig):', finalIgId)
+                
+                if (meData.id) {
+                    finalIgId = meData.id.toString()
+                    console.log('✓ Instagram Business Account ID:', finalIgId)
                 }
-
-                // Method C: Discover via linked Pages (Needed for Webhooks + Page Token)
-                const accountsRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=instagram_business_account,access_token,name&access_token=${accessToken}`)
-                const accountsData = await accountsRes.json()
-                console.log('Linked Pages Found:', accountsData.data?.length || 0)
-
-                if (accountsData.data && accountsData.data.length > 0) {
-                    const pageWithIg = accountsData.data.find((p: any) => p.instagram_business_account)
-                    if (pageWithIg) {
-                        finalIgId = pageWithIg.instagram_business_account.id
-                        finalToken = pageWithIg.access_token
-                        console.log('Success Method C (Pages):', finalIgId)
-                    }
-                }
-            } catch (discoveryErr) {
-                console.warn('Discovery exception:', discoveryErr)
+            } catch (err) {
+                console.warn('Profile fetch error:', err)
+                // Continue with fallback values
             }
 
             // 5. Save to Database
+            // Note: Webhook subscriptions for Instagram Business Login must be configured
+            // manually in the Meta App Dashboard under "Configure webhooks"
             console.log('Final Choice -> IGID:', finalIgId, 'User:', username)
             const { error: upsertError } = await supabaseClient
                 .from('instagram_integrations')
