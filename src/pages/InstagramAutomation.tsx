@@ -67,6 +67,8 @@ interface AutomationRule {
     response_type: 'dm' | 'comment_reply';
     response_message: string;
     response_image_url: string | null;
+    response_button_text: string | null;
+    response_button_url: string | null;
     media_id: string | null;
     is_active: boolean;
     created_at: string;
@@ -126,6 +128,8 @@ export default function InstagramAutomation() {
     const [responseType, setResponseType] = useState<string>('dm');
     const [responseMessage, setResponseMessage] = useState('');
     const [responseImageUrl, setResponseImageUrl] = useState('');
+    const [responseButtonText, setResponseButtonText] = useState('');
+    const [responseButtonUrl, setResponseButtonUrl] = useState('');
 
     const [templateName, setTemplateName] = useState('');
     const [templateMessage, setTemplateMessage] = useState('');
@@ -335,6 +339,8 @@ export default function InstagramAutomation() {
                 response_type: responseType,
                 response_message: responseMessage,
                 response_image_url: responseImageUrl || null,
+                response_button_text: responseButtonText || null,
+                response_button_url: responseButtonUrl || null,
                 media_id: selectedMediaId || null,
                 is_active: true,
             };
@@ -465,6 +471,8 @@ export default function InstagramAutomation() {
         setResponseType('dm');
         setResponseMessage('');
         setResponseImageUrl('');
+        setResponseButtonText('');
+        setResponseButtonUrl('');
         setSelectedMediaId('');
         setEditingRule(null);
     };
@@ -486,6 +494,8 @@ export default function InstagramAutomation() {
         setResponseType(rule.response_type);
         setResponseMessage(rule.response_message);
         setResponseImageUrl(rule.response_image_url || '');
+        setResponseButtonText(rule.response_button_text || '');
+        setResponseButtonUrl(rule.response_button_url || '');
         setSelectedMediaId(rule.media_id || '');
         setShowRuleDialog(true);
     };
@@ -883,10 +893,35 @@ export default function InstagramAutomation() {
                                                     <div className="flex items-start justify-between mb-3">
                                                         <h3 className="font-semibold">{template.name}</h3>
                                                         <div className="flex gap-1">
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-7 w-7"
+                                                                onClick={() => {
+                                                                    setEditingTemplate(template);
+                                                                    setTemplateName(template.name);
+                                                                    setTemplateMessage(template.message_text);
+                                                                    setTemplateImageUrl(template.image_url || '');
+                                                                    setTemplateButtonText(template.button_text || '');
+                                                                    setTemplateButtonUrl(template.button_url || '');
+                                                                    setShowTemplateDialog(true);
+                                                                }}
+                                                            >
                                                                 <Edit className="w-3.5 h-3.5" />
                                                             </Button>
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-7 w-7 text-destructive"
+                                                                onClick={() => {
+                                                                    if (confirm('Delete this template?')) {
+                                                                        db.from('instagram_message_templates').delete().eq('id', template.id).then(() => {
+                                                                            queryClient.invalidateQueries({ queryKey: ['instagram-templates'] });
+                                                                            toast.success('Template deleted');
+                                                                        });
+                                                                    }
+                                                                }}
+                                                            >
                                                                 <Trash2 className="w-3.5 h-3.5" />
                                                             </Button>
                                                         </div>
@@ -1031,20 +1066,20 @@ export default function InstagramAutomation() {
 
             {/* Create/Edit Rule Dialog */}
             <Dialog open={showRuleDialog} onOpenChange={setShowRuleDialog}>
-                <DialogContent className="max-w-6xl max-h-[90vh]">
+                <DialogContent className="max-w-[95vw] lg:max-w-[90vw] max-h-[90vh] p-4 sm:p-6">
                     <DialogHeader>
-                        <DialogTitle>{editingRule ? 'Edit Rule' : 'Create Automation Rule'}</DialogTitle>
-                        <DialogDescription>
+                        <DialogTitle className="text-lg sm:text-xl">{editingRule ? 'Edit Rule' : 'Create Automation Rule'}</DialogTitle>
+                        <DialogDescription className="text-sm">
                             Set up automatic responses when specific triggers occur.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex gap-6 py-4 overflow-hidden">
+                    <div className="flex flex-col lg:flex-row gap-4 py-4 overflow-hidden">
                         {/* Left Sidebar - Media Selector (only for comment triggers) */}
                         {triggerType === 'comment' && media.length > 0 && (
-                            <div className="w-80 flex-shrink-0 border-r pr-6">
-                                <Label className="mb-3 block">Select Post/Reel</Label>
-                                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+                            <div className="w-full lg:w-80 flex-shrink-0 lg:border-r lg:pr-6 mb-4 lg:mb-0">
+                                <Label className="mb-3 block text-sm sm:text-base">Select Post/Reel</Label>
+                                <div className="space-y-2 max-h-[40vh] lg:max-h-[60vh] overflow-y-auto pr-2">
                                     <div
                                         onClick={() => setSelectedMediaId('')}
                                         className={cn(
@@ -1100,8 +1135,8 @@ export default function InstagramAutomation() {
                             </div>
                         )}
 
-                        {/* Right Side - Form Fields */}
-                        <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[60vh]">
+                        {/* Center - Form Fields */}
+                        <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[50vh] lg:max-h-[60vh]">
                         <div>
                             <Label>Rule Name</Label>
                             <Input
@@ -1205,6 +1240,101 @@ export default function InstagramAutomation() {
                                 onChange={(e) => setResponseImageUrl(e.target.value)}
                             />
                         </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label>Button Text (optional)</Label>
+                                <Input
+                                    placeholder="Learn More"
+                                    value={responseButtonText}
+                                    onChange={(e) => setResponseButtonText(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <Label>Button URL (optional)</Label>
+                                <Input
+                                    placeholder="https://..."
+                                    value={responseButtonUrl}
+                                    onChange={(e) => setResponseButtonUrl(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        </div>
+
+                        {/* Right Sidebar - Message Preview */}
+                        {responseMessage && (
+                            <div className="w-full lg:w-96 flex-shrink-0 lg:border-l lg:pl-6 mt-4 lg:mt-0">
+                                <Label className="mb-3 block text-sm sm:text-base">Message Preview</Label>
+                                <div className="space-y-4 max-h-[40vh] lg:max-h-[60vh] overflow-y-auto pr-2">
+                                    {/* Instagram DM Preview */}
+                                    <div className="bg-gradient-to-b from-gray-900 to-black rounded-2xl p-4 text-white">
+                                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-700">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                                <span className="text-white text-xs font-semibold">
+                                                    {integration?.instagram_username?.charAt(0).toUpperCase() || 'B'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold">@{integration?.instagram_username || 'your_account'}</p>
+                                                <p className="text-xs text-gray-400">Active now</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="space-y-3">
+                                            {/* Message Bubble */}
+                                            <div className="flex justify-end">
+                                                <div className="max-w-[85%] space-y-2">
+                                                    <div className="bg-blue-600 rounded-3xl rounded-tr-md px-4 py-2.5">
+                                                        <p className="text-sm text-white whitespace-pre-wrap break-words">{responseMessage}</p>
+                                                    </div>
+                                                    
+                                                    {/* Image */}
+                                                    {responseImageUrl && (
+                                                        <div className="relative w-full rounded-2xl overflow-hidden bg-gray-800">
+                                                            <img
+                                                                src={responseImageUrl}
+                                                                alt="Preview"
+                                                                className="w-full h-auto max-h-64 object-cover"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.style.display = 'none';
+                                                                    e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-32 flex items-center justify-center text-gray-500 text-xs">Image unavailable</div>';
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Button */}
+                                                    {responseButtonText && responseButtonUrl && (
+                                                        <div className="bg-gray-800 rounded-2xl p-3 border border-gray-700">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex-1">
+                                                                    <p className="text-xs text-gray-400 mb-1">Link</p>
+                                                                    <p className="text-sm font-medium text-white">{responseButtonText}</p>
+                                                                </div>
+                                                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <p className="text-xs text-gray-500 text-right">Just now</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="text-xs text-muted-foreground space-y-1 px-2">
+                                        <p className="font-medium">Preview includes:</p>
+                                        <ul className="space-y-1 list-disc list-inside">
+                                            <li>Message text</li>
+                                            {responseImageUrl && <li>Image attachment</li>}
+                                            {responseButtonText && <li>Action button link</li>}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <DialogFooter>
@@ -1218,15 +1348,17 @@ export default function InstagramAutomation() {
 
             {/* Create Template Dialog */}
             <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-[95vw] lg:max-w-6xl max-h-[90vh] p-4 sm:p-6">
                     <DialogHeader>
-                        <DialogTitle>{editingTemplate ? 'Edit Template' : 'Create Template'}</DialogTitle>
-                        <DialogDescription>
+                        <DialogTitle className="text-lg sm:text-xl">{editingTemplate ? 'Edit Template' : 'Create Template'}</DialogTitle>
+                        <DialogDescription className="text-sm">
                             Save reusable message templates with optional images and buttons.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4 py-4">
+                    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 py-4 overflow-hidden">
+                        {/* Left Side - Form Fields */}
+                        <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[50vh] lg:max-h-[60vh]">
                         <div>
                             <Label>Template Name</Label>
                             <Input
@@ -1273,6 +1405,82 @@ export default function InstagramAutomation() {
                                 />
                             </div>
                         </div>
+                        </div>
+
+                        {/* Right Side - Template Preview */}
+                        {templateMessage && (
+                            <div className="w-full lg:w-96 flex-shrink-0 lg:border-l lg:pl-6 mt-4 lg:mt-0">
+                                <Label className="mb-3 block text-sm sm:text-base">Template Preview</Label>
+                                <div className="space-y-4 max-h-[40vh] lg:max-h-[60vh] overflow-y-auto pr-2">
+                                    {/* Instagram DM Preview */}
+                                    <div className="bg-gradient-to-b from-gray-900 to-black rounded-2xl p-4 text-white">
+                                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-700">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                                                <span className="text-white text-xs font-semibold">
+                                                    {integration?.instagram_username?.charAt(0).toUpperCase() || 'B'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold">@{integration?.instagram_username || 'your_account'}</p>
+                                                <p className="text-xs text-gray-400">Active now</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="space-y-3">
+                                            {/* Message Bubble */}
+                                            <div className="flex justify-end">
+                                                <div className="max-w-[85%] space-y-2">
+                                                    <div className="bg-blue-600 rounded-3xl rounded-tr-md px-4 py-2.5">
+                                                        <p className="text-sm text-white whitespace-pre-wrap break-words">{templateMessage}</p>
+                                                    </div>
+                                                    
+                                                    {/* Image */}
+                                                    {templateImageUrl && (
+                                                        <div className="relative w-full rounded-2xl overflow-hidden bg-gray-800">
+                                                            <img
+                                                                src={templateImageUrl}
+                                                                alt="Preview"
+                                                                className="w-full h-auto max-h-64 object-cover"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.style.display = 'none';
+                                                                    e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-32 flex items-center justify-center text-gray-500 text-xs">Image unavailable</div>';
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Button */}
+                                                    {templateButtonText && templateButtonUrl && (
+                                                        <div className="bg-gray-800 rounded-2xl p-3 border border-gray-700">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex-1">
+                                                                    <p className="text-xs text-gray-400 mb-1">Link</p>
+                                                                    <p className="text-sm font-medium text-white">{templateButtonText}</p>
+                                                                </div>
+                                                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <p className="text-xs text-gray-500 text-right">Just now</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="text-xs text-muted-foreground space-y-1 px-2">
+                                        <p className="font-medium">Template includes:</p>
+                                        <ul className="space-y-1 list-disc list-inside">
+                                            <li>Message text</li>
+                                            {templateImageUrl && <li>Image attachment</li>}
+                                            {templateButtonText && <li>Action button link</li>}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <DialogFooter>

@@ -250,7 +250,10 @@ async function processEvent(event: any, supabase: any) {
             const res = await sendDM(
                 integration.access_token,
                 senderId,                      // The person who sent the message
-                rule.response_message
+                rule.response_message,
+                rule.response_image_url,
+                rule.response_button_text,
+                rule.response_button_url
             );
 
             if (res.error) {
@@ -276,27 +279,60 @@ async function processEvent(event: any, supabase: any) {
     }
 }
 
-async function sendDM(accessToken: string, senderId: string, message: string) {
-    console.log(`Sending DM to ${senderId}: ${message}`);
+async function sendDM(accessToken: string, senderId: string, message: string, imageUrl?: string | null, buttonText?: string | null, buttonUrl?: string | null) {
+    console.log(`Sending DM to ${senderId}: ${message}, imageUrl: ${imageUrl}`);
 
     // Determine the correct Graph API host
-    // Instagram Login for Business tokens (starting with IGA) use graph.instagram.com
     const host = accessToken.startsWith('IGA')
         ? 'graph.instagram.com'
         : 'graph.facebook.com';
 
-    const res = await fetch(`https://${host}/v18.0/me/messages`, {
+    // First, send the text message
+    const textBody = {
+        recipient: { id: senderId },
+        message: { text: message },
+        access_token: accessToken
+    };
+
+    const textRes = await fetch(`https://${host}/v18.0/me/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            recipient: { id: senderId },
-            message: { text: message },
-            access_token: accessToken
-        })
+        body: JSON.stringify(textBody)
     });
-    const data = await res.json();
-    console.log(`Send DM Response from ${host}:`, JSON.stringify(data));
-    return data;
+    const textData = await textRes.json();
+    console.log(`Text message sent:`, JSON.stringify(textData));
+
+    // If there's an image, send it as a separate message
+    if (imageUrl) {
+        console.log(`Sending image: ${imageUrl}`);
+        const imageBody = {
+            recipient: { id: senderId },
+            message: {
+                attachment: {
+                    type: 'image',
+                    payload: {
+                        url: imageUrl,
+                        is_reusable: true
+                    }
+                }
+            },
+            access_token: accessToken
+        };
+
+        const imageRes = await fetch(`https://${host}/v18.0/me/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(imageBody)
+        });
+        const imageData = await imageRes.json();
+        console.log(`Image sent:`, JSON.stringify(imageData));
+        
+        if (imageData.error) {
+            console.error('Error sending image:', imageData.error);
+        }
+    }
+
+    return textData;
 }
 
 async function replyToComment(accessToken: string, commentId: string, message: string) {
