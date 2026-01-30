@@ -19,6 +19,7 @@ import {
   Moon,
   Sparkles,
   ShoppingBag,
+  Instagram,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ const navItems = [
   { icon: Clock, label: 'Availability', path: '/dashboard/availability' },
   { icon: ShoppingBag, label: 'Products', path: '/dashboard/products' },
   { icon: GraduationCap, label: 'Courses', path: '/dashboard/courses' },
+  { icon: Instagram, label: 'Instagram', path: '/dashboard/instagram' },
   { icon: BarChart3, label: 'Analytics', path: '/dashboard/analytics' },
   { icon: Users, label: 'Instructors', path: '/dashboard/instructors' },
   { icon: Users, label: 'Teams', path: '/dashboard/teams' },

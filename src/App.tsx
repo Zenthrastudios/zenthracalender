@@ -42,6 +42,7 @@ import Courses from "./pages/Courses";
 import CourseEditor from "./pages/CourseEditor";
 import PublicCourse from "./pages/PublicCourse";
 import CourseViewer from "./pages/CourseViewer";
+import InstagramAutomation from "./pages/InstagramAutomation";
 
 const queryClient = new QueryClient();
 
@@ -248,6 +249,11 @@ function AppRoutes() {
       <Route path="/dashboard/courses/:id" element={
         <AdminRoute>
           <CourseEditor />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/instagram" element={
+        <AdminRoute>
+          <InstagramAutomation />
         </AdminRoute>
       } />
 
