@@ -280,7 +280,7 @@ async function processEvent(event: any, supabase: any) {
 }
 
 async function sendDM(accessToken: string, senderId: string, message: string, imageUrl?: string | null, buttonText?: string | null, buttonUrl?: string | null) {
-    console.log(`Sending DM to ${senderId}: ${message}, imageUrl: ${imageUrl}`);
+    console.log(`Sending DM to ${senderId}: ${message}, imageUrl: ${imageUrl}, button: ${buttonText}`);
 
     // Use graph.instagram.com for Instagram tokens (IGA prefix)
     const host = accessToken.startsWith('IGA')
@@ -340,6 +340,31 @@ async function sendDM(accessToken: string, senderId: string, message: string, im
         
         if (imageData.error) {
             console.error('Error sending image:', imageData.error);
+        }
+    }
+
+    // Send "button" as a link preview card (Instagram shows a rich preview when a URL is sent)
+    // Instagram does not support Messenger-style template buttons reliably, so URL preview is the best UX.
+    if (buttonUrl) {
+        const linkText = buttonText ? `${buttonText}\n${buttonUrl}` : buttonUrl;
+
+        const linkRes = await fetch(`https://${host}/v21.0/${igId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                recipient: { id: senderId },
+                message: { text: linkText }
+            })
+        });
+
+        const linkData = await linkRes.json();
+        console.log(`Link message sent:`, JSON.stringify(linkData));
+
+        if (linkData?.error) {
+            console.error('Error sending link message:', linkData.error);
         }
     }
 
