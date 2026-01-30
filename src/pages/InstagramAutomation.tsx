@@ -235,14 +235,13 @@ export default function InstagramAutomation() {
         console.log('App ID:', CLIENT_ID);
         console.log('Redirect URI:', FUNCTION_URL);
 
-        // Strictly follow "Business Login for Instagram" documentation provided by user
+        // Instagram Business Login scopes (NOT Facebook scopes)
+        // As per Instagram Business Login documentation
         const scopes = [
             'instagram_business_basic',
             'instagram_business_manage_messages',
             'instagram_business_manage_comments',
-            'instagram_business_content_publish',
-            'pages_show_list',
-            'pages_read_engagement'
+            'instagram_business_content_publish'
         ].join(',');
 
         const igUrl = `https://www.instagram.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(FUNCTION_URL)}&response_type=code&scope=${scopes}&state=${state}`;

@@ -53,15 +53,21 @@ serve(async (req) => {
             })
 
             const tokenData = await tokenRes.json()
-            console.log('Short-lived Token Response Received')
+            console.log('Short-lived Token Response:', JSON.stringify(tokenData))
 
             if (tokenData.error_message || tokenData.error) {
                 console.error('Step 2 Error:', tokenData.error_message || tokenData.error)
                 throw new Error(tokenData.error_message || 'Failed to exchange code')
             }
 
-            let accessToken = tokenData.access_token
-            let instagramUserId = tokenData.user_id
+            // Instagram Business Login returns data in a 'data' array
+            const tokenInfo = tokenData.data?.[0] || tokenData
+            let accessToken = tokenInfo.access_token
+            let instagramUserId = tokenInfo.user_id
+
+            if (!accessToken) {
+                throw new Error('No access token received from Instagram')
+            }
 
             // --- Step 3. Get a long-lived access token ---
             console.log('Exchanging for long-lived token...')
@@ -125,6 +131,7 @@ serve(async (req) => {
                 .upsert({
                     user_id: user.id,
                     instagram_user_id: finalIgId?.toString(),
+                    instagram_account_id: finalIgId?.toString(), // Store Business Account ID for webhook matching
                     instagram_username: username,
                     access_token: finalToken,
                     is_active: true,

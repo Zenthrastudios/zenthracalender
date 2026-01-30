@@ -146,26 +146,58 @@ async function processEvent(event: any, supabase: any) {
         const text = event.message.text;
 
         // Match the integration
-        // We try to match by recipientId first, then by the entry ID as a fallback
-        // Historically, webhooks use the Business ID (starting with 1784) in one of these fields.
-        let { data: integration } = await supabase
+        // Try multiple lookup strategies to find the correct integration
+        let integration = null;
+
+        // Strategy 1: Match by instagram_account_id (Business Account ID from webhook)
+        const { data: accountMatch } = await supabase
             .from('instagram_integrations')
             .select('*')
-            .eq('instagram_user_id', recipientId)
+            .eq('instagram_account_id', recipientId)
+            .eq('is_active', true)
             .maybeSingle();
+        
+        if (accountMatch) {
+            integration = accountMatch;
+            console.log('✓ Matched by instagram_account_id:', recipientId);
+        }
 
+        // Strategy 2: Try instagram_user_id as fallback
+        if (!integration) {
+            const { data: userMatch } = await supabase
+                .from('instagram_integrations')
+                .select('*')
+                .eq('instagram_user_id', recipientId)
+                .eq('is_active', true)
+                .maybeSingle();
+            
+            if (userMatch) {
+                integration = userMatch;
+                console.log('✓ Matched by instagram_user_id:', recipientId);
+            }
+        }
+
+        // Strategy 3: Try entry_id as fallback
         if (!integration && event.entry_id) {
             console.log('No match for recipientId, trying entry_id:', event.entry_id);
             const { data: entryMatch } = await supabase
                 .from('instagram_integrations')
                 .select('*')
-                .eq('instagram_user_id', event.entry_id)
+                .or(`instagram_account_id.eq.${event.entry_id},instagram_user_id.eq.${event.entry_id}`)
+                .eq('is_active', true)
                 .maybeSingle();
-            integration = entryMatch;
+            
+            if (entryMatch) {
+                integration = entryMatch;
+                console.log('✓ Matched by entry_id:', event.entry_id);
+            }
         }
 
         if (!integration) {
-            console.warn('CRITICAL: No integration found in database for recipient:', recipientId, 'or entry:', event.entry_id);
+            console.error('CRITICAL: No integration found in database');
+            console.error('  - Recipient ID:', recipientId);
+            console.error('  - Entry ID:', event.entry_id);
+            console.error('  - Please verify the instagram_account_id in your database matches the webhook recipient.id');
             return;
         }
 
