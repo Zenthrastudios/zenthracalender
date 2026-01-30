@@ -282,27 +282,37 @@ async function processEvent(event: any, supabase: any) {
 async function sendDM(accessToken: string, senderId: string, message: string, imageUrl?: string | null, buttonText?: string | null, buttonUrl?: string | null) {
     console.log(`Sending DM to ${senderId}: ${message}, imageUrl: ${imageUrl}`);
 
-    // Determine the correct Graph API host
+    // Use graph.instagram.com for Instagram tokens (IGA prefix)
     const host = accessToken.startsWith('IGA')
         ? 'graph.instagram.com'
         : 'graph.facebook.com';
 
-    // First, send the text message
+    // Get Instagram Business Account ID from access token
+    // For Instagram API, we need to use /<IG_ID>/messages endpoint
+    const igIdRes = await fetch(`https://${host}/v21.0/me?fields=id&access_token=${accessToken}`);
+    const igIdData = await igIdRes.json();
+    const igId = igIdData.id;
+
+    console.log(`Using Instagram ID: ${igId}`);
+
+    // Send text message
     const textBody = {
         recipient: { id: senderId },
-        message: { text: message },
-        access_token: accessToken
+        message: { text: message }
     };
 
-    const textRes = await fetch(`https://${host}/v18.0/me/messages`, {
+    const textRes = await fetch(`https://${host}/v21.0/${igId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json' 
+        },
         body: JSON.stringify(textBody)
     });
     const textData = await textRes.json();
     console.log(`Text message sent:`, JSON.stringify(textData));
 
-    // If there's an image, send it as a separate message
+    // If there's an image, send it as a separate message using correct Instagram format
     if (imageUrl) {
         console.log(`Sending image: ${imageUrl}`);
         const imageBody = {
@@ -311,17 +321,18 @@ async function sendDM(accessToken: string, senderId: string, message: string, im
                 attachment: {
                     type: 'image',
                     payload: {
-                        url: imageUrl,
-                        is_reusable: true
+                        url: imageUrl
                     }
                 }
-            },
-            access_token: accessToken
+            }
         };
 
-        const imageRes = await fetch(`https://${host}/v18.0/me/messages`, {
+        const imageRes = await fetch(`https://${host}/v21.0/${igId}/messages`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify(imageBody)
         });
         const imageData = await imageRes.json();
