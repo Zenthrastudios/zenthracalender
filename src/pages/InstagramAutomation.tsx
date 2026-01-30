@@ -97,7 +97,7 @@ interface AutomationLog {
 }
 
 export default function InstagramAutomation() {
-    const { user } = useAuth();
+    const { user, session } = useAuth();
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState('overview');
     const [showRuleDialog, setShowRuleDialog] = useState(false);
@@ -216,35 +216,38 @@ export default function InstagramAutomation() {
     };
 
     // Connect Instagram
-    const handleConnectInstagram = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
+    // Connect Instagram
+    const initiateInstagramConnect = () => {
+        if (!user || !session) {
             toast.error("You must be logged in to connect Instagram");
             return;
         }
 
-        // We use the 'state' parameter to pass the Supabase JWT to the callback function
-        // This allows the backend to authenticate the user and link the account
-        // Note: In production, consider encrypting this or using a temporary code exchange if security is critical
+        // We pass the Supabase Access Token as the state
+        // This allows the Edge Function to verify the user identity
         const state = session.access_token;
 
-        // Supabase Function URL
-        // Typically: https://<project-ref>.supabase.co/functions/v1/instagram-auth/callback
-        // BUT we need to redirect to FACEBOOK first.
-
-        // We can construct the FB URL here or call the function to get it.
-        // Let's construct it here to avoid an extra RTT, using the Function URL as the redirect_uri
-        const PROJECT_REF = 'zlhbzlxxdezlrtzljpni'; // Hardcoded for now based on context
+        const PROJECT_REF = 'zlhbzlxxdezlrtzljpni';
         const FUNCTION_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/instagram-auth`;
-        const CLIENT_ID = '796387736858978'; // Updated App ID
+        const CLIENT_ID = '796387736858978';
 
-        // Use Instagram OAuth URL for "Instagram App" types
-        // Note: The scopes here are different for the new Instagram API setup
-        // Note: The scopes here must include page permissions to find the linked Business Account
-        const fbUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${CLIENT_ID}&redirect_uri=${FUNCTION_URL}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights,pages_show_list,pages_read_engagement&state=${state}`;
+        console.log('--- INSTAGRAM CONNECTION ATTEMPT ---');
+        console.log('App ID:', CLIENT_ID);
+        console.log('Redirect URI:', FUNCTION_URL);
 
-        console.log('Redirecting to:', fbUrl);
-        window.location.href = fbUrl;
+        // Strictly follow "Business Login for Instagram" documentation provided by user
+        const scopes = [
+            'instagram_business_basic',
+            'instagram_business_manage_messages',
+            'instagram_business_manage_comments',
+            'instagram_business_content_publish',
+            'pages_show_list',
+            'pages_read_engagement'
+        ].join(',');
+
+        const igUrl = `https://www.instagram.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(FUNCTION_URL)}&response_type=code&scope=${scopes}&state=${state}`;
+
+        window.location.href = igUrl;
     };
 
     // Handle OAuth Callback Success/Error
@@ -256,10 +259,10 @@ export default function InstagramAutomation() {
         if (success === 'true') {
             toast.success("Instagram connected successfully!");
             queryClient.invalidateQueries({ queryKey: ['instagram-integration'] });
-            // Clean URL
             window.history.replaceState({}, '', window.location.pathname);
         } else if (error) {
             toast.error(`Instagram connection failed: ${error}`);
+            window.history.replaceState({}, '', window.location.pathname);
         }
     }, [queryClient]);
 
@@ -494,7 +497,7 @@ export default function InstagramAutomation() {
                             </div>
                         </div>
 
-                        {integration && (
+                        {integration ? (
                             <div className="flex items-center gap-2">
                                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border border-border/50">
                                     {integration.profile_picture_url ? (
@@ -518,6 +521,15 @@ export default function InstagramAutomation() {
                                     Disconnect
                                 </Button>
                             </div>
+                        ) : (
+                            <Button
+                                size="sm"
+                                onClick={initiateInstagramConnect}
+                                className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90"
+                            >
+                                <Instagram className="w-4 h-4 mr-2" />
+                                Connect
+                            </Button>
                         )}
                     </div>
 
@@ -553,7 +565,7 @@ export default function InstagramAutomation() {
                                 </div>
                                 <Button
                                     size="lg"
-                                    onClick={handleConnectInstagram}
+                                    onClick={initiateInstagramConnect}
                                     className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90"
                                 >
                                     <Instagram className="w-5 h-5 mr-2" />

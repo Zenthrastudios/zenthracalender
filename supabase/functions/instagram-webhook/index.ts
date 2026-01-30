@@ -50,6 +50,8 @@ serve(async (req) => {
                     if (entry.messaging) {
                         console.log(`Met messaging events in entry: ${entry.messaging.length}`)
                         for (const event of entry.messaging) {
+                            // Inject entry ID for matching fallbacks
+                            event.entry_id = entry.id;
                             await processEvent(event, supabaseClient)
                         }
                     } else if (entry.changes) {
@@ -143,17 +145,27 @@ async function processEvent(event: any, supabase: any) {
         const recipientId = event.recipient.id; // Usually the Page ID or IG ID
         const text = event.message.text;
 
-        // Find the integration. We try to match by instagram_user_id
-        // NOTE: In some webhook configurations, recipientId is the Page ID. 
-        // We might need to store the page_id in the database to be 100% sure.
-        const { data: integration } = await supabase
+        // Match the integration
+        // We try to match by recipientId first, then by the entry ID as a fallback
+        // Historically, webhooks use the Business ID (starting with 1784) in one of these fields.
+        let { data: integration } = await supabase
             .from('instagram_integrations')
             .select('*')
             .eq('instagram_user_id', recipientId)
             .maybeSingle();
 
+        if (!integration && event.entry_id) {
+            console.log('No match for recipientId, trying entry_id:', event.entry_id);
+            const { data: entryMatch } = await supabase
+                .from('instagram_integrations')
+                .select('*')
+                .eq('instagram_user_id', event.entry_id)
+                .maybeSingle();
+            integration = entryMatch;
+        }
+
         if (!integration) {
-            console.warn('No integration found for recipient:', recipientId);
+            console.warn('CRITICAL: No integration found in database for recipient:', recipientId, 'or entry:', event.entry_id);
             return;
         }
 
@@ -190,7 +202,7 @@ async function processEvent(event: any, supabase: any) {
             // Execute Response (Always DM for these triggers)
             const res = await sendDM(
                 integration.access_token,
-                senderId,
+                senderId,                      // The person who sent the message
                 rule.response_message
             );
 
@@ -217,17 +229,27 @@ async function processEvent(event: any, supabase: any) {
     }
 }
 
-async function sendDM(accessToken: string, recipientId: string, message: string) {
-    const res = await fetch(`https://graph.facebook.com/v18.0/me/messages`, {
+async function sendDM(accessToken: string, senderId: string, message: string) {
+    console.log(`Sending DM to ${senderId}: ${message}`);
+
+    // Determine the correct Graph API host
+    // Instagram Login for Business tokens (starting with IGA) use graph.instagram.com
+    const host = accessToken.startsWith('IGA')
+        ? 'graph.instagram.com'
+        : 'graph.facebook.com';
+
+    const res = await fetch(`https://${host}/v18.0/me/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            recipient: { id: recipientId },
+            recipient: { id: senderId },
             message: { text: message },
             access_token: accessToken
         })
     });
-    return res.json();
+    const data = await res.json();
+    console.log(`Send DM Response from ${host}:`, JSON.stringify(data));
+    return data;
 }
 
 async function replyToComment(accessToken: string, commentId: string, message: string) {

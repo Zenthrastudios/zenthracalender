@@ -17,13 +17,13 @@ serve(async (req) => {
     const error = url.searchParams.get('error')
 
     if (error) {
-        const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:8080'
+        const siteUrl = Deno.env.get('SITE_URL') || 'https://cal.zenthrashop.in'
         return Response.redirect(`${siteUrl}/dashboard/instagram?error=${error}`)
     }
 
     if (code && state) {
         try {
-            // 1. Authenticate Supabase User
+            // 1. Authenticate Supabase User using the 'state' token
             const supabaseClient = createClient(
                 Deno.env.get('SUPABASE_URL') ?? '',
                 Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -33,139 +33,116 @@ serve(async (req) => {
             const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
             if (userError || !user) throw new Error('Invalid authentication state')
 
-            // 2. Exchange Code for Short-Lived Token (Instagram API)
             const clientId = Deno.env.get('INSTAGRAM_APP_ID')
             const clientSecret = Deno.env.get('INSTAGRAM_APP_SECRET')
             const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/instagram-auth`
 
-            const tokenParams = new URLSearchParams({
-                client_id: clientId!,
-                client_secret: clientSecret!,
-                grant_type: 'authorization_code',
-                redirect_uri: redirectUri,
-                code,
-            })
+            // --- Step 2. Exchange the Code For a Token ---
+            // POST https://api.instagram.com/oauth/access_token
+            console.log('Exchanging code for short-lived token...')
+            const formData = new FormData()
+            formData.append('client_id', clientId!)
+            formData.append('client_secret', clientSecret!)
+            formData.append('grant_type', 'authorization_code')
+            formData.append('redirect_uri', redirectUri)
+            formData.append('code', code.replace(/#_$/, '')) // Strip #_ if present
 
-            // Note: Instagram API uses api.instagram.com for code exchange
-            console.log('Exchanging code for token...')
             const tokenRes = await fetch('https://api.instagram.com/oauth/access_token', {
                 method: 'POST',
-                body: tokenParams,
+                body: formData,
             })
 
             const tokenData = await tokenRes.json()
-            console.log('Token Data:', tokenData) // LOGGING
+            console.log('Short-lived Token Response Received')
 
-            if (tokenData.error_message) throw new Error(tokenData.error_message)
-            if (!tokenData.access_token) throw new Error('Failed to retrieve access token')
+            if (tokenData.error_message || tokenData.error) {
+                console.error('Step 2 Error:', tokenData.error_message || tokenData.error)
+                throw new Error(tokenData.error_message || 'Failed to exchange code')
+            }
 
-            const shortLivedToken = tokenData.access_token
-            const igUserId = tokenData.user_id // We get the user ID immediately here
+            let accessToken = tokenData.access_token
+            let instagramUserId = tokenData.user_id
 
-            // 3. Exchange for Long-Lived Token (Graph API)
+            // --- Step 3. Get a long-lived access token ---
             console.log('Exchanging for long-lived token...')
-            const longLivedRes = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${clientSecret}&access_token=${shortLivedToken}`)
+            const longLivedRes = await fetch(
+                `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${clientSecret}&access_token=${accessToken}`
+            )
             const longLivedData = await longLivedRes.json()
-            console.log('Long Lived Data:', longLivedData) // LOGGING
+            console.log('Long-lived Token Response Received')
 
-            const accessToken = longLivedData.access_token || shortLivedToken
+            if (longLivedData.access_token) {
+                accessToken = longLivedData.access_token
+            }
 
-            // 4. Get the Instagram Business Account ID
-            console.log('Fetching linked business accounts...')
-            const accountsRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=name,access_token,instagram_business_account&access_token=${accessToken}`)
-            const accountsData = await accountsRes.json()
-            console.log('Accounts Data Response:', JSON.stringify(accountsData))
-
-            let finalIgUserId = igUserId // Fallback to current IG ID
-            let profilePicture = null
+            // --- Step 4. Discover Business IGID & Page Token ---
+            console.log('--- Discovery Phase Start ---')
             let username = 'Instagram User'
+            let finalIgId = instagramUserId // Fallback to scoped ID
+            let finalToken = accessToken
 
-            // Look for Business Account link
-            if (accountsData.data && accountsData.data.length > 0) {
-                const pageWithIg = accountsData.data.find((p: any) => p.instagram_business_account);
-                if (pageWithIg) {
-                    finalIgUserId = pageWithIg.instagram_business_account.id;
-                    console.log('Found Instagram Business Account ID:', finalIgUserId);
-                }
-            }
-
-            // 5. Get Detailed User Profile (Try multiple sources)
-            console.log('Fetching profile for ID:', finalIgUserId)
             try {
-                // Try Instagram Graph API first
-                const profileRes = await fetch(`https://graph.facebook.com/v18.0/${finalIgUserId}?fields=username,profile_picture_url&access_token=${accessToken}`)
-                const profileData = await profileRes.json()
-                console.log('Profile Data (Graph):', JSON.stringify(profileData))
-
-                if (profileData.username) {
-                    username = profileData.username
-                    profilePicture = profileData.profile_picture_url
-                } else {
-                    // Try Basic Display fallback
-                    const basicRes = await fetch(`https://graph.instagram.com/me?fields=username&access_token=${accessToken}`)
-                    const basicData = await basicRes.json()
-                    console.log('Profile Data (Basic):', JSON.stringify(basicData))
-                    if (basicData.username) username = basicData.username
+                // Method A: Check Graph Instagram Profile (No version in path as per docs)
+                const meRes = await fetch(`https://graph.instagram.com/me?fields=id,username,ig_id&access_token=${accessToken}`)
+                const meData = await meRes.json()
+                console.log('Graph Instagram Profile:', JSON.stringify(meData))
+                if (meData.username) username = meData.username
+                if (meData.ig_id) {
+                    finalIgId = meData.ig_id.toString()
+                    console.log('Success Method A (ig_id):', finalIgId)
                 }
-            } catch (pErr) {
-                console.error('Profile fetch error:', pErr)
+
+                // Method B: Discover via Facebook Me (Self Profile Discovery)
+                const fbMeRes = await fetch(`https://graph.facebook.com/v18.0/me?fields=id,name,instagram_business_account&access_token=${accessToken}`)
+                const fbMeData = await fbMeRes.json()
+                console.log('Graph Facebook Profile:', JSON.stringify(fbMeData))
+                if (fbMeData.instagram_business_account?.id) {
+                    finalIgId = fbMeData.instagram_business_account.id
+                    console.log('Success Method B (fb_me_ig):', finalIgId)
+                }
+
+                // Method C: Discover via linked Pages (Needed for Webhooks + Page Token)
+                const accountsRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=instagram_business_account,access_token,name&access_token=${accessToken}`)
+                const accountsData = await accountsRes.json()
+                console.log('Linked Pages Found:', accountsData.data?.length || 0)
+
+                if (accountsData.data && accountsData.data.length > 0) {
+                    const pageWithIg = accountsData.data.find((p: any) => p.instagram_business_account)
+                    if (pageWithIg) {
+                        finalIgId = pageWithIg.instagram_business_account.id
+                        finalToken = pageWithIg.access_token
+                        console.log('Success Method C (Pages):', finalIgId)
+                    }
+                }
+            } catch (discoveryErr) {
+                console.warn('Discovery exception:', discoveryErr)
             }
 
-            // 6. Save to Database
-            console.log('Final DB Save - Username:', username, 'ID:', finalIgUserId)
+            // 5. Save to Database
+            console.log('Final Choice -> IGID:', finalIgId, 'User:', username)
             const { error: upsertError } = await supabaseClient
                 .from('instagram_integrations')
                 .upsert({
                     user_id: user.id,
-                    instagram_user_id: finalIgUserId.toString(),
+                    instagram_user_id: finalIgId?.toString(),
                     instagram_username: username,
-                    access_token: accessToken,
-                    profile_picture_url: profilePicture,
-                    is_active: true, // ALWAYS set to true on success
+                    access_token: finalToken,
+                    is_active: true,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'user_id' })
 
-            if (upsertError) {
-                console.error('DB Upsert Error:', upsertError)
-                throw new Error('Database Save Failed: ' + upsertError.message)
-            }
+            if (upsertError) throw upsertError
 
-            // 6. Subscribe to Webhooks (Messages, Comments, Mentions)
-            // This is crucial for webhooks to be sent to our endpoint
-            console.log('Subscribing to webhooks for account:', igUserId)
-            try {
-                // For Instagram Login for Business / Graph API, we subscribe via the /me/subscribed_apps endpoint
-                // Note: We use the Graph API v18.0 (compatible with FB App v18+)
-                const subscribeRes = await fetch(`https://graph.facebook.com/v18.0/${igUserId}/subscribed_apps`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        access_token: accessToken,
-                        subscribed_fields: 'messages,messaging_postbacks,comments,mentions,story_insights'
-                    })
-                })
-                const subscribeData = await subscribeRes.json()
-                console.log('Subscription Status:', subscribeData)
-
-                if (subscribeData.error) {
-                    console.warn('Webhook Subscription Warning:', subscribeData.error)
-                    // We don't throw here as the integration might still work for some features, 
-                    // but most automations will fail.
-                }
-            } catch (subErr) {
-                console.error('Subscription error:', subErr)
-            }
-
-            // Note: Use the project's site URL for the final redirect
-            const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:8080'
+            const siteUrl = Deno.env.get('SITE_URL') || 'https://cal.zenthrashop.in'
             return Response.redirect(`${siteUrl}/dashboard/instagram?success=true`)
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('Auth Error:', err)
-            const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:8080'
-            return Response.redirect(`${siteUrl}/dashboard/instagram?error=${encodeURIComponent(err.message)}`)
+            const siteUrl = Deno.env.get('SITE_URL') || 'https://cal.zenthrashop.in'
+            const errorParam = encodeURIComponent(err.message || 'Unknown Error')
+            return Response.redirect(`${siteUrl}/dashboard/instagram?error=${errorParam}`)
         }
     }
 
-    return new Response('Instagram Auth Function Ready', { headers: corsHeaders })
+    return new Response('Auth handler active', { headers: corsHeaders })
 })
