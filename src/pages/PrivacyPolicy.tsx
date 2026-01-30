@@ -47,9 +47,13 @@ export default function PrivacyPolicy() {
                         <section>
                             <h2 className="text-2xl font-semibold text-foreground mb-4">3. Data Integration</h2>
                             <p>
-                                Our services integrate with third-party calendar providers (Google Calendar). When you connect your calendar,
-                                we access only the permissions necessary to check for conflicts and create events on your behalf.
-                                We do not store your full calendar history or sell this data to third parties.
+                                Our services integrate with third-party providers including Google Calendar and Meta (Instagram).
+                                When you connect your Instagram account, we access only the permissions necessary to manage your
+                                messages, comments, and story interactions as configured in your automation rules.
+                            </p>
+                            <p className="mt-4">
+                                We do not sell your personal data or your customers' message content to third parties.
+                                Data retrieved via the Instagram Graph API is used solely to execute the automations you have created.
                             </p>
                         </section>
 

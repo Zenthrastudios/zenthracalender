@@ -17,7 +17,8 @@ serve(async (req) => {
     const error = url.searchParams.get('error')
 
     if (error) {
-        return Response.redirect(`${Deno.env.get('SUPABASE_URL')}/dashboard/instagram?error=${error}`)
+        const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:8080'
+        return Response.redirect(`${siteUrl}/dashboard/instagram?error=${error}`)
     }
 
     if (code && state) {
@@ -35,7 +36,7 @@ serve(async (req) => {
             // 2. Exchange Code for Short-Lived Token (Instagram API)
             const clientId = Deno.env.get('INSTAGRAM_APP_ID')
             const clientSecret = Deno.env.get('INSTAGRAM_APP_SECRET')
-            const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/instagram-auth/callback`
+            const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/instagram-auth`
 
             const tokenParams = new URLSearchParams({
                 client_id: clientId!,
@@ -69,23 +70,58 @@ serve(async (req) => {
 
             const accessToken = longLivedData.access_token || shortLivedToken
 
-            // 4. Get User Profile (Username, Picture)
-            console.log('Fetching user profile...')
-            const profileRes = await fetch(`https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${accessToken}`)
-            const profileData = await profileRes.json()
-            console.log('Profile Data:', profileData) // LOGGING
+            // 4. Get the Instagram Business Account ID
+            console.log('Fetching linked business accounts...')
+            const accountsRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?fields=name,access_token,instagram_business_account&access_token=${accessToken}`)
+            const accountsData = await accountsRes.json()
+            console.log('Accounts Data Response:', JSON.stringify(accountsData))
 
-            // 5. Save to Database
-            console.log('Saving to DB for user:', user.id)
+            let finalIgUserId = igUserId // Fallback to current IG ID
+            let profilePicture = null
+            let username = 'Instagram User'
+
+            // Look for Business Account link
+            if (accountsData.data && accountsData.data.length > 0) {
+                const pageWithIg = accountsData.data.find((p: any) => p.instagram_business_account);
+                if (pageWithIg) {
+                    finalIgUserId = pageWithIg.instagram_business_account.id;
+                    console.log('Found Instagram Business Account ID:', finalIgUserId);
+                }
+            }
+
+            // 5. Get Detailed User Profile (Try multiple sources)
+            console.log('Fetching profile for ID:', finalIgUserId)
+            try {
+                // Try Instagram Graph API first
+                const profileRes = await fetch(`https://graph.facebook.com/v18.0/${finalIgUserId}?fields=username,profile_picture_url&access_token=${accessToken}`)
+                const profileData = await profileRes.json()
+                console.log('Profile Data (Graph):', JSON.stringify(profileData))
+
+                if (profileData.username) {
+                    username = profileData.username
+                    profilePicture = profileData.profile_picture_url
+                } else {
+                    // Try Basic Display fallback
+                    const basicRes = await fetch(`https://graph.instagram.com/me?fields=username&access_token=${accessToken}`)
+                    const basicData = await basicRes.json()
+                    console.log('Profile Data (Basic):', JSON.stringify(basicData))
+                    if (basicData.username) username = basicData.username
+                }
+            } catch (pErr) {
+                console.error('Profile fetch error:', pErr)
+            }
+
+            // 6. Save to Database
+            console.log('Final DB Save - Username:', username, 'ID:', finalIgUserId)
             const { error: upsertError } = await supabaseClient
                 .from('instagram_integrations')
                 .upsert({
                     user_id: user.id,
-                    instagram_user_id: igUserId.toString(),
-                    instagram_username: profileData.username,
+                    instagram_user_id: finalIgUserId.toString(),
+                    instagram_username: username,
                     access_token: accessToken,
-                    profile_picture_url: null, // Basic Display API doesn't always give this easily without more permissions
-                    is_active: true,
+                    profile_picture_url: profilePicture,
+                    is_active: true, // ALWAYS set to true on success
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'user_id' })
 
@@ -94,11 +130,40 @@ serve(async (req) => {
                 throw new Error('Database Save Failed: ' + upsertError.message)
             }
 
-            return Response.redirect('http://localhost:8080/dashboard/instagram?success=true')
+            // 6. Subscribe to Webhooks (Messages, Comments, Mentions)
+            // This is crucial for webhooks to be sent to our endpoint
+            console.log('Subscribing to webhooks for account:', igUserId)
+            try {
+                // For Instagram Login for Business / Graph API, we subscribe via the /me/subscribed_apps endpoint
+                // Note: We use the Graph API v18.0 (compatible with FB App v18+)
+                const subscribeRes = await fetch(`https://graph.facebook.com/v18.0/${igUserId}/subscribed_apps`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        access_token: accessToken,
+                        subscribed_fields: 'messages,messaging_postbacks,comments,mentions,story_insights'
+                    })
+                })
+                const subscribeData = await subscribeRes.json()
+                console.log('Subscription Status:', subscribeData)
+
+                if (subscribeData.error) {
+                    console.warn('Webhook Subscription Warning:', subscribeData.error)
+                    // We don't throw here as the integration might still work for some features, 
+                    // but most automations will fail.
+                }
+            } catch (subErr) {
+                console.error('Subscription error:', subErr)
+            }
+
+            // Note: Use the project's site URL for the final redirect
+            const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:8080'
+            return Response.redirect(`${siteUrl}/dashboard/instagram?success=true`)
 
         } catch (err) {
             console.error('Auth Error:', err)
-            return Response.redirect(`http://localhost:8080/dashboard/instagram?error=${encodeURIComponent(err.message)}`)
+            const siteUrl = Deno.env.get('SITE_URL') || 'http://localhost:8080'
+            return Response.redirect(`${siteUrl}/dashboard/instagram?error=${encodeURIComponent(err.message)}`)
         }
     }
 

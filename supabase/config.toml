@@ -30,3 +30,9 @@ verify_jwt = false
 
 [functions.razorpay-payment]
 verify_jwt = false
+
+[functions.instagram-auth]
+verify_jwt = false
+
+[functions.instagram-webhook]
+verify_jwt = false

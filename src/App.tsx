@@ -43,6 +43,7 @@ import CourseEditor from "./pages/CourseEditor";
 import PublicCourse from "./pages/PublicCourse";
 import CourseViewer from "./pages/CourseViewer";
 import InstagramAutomation from "./pages/InstagramAutomation";
+import DataDeletion from "./pages/DataDeletion";
 
 const queryClient = new QueryClient();
 
@@ -164,6 +165,7 @@ function AppRoutes() {
       <Route path="/my-purchases" element={<MyPurchases />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/data-deletion" element={<DataDeletion />} />
 
       <Route path="/store/:username/:slug" element={<PublicProduct />} />
       <Route path="/view/:accessToken" element={<ProductViewer />} />

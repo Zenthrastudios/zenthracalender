@@ -235,12 +235,13 @@ export default function InstagramAutomation() {
         // We can construct the FB URL here or call the function to get it.
         // Let's construct it here to avoid an extra RTT, using the Function URL as the redirect_uri
         const PROJECT_REF = 'zlhbzlxxdezlrtzljpni'; // Hardcoded for now based on context
-        const FUNCTION_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/instagram-auth/callback`;
+        const FUNCTION_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/instagram-auth`;
         const CLIENT_ID = '796387736858978'; // Updated App ID
 
         // Use Instagram OAuth URL for "Instagram App" types
         // Note: The scopes here are different for the new Instagram API setup
-        const fbUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${CLIENT_ID}&redirect_uri=${FUNCTION_URL}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights&state=${state}`;
+        // Note: The scopes here must include page permissions to find the linked Business Account
+        const fbUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${CLIENT_ID}&redirect_uri=${FUNCTION_URL}&response_type=code&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights,pages_show_list,pages_read_engagement&state=${state}`;
 
         console.log('Redirecting to:', fbUrl);
         window.location.href = fbUrl;
@@ -493,37 +494,30 @@ export default function InstagramAutomation() {
                             </div>
                         </div>
 
-                        {integration ? (
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-2 bg-muted/50 rounded-full px-4 py-2">
+                        {integration && (
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border border-border/50">
                                     {integration.profile_picture_url ? (
                                         <img
                                             src={integration.profile_picture_url}
                                             alt={integration.instagram_username}
-                                            className="w-6 h-6 rounded-full"
+                                            className="w-5 h-5 rounded-full"
                                         />
                                     ) : (
-                                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
+                                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
                                     )}
                                     <span className="font-medium text-sm">@{integration.instagram_username}</span>
-                                    <Badge variant="secondary" className="bg-green-500/20 text-green-600">Connected</Badge>
+                                    <Badge variant="secondary" className="bg-green-500/20 text-green-600 border-none h-5 px-1.5 text-[10px] uppercase tracking-wider">Connected</Badge>
                                 </div>
                                 <Button
-                                    variant="outline"
+                                    variant="ghost"
                                     size="sm"
+                                    className="text-muted-foreground hover:text-destructive h-8"
                                     onClick={() => disconnectMutation.mutate()}
                                 >
                                     Disconnect
                                 </Button>
                             </div>
-                        ) : (
-                            <Button
-                                onClick={handleConnectInstagram}
-                                className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:opacity-90"
-                            >
-                                <Instagram className="w-4 h-4 mr-2" />
-                                Connect Instagram
-                            </Button>
                         )}
                     </div>
 
