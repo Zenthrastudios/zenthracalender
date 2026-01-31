@@ -43,7 +43,7 @@ export default function LinkTreeDashboard() {
             <div className="p-8 max-w-6xl mx-auto space-y-8">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Bio Link Pages</h1>
+                        <h1 className="text-3xl font-bold tracking-tight text-foreground">Bio Link Pages</h1>
                         <p className="text-muted-foreground mt-2">Manage your "Link in Bio" pages to share multiple links easily.</p>
                     </div>
                     <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
@@ -60,74 +60,79 @@ export default function LinkTreeDashboard() {
                             const clickThroughRate = page.view_count > 0 ? ((totalClicks / page.view_count) * 100).toFixed(1) : '0';
 
                             return (
-                                <Card key={page.id} className="group relative overflow-hidden border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 transition-all hover:shadow-2xl hover:shadow-primary/5">
-                                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/50 to-purple-500/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <Card key={page.id} className="group relative overflow-hidden border-none shadow-sm hover:shadow-xl transition-all duration-300 rounded-[1.75rem] bg-card hover:bg-accent/5">
+                                    {/* Colorful Top Border */}
+                                    <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 opacity-90" />
 
-                                    <CardHeader className="flex flex-row items-start justify-between pb-2">
+                                    <CardHeader className="flex flex-row items-start justify-between pb-0 pt-7 px-7">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700 flex items-center justify-center text-primary shadow-inner">
+                                            <div className="w-16 h-16 rounded-2xl overflow-hidden bg-muted shadow-sm border border-border/50 shrink-0">
                                                 {page.avatar_url ? (
-                                                    <img src={page.avatar_url} alt={page.title} className="w-full h-full object-cover rounded-xl" />
+                                                    <img src={page.avatar_url} alt={page.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                                                 ) : (
-                                                    <Smartphone className="w-6 h-6" />
+                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 text-muted-foreground">
+                                                        <Smartphone className="w-7 h-7 opacity-50" />
+                                                    </div>
                                                 )}
                                             </div>
-                                            <div className="space-y-1">
-                                                <CardTitle className="text-lg font-bold tracking-tight">{page.title}</CardTitle>
-                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                    <Globe className="w-3 h-3" />
-                                                    <span className="font-mono text-zinc-500">/{page.slug}</span>
+                                            <div className="space-y-1.5 min-w-0">
+                                                <h3 className="text-xl font-bold tracking-tight text-foreground truncate pr-2">{page.title}</h3>
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground/80">
+                                                    <Globe className="w-3.5 h-3.5" />
+                                                    <span className="font-mono truncate">/{page.slug}</span>
                                                 </div>
                                             </div>
                                         </div>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-white">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-muted-foreground/50 hover:text-foreground rounded-full">
                                                     <MoreVertical className="w-4 h-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48">
-                                                <DropdownMenuItem onClick={() => navigate(`/dashboard/links/${page.id}/edit`)}>
+                                            <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                                                <DropdownMenuItem onClick={() => navigate(`/dashboard/links/${page.id}/edit`)} className="rounded-lg cursor-pointer">
                                                     <Edit className="w-4 h-4 mr-2" /> Edit Page
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => window.open(`/links/${page.slug}`, '_blank')}>
+                                                <DropdownMenuItem onClick={() => window.open(`/links/${page.slug}`, '_blank')} className="rounded-lg cursor-pointer">
                                                     <ExternalLink className="w-4 h-4 mr-2" /> View Live
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem className="text-red-500 focus:text-red-500">
+                                                <DropdownMenuItem className="text-destructive focus:text-destructive rounded-lg cursor-pointer">
                                                     <Trash2 className="w-4 h-4 mr-2" /> Delete
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </CardHeader>
 
-                                    <CardContent>
-                                        <div className="grid grid-cols-2 gap-4 my-4 p-3 rounded-lg bg-black/20 border border-white/5">
-                                            <div className="text-center">
-                                                <div className="text-2xl font-bold text-white">{page.view_count || 0}</div>
-                                                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Views</div>
+                                    <CardContent className="px-7 pb-7 mt-4">
+                                        {/* Stats Container */}
+                                        <div className="flex items-center justify-between p-4 mb-6 rounded-2xl bg-muted/40 border border-border/40">
+                                            <div className="flex-1 text-center">
+                                                <div className="text-2xl font-black text-foreground tracking-tight">{page.view_count || 0}</div>
+                                                <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Views</div>
                                             </div>
-                                            <div className="text-center relative">
-                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-8 bg-zinc-800" />
-                                                <div className="text-2xl font-bold text-white">{totalClicks}</div>
-                                                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Clicks</div>
+                                            <div className="w-px h-8 bg-border/60 mx-2" />
+                                            <div className="flex-1 text-center">
+                                                <div className="text-2xl font-black text-foreground tracking-tight">{totalClicks}</div>
+                                                <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Clicks</div>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between gap-3 mt-4">
+                                        {/* Action Buttons */}
+                                        <div className="flex items-center gap-3">
                                             <Button
-                                                variant="outline"
-                                                className="flex-1 bg-zinc-900/50 border-zinc-700 hover:bg-zinc-800 hover:text-white group-hover:border-primary/50 transition-colors"
+                                                className="flex-1 bg-[#ea580c] hover:bg-[#c2410c] text-white font-bold tracking-wide shadow-md shadow-orange-500/20 hover:shadow-orange-500/40 transition-all rounded-xl h-11"
                                                 onClick={() => navigate(`/dashboard/links/${page.id}/edit`)}
                                             >
                                                 Manage Page
                                             </Button>
                                             <Button
-                                                variant="ghost"
+                                                variant="outline"
                                                 size="icon"
-                                                className="border border-zinc-800 hover:bg-zinc-800 hover:text-white"
+                                                className="h-11 w-11 border-2 border-border/50 bg-transparent hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl transition-colors"
                                                 onClick={() => window.open(`/links/${page.slug}`, '_blank')}
+                                                title="View Live Page"
                                             >
-                                                <ExternalLink className="w-4 h-4" />
+                                                <ExternalLink className="w-5 h-5" />
                                             </Button>
                                         </div>
                                     </CardContent>
