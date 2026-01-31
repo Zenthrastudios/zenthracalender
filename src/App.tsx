@@ -105,8 +105,8 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Force onboarding for Admins (Creators)
-  if (isAdmin && !profile.onboarding_completed) {
+  // Force onboarding for Admins (Creators), but exempt Super Admins
+  if (isAdmin && role !== 'superadmin' && !profile.onboarding_completed) {
     return <Navigate to="/onboarding" replace />;
   }
 

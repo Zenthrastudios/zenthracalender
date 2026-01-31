@@ -63,8 +63,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Trial Governor Logic
   const trialEnds = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
-  const isTrialActive = trialEnds && !isPast(trialEnds) && profile?.plan_id === TRIAL_PLAN_ID;
-  const isTrialExpired = trialEnds && isPast(trialEnds) && profile?.plan_id === TRIAL_PLAN_ID;
+  const isTrialActive = !isSuperAdmin && trialEnds && !isPast(trialEnds) && profile?.plan_id === TRIAL_PLAN_ID;
+  const isTrialExpired = !isSuperAdmin && trialEnds && isPast(trialEnds) && profile?.plan_id === TRIAL_PLAN_ID;
   const daysRemaining = trialEnds ? differenceInDays(trialEnds, new Date()) : 0;
 
   const handleLogout = async () => {
