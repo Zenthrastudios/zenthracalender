@@ -27,20 +27,22 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
+import { useFeatures } from '@/hooks/useFeatures';
+
 const navItems = [
-  { icon: Link2, label: 'Event Types', path: '/dashboard' },
-  { icon: Calendar, label: 'Bookings', path: '/dashboard/bookings' },
-  { icon: Clock, label: 'Availability', path: '/dashboard/availability' },
-  { icon: ShoppingBag, label: 'Products', path: '/dashboard/products' },
-  { icon: GraduationCap, label: 'Courses', path: '/dashboard/courses' },
-  { icon: Video, label: 'Webinars', path: '/dashboard/webinars' },
-  { icon: Smartphone, label: 'Bio Links', path: '/dashboard/links' },
-  { icon: Instagram, label: 'Instagram', path: '/dashboard/instagram' },
-  { icon: BarChart3, label: 'Analytics', path: '/dashboard/analytics' },
-  { icon: Users, label: 'Instructors', path: '/dashboard/instructors' },
-  { icon: Users, label: 'Teams', path: '/dashboard/teams' },
-  { icon: Star, label: 'Apps', path: '/dashboard/apps' },
-  { icon: Layout, label: 'Branding', path: '/dashboard/branding' },
+  { icon: Link2, label: 'Event Types', path: '/dashboard', feature: 'dashboard' },
+  { icon: Calendar, label: 'Bookings', path: '/dashboard/bookings', feature: 'bookings' },
+  { icon: Clock, label: 'Availability', path: '/dashboard/availability', feature: 'availability' },
+  { icon: ShoppingBag, label: 'Products', path: '/dashboard/products', feature: 'products' },
+  { icon: GraduationCap, label: 'Courses', path: '/dashboard/courses', feature: 'courses' },
+  { icon: Video, label: 'Webinars', path: '/dashboard/webinars', feature: 'webinars' },
+  { icon: Smartphone, label: 'Bio Links', path: '/dashboard/links', feature: 'bio_links' },
+  { icon: Instagram, label: 'Instagram', path: '/dashboard/instagram', feature: 'instagram' },
+  { icon: BarChart3, label: 'Analytics', path: '/dashboard/analytics', feature: 'advanced_analytics' },
+  { icon: Users, label: 'Instructors', path: '/dashboard/instructors', feature: 'instructors' },
+  { icon: Users, label: 'Teams', path: '/dashboard/teams', feature: 'team_management' },
+  { icon: Star, label: 'Apps', path: '/dashboard/apps', feature: 'apps' },
+  { icon: Layout, label: 'Branding', path: '/dashboard/branding', feature: 'branding' },
 ];
 
 interface DashboardLayoutProps {
@@ -50,6 +52,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth();
   const { isSuperAdmin } = useRole();
+  const { hasFeature, isLoading: featuresLoading } = useFeatures();
   const { theme, setTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -127,7 +130,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               Enterprise Admin
             </Link>
           )}
-          {navItems.map((item) => {
+          {navItems.filter(item => hasFeature(item.feature)).map((item) => {
             const isActive = location.pathname === item.path ||
               (item.path === '/dashboard' && location.pathname === '/dashboard');
 
@@ -206,7 +209,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               Enterprise Dashboard
             </Link>
           )}
-          {navItems.map((item) => {
+          {navItems.filter(item => hasFeature(item.feature)).map((item) => {
             const isActive = location.pathname === item.path ||
               (item.path === '/dashboard' && location.pathname === '/dashboard');
 

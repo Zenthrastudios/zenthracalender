@@ -4,35 +4,49 @@ import {
     Calendar, Star, Instagram, ArrowRight, Quote, Sparkles, Zap, Globe
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
-
-const CREATORS = [
-    {
-        name: "Khushboo Bist",
-        role: "Intimacy Coach",
-        earnings: "$12k/mo",
-        quote: "Zenthra turned my link-in-bio from a dead end into a 6-figure business. The automation is life-changing.",
-        followers: "450k",
-        image: "https://zlhbzlxxdezlrtzljpni.supabase.co/storage/v1/object/public/public-images/instructors/28e0267f-42e6-4abb-b39d-6ee28ee427e5/1769608046265.jpg"
-    },
-    {
-        name: "Elena Chen",
-        role: "Wellness Coach",
-        earnings: "$8k/mo",
-        quote: "Finally a tool that understands that I need to book calls AND sell digital guides in one place.",
-        followers: "120k",
-        image: "/freepik__prompt-a-professional-uiux-conceptual-illustration__36063.png"
-    },
-    {
-        name: "Marcus Thorne",
-        role: "Digital Artist",
-        earnings: "$15k/mo",
-        quote: "My presets sell like hotcakes now that I can auto-DM links to anyone who comments 'preset'.",
-        followers: "890k",
-        image: "/freepik__mpt-a-professional-highfidelity-linkinbio-mobile-e__36064.png"
-    }
-];
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Creators() {
+    const { data: featuredCreators } = useQuery({
+        queryKey: ['public-featured-creators'],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('featured_creators')
+                .select('*')
+                .eq('is_active', true)
+                .order('display_order', { ascending: true });
+            if (error) throw error;
+            return data;
+        }
+    });
+
+    const creatorsToShow = featuredCreators && featuredCreators.length > 0 ? featuredCreators : [
+        {
+            name: "Khushboo Bist",
+            title: "INTIMACY COACH",
+            revenue: "$12k/mo",
+            quote: "Zenthra turned my link-in-bio from a dead end into a 6-figure business. The automation is life-changing.",
+            followers: "450k",
+            image_url: "https://zlhbzlxxdezlrtzljpni.supabase.co/storage/v1/object/public/public-images/instructors/28e0267f-42e6-4abb-b39d-6ee28ee427e5/1769608046265.jpg"
+        },
+        {
+            name: "Elena Chen",
+            title: "WELLNESS COACH",
+            revenue: "$8k/mo",
+            quote: "Finally a tool that understands that I need to book calls AND sell digital guides in one place.",
+            followers: "120k",
+            image_url: "/freepik__prompt-a-professional-uiux-conceptual-illustration__36063.png"
+        },
+        {
+            name: "Marcus Thorne",
+            title: "DIGITAL ARTIST",
+            revenue: "$15k/mo",
+            quote: "My presets sell like hotcakes now that I can auto-DM links to anyone who comments 'preset'.",
+            followers: "890k",
+            image_url: "/freepik__mpt-a-professional-highfidelity-linkinbio-mobile-e__36064.png"
+        }
+    ];
     return (
         <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-orange-100">
 
@@ -79,22 +93,22 @@ export default function Creators() {
             {/* Creators Grid */}
             <section className="py-24 px-6 max-w-7xl mx-auto">
                 <div className="grid md:grid-cols-3 gap-8">
-                    {CREATORS.map((creator, i) => (
+                    {creatorsToShow.map((creator, i) => (
                         <div key={i} className="group p-8 rounded-[3.5rem] bg-slate-50 border-2 border-slate-50 hover:border-orange-200 transition-all hover:bg-white hover:shadow-2xl hover:shadow-orange-100">
                             <div className="relative mb-10">
                                 <div className="absolute -inset-4 bg-orange-200 rounded-full blur-2xl opacity-0 group-hover:opacity-20 transition-opacity" />
                                 <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border-8 border-white shadow-lg">
-                                    <img src={creator.image} alt={creator.name} className="w-full h-full object-cover grayscale-[40%] group-hover:grayscale-0 transition-all duration-500" />
+                                    <img src={creator.image_url} alt={creator.name} className="w-full h-full object-cover grayscale-[40%] group-hover:grayscale-0 transition-all duration-500" />
                                 </div>
                                 <Badge className="absolute -bottom-4 right-4 bg-slate-900 text-white px-4 py-2 rounded-xl font-bold shadow-lg">
-                                    {creator.earnings}
+                                    {creator.revenue}
                                 </Badge>
                             </div>
                             <div className="space-y-4">
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <h3 className="text-2xl font-black text-slate-900">{creator.name}</h3>
-                                        <p className="text-orange-600 font-bold text-sm tracking-wide uppercase">{creator.role}</p>
+                                        <p className="text-orange-600 font-bold text-sm tracking-wide uppercase">{creator.title}</p>
                                     </div>
                                     <div className="flex items-center gap-1 text-slate-400 font-bold text-xs uppercase italic">
                                         <Instagram className="w-4 h-4" /> {creator.followers}
