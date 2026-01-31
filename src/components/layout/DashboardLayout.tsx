@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRole } from '@/hooks/useRole';
 import { useTheme } from 'next-themes';
 import {
   Link2,
@@ -48,6 +49,7 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth();
+  const { isSuperAdmin } = useRole();
   const { theme, setTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -116,6 +118,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <nav className="p-4 space-y-1">
+          {isSuperAdmin && (
+            <Link
+              to="/enterprise"
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold bg-orange-600 text-white shadow-lg shadow-orange-900/20 mb-4 transition-all hover:scale-[1.02] active:scale-95"
+            >
+              <Layout className="w-5 h-5" />
+              Enterprise Admin
+            </Link>
+          )}
           {navItems.map((item) => {
             const isActive = location.pathname === item.path ||
               (item.path === '/dashboard' && location.pathname === '/dashboard');
@@ -186,6 +197,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
+          {isSuperAdmin && (
+            <Link
+              to="/enterprise"
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all duration-200 mb-6 border border-orange-200"
+            >
+              <Sparkles className="w-5 h-5 text-orange-500" />
+              Enterprise Dashboard
+            </Link>
+          )}
           {navItems.map((item) => {
             const isActive = location.pathname === item.path ||
               (item.path === '/dashboard' && location.pathname === '/dashboard');

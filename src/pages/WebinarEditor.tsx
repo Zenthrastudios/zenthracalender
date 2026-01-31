@@ -26,7 +26,11 @@ import {
     Mic,
     HelpCircle,
     Eye,
-    BarChart2
+    BarChart2,
+    MapPin,
+    Users,
+    Monitor,
+    Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,6 +59,9 @@ export default function WebinarEditor() {
     const [themeColor, setThemeColor] = useState('#3b82f6');
     const [speakers, setSpeakers] = useState<any[]>([]);
     const [faq, setFaq] = useState<any[]>([]);
+    const [mode, setMode] = useState<'online' | 'in-person'>('online');
+    const [location, setLocation] = useState('');
+    const [maxAttendees, setMaxAttendees] = useState(100);
 
     const [isUploadingCover, setIsUploadingCover] = useState(false);
 
@@ -73,6 +80,9 @@ export default function WebinarEditor() {
             setThemeColor(webinar.theme_color || '#3b82f6');
             setSpeakers(webinar.speakers || []);
             setFaq(webinar.faq || []);
+            setMode(webinar.mode || 'online');
+            setLocation(webinar.location || '');
+            setMaxAttendees(webinar.max_attendees || 100);
         }
     }, [webinar]);
 
@@ -93,7 +103,10 @@ export default function WebinarEditor() {
                 cover_image_url: coverImageUrl,
                 theme_color: themeColor,
                 speakers,
-                faq
+                faq,
+                mode,
+                location: mode === 'in-person' ? location : null,
+                max_attendees: maxAttendees
             });
             toast.success('Webinar updated successfully!');
         } catch (error: any) {
@@ -303,16 +316,69 @@ export default function WebinarEditor() {
                                     <CardTitle>Location & Pricing</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label>Meeting Link (Google Meet/Zoom)</Label>
-                                        <div className="relative">
-                                            <Video className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                            <Input
-                                                className="pl-9"
-                                                value={meetLink}
-                                                onChange={e => setMeetLink(e.target.value)}
-                                                placeholder="https://meet.google.com/..."
-                                            />
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label>Event Mode</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMode('online')}
+                                                    className={`flex items-center justify-center gap-2 p-2 rounded-md text-sm font-medium transition-all border ${mode === 'online' ? 'bg-primary/10 border-primary text-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}
+                                                >
+                                                    <Monitor className="w-4 h-4" />
+                                                    Online
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMode('in-person')}
+                                                    className={`flex items-center justify-center gap-2 p-2 rounded-md text-sm font-medium transition-all border ${mode === 'in-person' ? 'bg-primary/10 border-primary text-primary' : 'bg-transparent border-border text-muted-foreground hover:bg-muted'}`}
+                                                >
+                                                    <Building2 className="w-4 h-4" />
+                                                    In-Person
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {mode === 'online' ? (
+                                            <div className="space-y-2">
+                                                <Label>Meeting Link (Google Meet/Zoom)</Label>
+                                                <div className="relative">
+                                                    <Video className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                    <Input
+                                                        className="pl-9"
+                                                        value={meetLink}
+                                                        onChange={e => setMeetLink(e.target.value)}
+                                                        placeholder="https://meet.google.com/..."
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <Label>Location / Address</Label>
+                                                <div className="relative">
+                                                    <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                                                    <Textarea
+                                                        className="pl-9 min-h-[80px]"
+                                                        value={location}
+                                                        onChange={e => setLocation(e.target.value)}
+                                                        placeholder="Enter full address..."
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-2">
+                                            <Label>Total Seats (Capacity)</Label>
+                                            <div className="relative">
+                                                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                <Input
+                                                    type="number"
+                                                    className="pl-9"
+                                                    value={maxAttendees}
+                                                    onChange={e => setMaxAttendees(Number(e.target.value))}
+                                                    min={1}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                     <Separator />

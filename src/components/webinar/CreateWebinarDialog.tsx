@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useWebinars, useCreateWebinar } from '@/hooks/useWebinars';
 import { useIntegrations, useGoogleCalendar } from '@/hooks/useIntegrations';
-import { Loader2, Calendar, Video } from 'lucide-react';
+import { Loader2, Calendar, Video, MapPin, Users, Monitor, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { addMinutes, format, parseISO } from 'date-fns';
 
@@ -32,6 +32,9 @@ export default function CreateWebinarDialog({ isOpen, onClose }: CreateWebinarDi
         duration: 60,
         price: 0,
         createMeetLink: false,
+        mode: 'online' as 'online' | 'in-person',
+        location: '',
+        maxAttendees: 50,
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,7 +84,14 @@ export default function CreateWebinarDialog({ isOpen, onClose }: CreateWebinarDi
                 is_paid: Number(formData.price) > 0,
                 meet_link: meetLink,
                 google_event_id: googleEventId,
-                max_attendees: 100 // default limit
+                max_attendees: Number(formData.maxAttendees),
+                mode: formData.mode,
+                location: formData.mode === 'in-person' ? formData.location : null,
+                cover_image_url: null,
+                content: null,
+                speakers: [],
+                faq: [],
+                theme_color: null,
             });
 
             toast.success('Webinar created successfully!');
@@ -94,6 +104,9 @@ export default function CreateWebinarDialog({ isOpen, onClose }: CreateWebinarDi
                 duration: 60,
                 price: 0,
                 createMeetLink: false,
+                mode: 'online',
+                location: '',
+                maxAttendees: 50,
             });
 
         } catch (error: any) {
@@ -112,13 +125,33 @@ export default function CreateWebinarDialog({ isOpen, onClose }: CreateWebinarDi
                             <Video className="w-5 h-5" />
                         </div>
                         <div>
-                            <DialogTitle>Create New Webinar</DialogTitle>
-                            <DialogDescription>Schedule a class and optionally generate a Meet link</DialogDescription>
+                            <DialogTitle>Create New Workshop</DialogTitle>
+                            <DialogDescription>Schedule a workshop/class and manage attendees</DialogDescription>
                         </div>
                     </div>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-2">
+                    {/* Mode Selection */}
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-muted/50 rounded-lg border border-border/50">
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, mode: 'online' })}
+                            className={`flex items-center justify-center gap-2 p-2 rounded-md text-sm font-medium transition-all ${formData.mode === 'online' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:bg-background/50'}`}
+                        >
+                            <Monitor className="w-4 h-4" />
+                            Online Workshop
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, mode: 'in-person' })}
+                            className={`flex items-center justify-center gap-2 p-2 rounded-md text-sm font-medium transition-all ${formData.mode === 'in-person' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:bg-background/50'}`}
+                        >
+                            <Building2 className="w-4 h-4" />
+                            In-Person Event
+                        </button>
+                    </div>
+
                     <div className="space-y-2">
                         <Label htmlFor="title">Title</Label>
                         <Input
@@ -185,38 +218,71 @@ export default function CreateWebinarDialog({ isOpen, onClose }: CreateWebinarDi
                                 value={formData.price}
                                 onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
                             />
-                            <p className="text-[10px] text-muted-foreground">Set to 0 for free webinars</p>
+                            <p className="text-[10px] text-muted-foreground">Set to 0 for free workshops</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/50">
-                        <div className="space-y-0.5">
-                            <Label className="text-sm font-medium">Google Meet Link</Label>
-                            <p className="text-xs text-muted-foreground">Automatically generate meeting link</p>
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="seats" className="flex items-center gap-2">
+                                <Users className="w-4 h-4" /> Total Seats (Capacity)
+                            </Label>
+                            <Input
+                                id="seats"
+                                type="number"
+                                min="1"
+                                value={formData.maxAttendees}
+                                onChange={e => setFormData({ ...formData, maxAttendees: Number(e.target.value) })}
+                            />
                         </div>
-                        <Switch
-                            checked={formData.createMeetLink}
-                            onCheckedChange={checked => {
-                                if (checked && !isGoogleConnected) {
-                                    toast.error('Please connect Google Calendar in Apps first');
-                                    return;
-                                }
-                                setFormData({ ...formData, createMeetLink: checked });
-                            }}
-                            disabled={!isGoogleConnected}
-                        />
                     </div>
-                    {!isGoogleConnected && (
-                        <p className="text-xs text-amber-500 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> Connect Google Calendar in Apps to enable auto-meet links.
-                        </p>
+
+                    {formData.mode === 'in-person' ? (
+                        <div className="space-y-2">
+                            <Label htmlFor="location" className="flex items-center gap-2">
+                                <MapPin className="w-4 h-4" /> Location / Address
+                            </Label>
+                            <Textarea
+                                id="location"
+                                value={formData.location}
+                                onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                placeholder="Enter full address of the venue..."
+                                className="min-h-[80px]"
+                                required={formData.mode === 'in-person'}
+                            />
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/50">
+                                <div className="space-y-0.5">
+                                    <Label className="text-sm font-medium">Google Meet Link</Label>
+                                    <p className="text-xs text-muted-foreground">Automatically generate meeting link</p>
+                                </div>
+                                <Switch
+                                    checked={formData.createMeetLink}
+                                    onCheckedChange={checked => {
+                                        if (checked && !isGoogleConnected) {
+                                            toast.error('Please connect Google Calendar in Apps first');
+                                            return;
+                                        }
+                                        setFormData({ ...formData, createMeetLink: checked });
+                                    }}
+                                    disabled={!isGoogleConnected}
+                                />
+                            </div>
+                            {!isGoogleConnected && (
+                                <p className="text-xs text-amber-500 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" /> Connect Google Calendar in Apps to enable auto-meet links.
+                                </p>
+                            )}
+                        </>
                     )}
 
                     <DialogFooter className="mt-4">
                         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            Create Webinar
+                            Create Workshop
                         </Button>
                     </DialogFooter>
                 </form>

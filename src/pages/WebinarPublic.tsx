@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, Clock, MapPin, Loader2, CheckCircle2, AlertCircle, Mic, HelpCircle, Share2, Video } from 'lucide-react';
+import { Calendar, Clock, MapPin, Loader2, CheckCircle2, AlertCircle, Mic, HelpCircle, Share2, Video, Building2, Users } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import SEO from '@/components/common/SEO';
@@ -242,7 +242,7 @@ export default function WebinarPublic() {
                 <div className="relative z-10 container mx-auto px-4 py-16 md:py-24">
                     <div className="max-w-4xl">
                         <Badge variant="secondary" className="mb-4 backdrop-blur-md bg-background/50 border-primary/20">
-                            WEBINAR
+                            WORKSHOP
                         </Badge>
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground mb-6 leading-tight">
                             {webinar.title}
@@ -256,10 +256,14 @@ export default function WebinarPublic() {
                                 <Clock className="w-5 h-5 text-primary" style={textStyle} />
                                 <span className='font-medium text-foreground'>{format(parseISO(webinar.start_time), 'h:mm a')} - {format(parseISO(webinar.end_time), 'h:mm a')}</span>
                             </div>
-                            {webinar.meet_link && (
+                            <div className="flex items-center gap-2">
+                                {webinar.mode === 'in-person' ? <Building2 className="w-5 h-5 text-primary" style={textStyle} /> : <Video className="w-5 h-5 text-primary" style={textStyle} />}
+                                <span className="font-medium text-foreground capitalize">{webinar.mode === 'in-person' ? 'In-Person Event' : 'Online Event'}</span>
+                            </div>
+                            {webinar.mode === 'in-person' && webinar.location && (
                                 <div className="flex items-center gap-2">
-                                    <Video className="w-5 h-5 text-primary" style={textStyle} />
-                                    <span className="font-medium text-foreground">Online Event</span>
+                                    <MapPin className="w-5 h-5 text-primary" style={textStyle} />
+                                    <span className="font-medium text-foreground">{webinar.location}</span>
                                 </div>
                             )}
                         </div>
@@ -343,6 +347,12 @@ export default function WebinarPublic() {
                                     <CardDescription>
                                         Registration is open until {format(parseISO(webinar.start_time), 'MMM d, h:mm a')}
                                     </CardDescription>
+                                    {webinar.max_attendees && (
+                                        <div className="flex items-center gap-2 mt-4 text-sm font-medium text-muted-foreground bg-muted/50 p-2 rounded-md">
+                                            <Users className="w-4 h-4" />
+                                            <span>Limited Capacity: {webinar.max_attendees} Seats</span>
+                                        </div>
+                                    )}
                                 </CardHeader>
                                 <CardContent>
                                     {errorMessage && (

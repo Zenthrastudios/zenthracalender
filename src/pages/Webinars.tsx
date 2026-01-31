@@ -18,7 +18,11 @@ import {
     ExternalLink,
     Edit,
     Image as ImageIcon,
-    BarChart2
+    BarChart2,
+    MapPin,
+    Users,
+    Monitor,
+    Building2
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -64,11 +68,11 @@ export default function Webinars() {
             <div className="p-6 max-w-7xl mx-auto space-y-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Webinars & Masterclasses</h1>
-                        <p className="text-muted-foreground mt-1">Schedule live classes, generate Google Meet links, and collect payments.</p>
+                        <h1 className="text-3xl font-bold tracking-tight">Workshops & Masterclasses</h1>
+                        <p className="text-muted-foreground mt-1">Schedule live workshops, generate Google Meet links, and collect payments.</p>
                     </div>
                     <Button onClick={() => setIsCreateOpen(true)} className="gap-2 shadow-lg hover:shadow-primary/20 transition-all">
-                        <Plus className="w-4 h-4" /> Create Webinar
+                        <Plus className="w-4 h-4" /> Create Workshop
                     </Button>
                 </div>
 
@@ -77,9 +81,9 @@ export default function Webinars() {
                         <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
                             <Video className="w-8 h-8" />
                         </div>
-                        <h3 className="text-xl font-semibold">No webinars scheduled</h3>
+                        <h3 className="text-xl font-semibold">No workshops scheduled</h3>
                         <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-                            Get started by scheduling your first live session. You can charge for access or offer it for free.
+                            Get started by scheduling your first live workshop. You can charge for access or offer it for free.
                         </p>
                         <Button onClick={() => setIsCreateOpen(true)} variant="outline" className="mt-6">
                             Schedule Now
@@ -151,6 +155,20 @@ export default function Webinars() {
                                         <span>
                                             {format(parseISO(webinar.start_time), 'h:mm a')} - {format(parseISO(webinar.end_time), 'h:mm a')}
                                         </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        {webinar.mode === 'in-person' ? <Building2 className="w-4 h-4 text-primary/70" /> : <Monitor className="w-4 h-4 text-primary/70" />}
+                                        <span className="capitalize">{webinar.mode === 'in-person' ? 'In-Person' : 'Online'}</span>
+                                    </div>
+                                    {webinar.mode === 'in-person' && webinar.location && (
+                                        <div className="flex items-start gap-2 text-muted-foreground">
+                                            <MapPin className="w-4 h-4 text-primary/70 mt-0.5" />
+                                            <span className="line-clamp-1">{webinar.location}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Users className="w-4 h-4 text-primary/70" />
+                                        <span>{webinar.max_attendees ? `${webinar.max_attendees} Seats` : 'Unlimited Seats'}</span>
                                     </div>
                                 </CardContent>
                                 <CardFooter className="pt-3 border-t bg-muted/20 flex gap-2">

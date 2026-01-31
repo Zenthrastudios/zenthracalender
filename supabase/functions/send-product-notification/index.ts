@@ -4,26 +4,51 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL") || "https://zenthracalendar.com"; // Fallback/Update as needed
+const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL") || "https://zenthracalendar.com";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// --- Email Templates & Styles (Shared Style) ---
+// --- Email Templates & Styles ---
 
 const escapeHtml = (v: string) =>
     v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+const formatDate = (dateString: string) => {
+    try {
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: 'UTC',
+            timeZoneName: 'short'
+        }).format(date);
+    } catch (e) {
+        return dateString;
+    }
+};
 
 const wrapEmail = (opts: {
     title: string;
     subtitle?: string;
     bodyHtml: string;
     brandName?: string;
+    heroImage?: string;
+    actionLink?: string;
+    actionText?: string;
 }) => {
-    const accent = "#FF9124"; // Main brand color
+    const accent = "#FF9124";
     const brand = opts.brandName || "Zenthra";
+    const bg = "#f3f4f6";
+    const cardBg = "#ffffff";
+    const textMain = "#111827";
+    const textMuted = "#6b7280";
 
     return `
   <!DOCTYPE html>
@@ -31,27 +56,45 @@ const wrapEmail = (opts: {
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-      body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0B0B0F; color: #FFFFFF; }
+      body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: ${bg}; color: ${textMain}; }
       .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
-      .card { background: #1C1C1E; border-radius: 24px; padding: 40px; border: 1px solid rgba(255,255,255,0.05); }
-      .btn { display: inline-block; background: linear-gradient(135deg, ${accent}, #FF5C00); color: #000; padding: 14px 28px; border-radius: 12px; font-weight: bold; text-decoration: none; margin-top: 20px; }
+      .header { text-align: center; margin-bottom: 32px; }
+      .brand { color: ${accent}; font-weight: bold; font-size: 24px; text-decoration: none; }
+      .card { background: ${cardBg}; border-radius: 24px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+      .hero-image { width: 100%; height: 200px; object-fit: cover; background-color: #e5e7eb; }
+      .content { padding: 40px; }
+      .title { margin: 0 0 16px; font-size: 24px; font-weight: 700; line-height: 1.3; color: ${textMain}; }
+      .subtitle { color: ${textMuted}; margin-bottom: 24px; font-size: 16px; line-height: 1.6; }
+      .btn { display: block; width: 100%; text-align: center; background: ${accent}; color: #ffffff; padding: 16px 0; border-radius: 12px; font-weight: bold; font-size: 16px; text-decoration: none; margin-top: 32px; transition: opacity 0.2s; box-shadow: 0 4px 6px -1px rgba(255, 145, 36, 0.2); }
+      .btn:hover { opacity: 0.9; }
+      .footer { text-align: center; margin-top: 32px; color: ${textMuted}; font-size: 12px; }
+      .divider { height: 1px; background: #e5e7eb; margin: 24px 0; }
+      .info-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
+      .info-label { color: ${textMuted}; }
+      .info-value { font-weight: 600; text-align: right; color: ${textMain}; }
     </style>
   </head>
   <body>
     <div class="container">
-      <div style="text-align:center;margin-bottom:32px;">
-        <div style="color:${accent};font-weight:bold;font-size:24px;">${escapeHtml(brand)}</div>
+      <div class="header">
+        <div class="brand">${escapeHtml(brand)}</div>
       </div>
       
       <div class="card">
-        <h1 style="margin:0 0 16px;font-size:24px;">${escapeHtml(opts.title)}</h1>
-        ${opts.subtitle ? `<p style="color:#94A3B8;margin-bottom:32px;line-height:1.6;">${escapeHtml(opts.subtitle)}</p>` : ''}
+        ${opts.heroImage ? `<img src="${opts.heroImage}" alt="${escapeHtml(opts.title)}" class="hero-image" />` : ''}
         
-        ${opts.bodyHtml}
+        <div class="content">
+          <h1 class="title">${escapeHtml(opts.title)}</h1>
+          ${opts.subtitle ? `<p class="subtitle">${opts.subtitle}</p>` : ''}
+          
+          ${opts.bodyHtml}
+
+          ${opts.actionLink ? `<a href="${opts.actionLink}" class="btn">${opts.actionText || 'View Details'}</a>` : ''}
+        </div>
       </div>
 
-      <div style="text-align:center;margin-top:32px;color:#48484A;font-size:12px;">
-        Powered by Zenthra
+      <div class="footer">
+        Powered by Zenthra Calendar
       </div>
     </div>
   </body>
@@ -67,7 +110,7 @@ async function sendEmail(to: string, subject: string, html: string, fromName = "
         throw new Error("RESEND_API_KEY is missing in Edge Function secrets");
     }
 
-    console.log(`Sending email to ${to} from ${fromName} <noreply@intimatecare.in>`);
+    console.log(`Sending email to ${to} from ${fromName}`);
 
     const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -76,7 +119,7 @@ async function sendEmail(to: string, subject: string, html: string, fromName = "
             Authorization: `Bearer ${RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-            from: `${fromName} <noreply@intimatecare.in>`, // Using existing verified domain
+            from: `${fromName} <noreply@intimatecare.in>`,
             to: [to],
             subject,
             html,
@@ -94,7 +137,7 @@ async function sendEmail(to: string, subject: string, html: string, fromName = "
 
 interface NotificationRequest {
     type: 'product_purchase' | 'course_purchase' | 'webinar_registration';
-    id: string; // ID of the purchase record
+    id: string;
 }
 
 serve(async (req) => {
@@ -107,7 +150,6 @@ serve(async (req) => {
         console.log(`Processing notification: ${type} for ID: ${id}`);
 
         if (type === 'product_purchase') {
-            // 1. Fetch Purchase Details
             const { data: purchase, error } = await supabase
                 .from('product_purchases')
                 .select('*, digital_products(*)')
@@ -116,80 +158,95 @@ serve(async (req) => {
 
             if (error || !purchase) throw new Error("Purchase not found");
             const product = purchase.digital_products;
-
-            // 2. Fetch Seller Profile
             const { data: seller } = await supabase.from('profiles').select('email, name').eq('user_id', product.user_id).single();
 
-            const customerEmail = purchase.customer_email;
             const amount = purchase.amount;
             const currency = purchase.currency || 'USD';
+            const accessLink = purchase.access_link || `${PUBLIC_SITE_URL}/view/${purchase.access_token}`;
 
             // Email to Customer
             await sendEmail(
-                customerEmail,
-                `Your Order Receipt: ${product.title}`,
+                purchase.customer_email,
+                `Order Receipt: ${product.title}`,
                 wrapEmail({
-                    title: "Thanks for your purchase!",
-                    subtitle: `Here is your access to <b>${escapeHtml(product.title)}</b>.`,
+                    title: "Order Confirmed!",
+                    subtitle: `Thank you for purchasing <b>${escapeHtml(product.title)}</b>.`,
+                    heroImage: product.thumbnail_url || product.cover_image_url,
+                    brandName: seller?.name,
+                    actionLink: accessLink,
+                    actionText: "Access Content",
                     bodyHtml: `
-            <div style="background:rgba(255,255,255,0.03);padding:20px;border-radius:12px;margin-bottom:20px;">
-              <div style="font-size:14px;color:#8E8E93;">Amount Paid</div>
-              <div style="font-size:24px;font-weight:bold;">${amount} ${currency.toUpperCase()}</div>
-            </div>
-            <p>You can access your product using the link below:</p>
-            <a href="${purchase.access_link || '#'}" class="btn">Access Product</a>
-          `,
-                    brandName: seller?.name
+                        <div class="divider"></div>
+                        <div class="info-row">
+                            <span class="info-label">Order ID</span>
+                            <span class="info-value">#${purchase.id.slice(0, 8)}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Amount Paid</span>
+                            <span class="info-value">${amount} ${currency.toUpperCase()}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Date</span>
+                            <span class="info-value">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
+                    `
                 }),
                 seller?.name
             );
 
-            // Email to Seller
+            // Email to Seller (simplified)
             if (seller?.email) {
                 await sendEmail(
                     seller.email,
                     `New Sale: ${product.title}`,
                     wrapEmail({
-                        title: "Cha-ching! New Sale",
-                        subtitle: `You just sold <b>${escapeHtml(product.title)}</b>.`,
+                        title: "New Sale! 🎉",
+                        subtitle: `You just sold a copy of <b>${escapeHtml(product.title)}</b>.`,
+                        brandName: "Zenthra",
                         bodyHtml: `
-              <div style="margin-bottom:12px;"><b>Customer:</b> ${escapeHtml(purchase.customer_name)} (${escapeHtml(customerEmail)})</div>
-              <div><b>Amount:</b> ${amount} ${currency.toUpperCase()}</div>
-            `,
-                        brandName: "Zenthra"
+                            <div class="divider"></div>
+                             <div class="info-row">
+                                <span class="info-label">Customer</span>
+                                <span class="info-value">${escapeHtml(purchase.customer_name)}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Revenue</span>
+                                <span class="info-value">${amount} ${currency.toUpperCase()}</span>
+                            </div>
+                        `
                     })
                 );
             }
 
         } else if (type === 'course_purchase') {
-            // 1. Fetch Course Purchase
             const { data: purchase, error } = await supabase
                 .from('course_purchases')
-                .select(`
-            *,
-            courses (*)
-         `)
+                .select('*, courses(*)')
                 .eq('id', id)
                 .single();
 
             if (error || !purchase) throw new Error("Course purchase not found");
             const course = purchase.courses;
-
-            // 2. Fetch Instructor
             const { data: instructor } = await supabase.from('profiles').select('email, name').eq('user_id', course.user_id).single();
+
+            const courseUrl = purchase.access_token
+                ? `${PUBLIC_SITE_URL}/course/${purchase.access_token}`
+                : `${PUBLIC_SITE_URL}/courses/${course.slug}`;
 
             // Email to Student
             await sendEmail(
                 purchase.customer_email,
                 `Welcome to ${course.title}`,
                 wrapEmail({
-                    title: "Welcome aboard!",
-                    subtitle: `You are now enrolled in <b>${escapeHtml(course.title)}</b>.`,
+                    title: "Welcome Aboard!",
+                    subtitle: `You're now enrolled in <b>${escapeHtml(course.title)}</b>. We're excited to have you!`,
+                    heroImage: course.thumbnail_url || course.cover_image_url,
+                    brandName: instructor?.name,
+                    actionLink: courseUrl,
+                    actionText: "Start Learning",
                     bodyHtml: `
-             <p>Get started learning right away.</p>
-             <a href="${PUBLIC_SITE_URL}/courses/${course.slug}" class="btn">Start Learning</a>
-           `,
-                    brandName: instructor?.name
+                        <p style="color:#6b7280; line-height:1.6;">Access your course materials, lessons, and resources anytime from your dashboard.</p>
+                    `
                 }),
                 instructor?.name
             );
@@ -200,12 +257,11 @@ serve(async (req) => {
                     instructor.email,
                     `New Student: ${course.title}`,
                     wrapEmail({
-                        title: "New Student Enrolled",
+                        title: "New Student Enrolled 🎓",
+                        brandName: "Zenthra",
                         bodyHtml: `
-               <p><b>${escapeHtml(purchase.customer_name)}</b> just bought your course!</p>
-               <p><b>Earnings:</b> ${purchase.amount}</p>
-             `,
-                        brandName: "Zenthra"
+                           <p><b>${escapeHtml(purchase.customer_name)}</b> has joined your course.</p>
+                        `
                     })
                 );
             }
@@ -213,35 +269,69 @@ serve(async (req) => {
         } else if (type === 'webinar_registration') {
             const { data: reg, error } = await supabase
                 .from('webinar_registrations')
-                .select(`
-             *,
-             webinars (*)
-          `)
+                .select('*, webinars(*)')
                 .eq('id', id)
                 .single();
 
             if (error || !reg) throw new Error("Registration not found");
             const webinar = reg.webinars;
-
             const { data: host } = await supabase.from('profiles').select('email, name').eq('user_id', webinar.user_id).single();
 
-            // Email to Attendee
-            const startTime = new Date(webinar.start_time).toLocaleString();
+            const formattedDate = formatDate(webinar.start_time);
+            const webinarUrl = `${PUBLIC_SITE_URL}/webinar/${webinar.id}`; // Fixed URL to public page
 
+            // Determine Mode Content
+            const isInPerson = webinar.mode === 'in-person';
+            let locationHtml = '';
+            let actionLink = webinarUrl;
+            let actionText = "View Event Details";
+
+            if (isInPerson) {
+                locationHtml = `
+                    <div style="background:#f9fafb; padding:16px; border-radius:12px; margin-bottom: 24px; border: 1px solid #e5e7eb;">
+                        <div class="info-label" style="font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; color:#6b7280;">Location</div>
+                        <div class="info-value" style="font-size:16px; color:#111827; text-align:left; line-height:1.4;">${escapeHtml(webinar.location || 'Location to be announced')}</div>
+                         <div style="margin-top:8px; font-size:12px;"><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(webinar.location || '')}" style="color:#FF9124; text-decoration:none;">📍 View on Map</a></div>
+                    </div>
+                `;
+            } else {
+                // Online Mode
+                actionLink = webinar.meet_link || webinarUrl;
+                actionText = webinar.meet_link ? "Join Online Meeting" : "View Details";
+                locationHtml = `
+                     <div style="background:#f9fafb; padding:16px; border-radius:12px; margin-bottom: 24px; border: 1px solid #e5e7eb; display:flex; align-items:center; gap:12px;">
+                        <img src="https://img.icons8.com/ios-filled/50/FF9124/video-call.png" width="24" height="24" alt="video" />
+                        <div>
+                            <div class="info-label" style="font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#6b7280;">Online Event</div>
+                            <div class="info-value" style="font-size:14px; color:#111827;">Link provided below</div>
+                        </div>
+                     </div>
+                `;
+            }
+
+            // Email to Attendee
             await sendEmail(
                 reg.attendee_email,
                 `Registration Confirmed: ${webinar.title}`,
                 wrapEmail({
-                    title: "You're registered!",
-                    subtitle: `Your spot for <b>${escapeHtml(webinar.title)}</b> is saved.`,
+                    title: "You're Registered! ✅",
+                    subtitle: `Your spot for <b>${escapeHtml(webinar.title)}</b> has been reserved.`,
+                    heroImage: webinar.cover_image_url,
+                    brandName: host?.name,
+                    actionLink: actionLink,
+                    actionText: actionText,
                     bodyHtml: `
-               <div style="background:rgba(255,255,255,0.03);padding:20px;border-radius:12px;margin:20px 0;">
-                 <div style="color:#aaa;font-size:12px;text-transform:uppercase;">When</div>
-                 <div style="font-size:18px;font-weight:600;margin-top:4px;">${startTime}</div>
-               </div>
-               ${webinar.meet_link ? `<a href="${webinar.meet_link}" class="btn">Join Webinar</a>` : ''}
-             `,
-                    brandName: host?.name
+                        <div class="divider"></div>
+                        
+                         <div style="background:#f9fafb; padding:16px; border-radius:12px; margin-bottom: 12px; border: 1px solid #e5e7eb;">
+                            <div class="info-label" style="font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; color:#6b7280;">Date & Time</div>
+                            <div class="info-value" style="font-size:18px; color:#111827; text-align:left;">${formattedDate}</div>
+                         </div>
+
+                         ${locationHtml}
+
+                        <p style="color:#6b7280; line-height:1.6;">Mark your calendar! We've sent the details to your email. ${isInPerson ? 'Please arrive 10 minutes early.' : 'Click the button below to join when it\'s time.'}</p>
+                    `
                 }),
                 host?.name
             );
@@ -252,19 +342,20 @@ serve(async (req) => {
                     host.email,
                     `New Attendee: ${webinar.title}`,
                     wrapEmail({
-                        title: "New Registration",
+                        title: "New Registration 🎟️",
+                        brandName: "Zenthra",
                         bodyHtml: `
-                      <p><b>${escapeHtml(reg.attendee_name)}</b> (${escapeHtml(reg.attendee_email)}) just registered.</p>
-                    `,
-                        brandName: "Zenthra"
+                           <p><b>${escapeHtml(reg.attendee_name)}</b> (${escapeHtml(reg.attendee_email)}) just registered for your ${isInPerson ? 'in-person workshop' : 'webinar'}.</p>
+                           <div class="divider"></div>
+                           <div class="info-row">
+                             <span class="info-label">Event</span>
+                             <span class="info-value">${escapeHtml(webinar.title)}</span>
+                           </div>
+                        `
                     })
                 );
             }
         }
-
-        // TODO: Team Notifications
-        // Currently relying on 'teams' table which is not yet created. 
-        // In the future, query team_members of the owner (product.user_id) with 'admin' role and loop through to send emails.
 
         return new Response(
             JSON.stringify({ success: true, message: "Notifications processed" }),

@@ -20,6 +20,8 @@ export interface Webinar {
     speakers: any[];
     faq: any[];
     theme_color: string | null;
+    mode: 'online' | 'in-person'; // Added mode
+    location: string | null; // Added location
     created_at: string;
     updated_at: string;
 }

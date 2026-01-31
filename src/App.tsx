@@ -52,6 +52,11 @@ import LinkTreeDashboard from './pages/LinkTreeDashboard';
 import LinkTreeEditor from './pages/LinkTreeEditor';
 import LinkTreePublic from './pages/LinkTreePublic';
 import WebinarAnalytics from './pages/WebinarAnalytics';
+import Features from './pages/Features';
+import Pricing from './pages/Pricing';
+import Creators from './pages/Creators';
+import Contact from './pages/Contact';
+import Enterprise from './pages/Enterprise';
 
 const queryClient = new QueryClient();
 
@@ -83,7 +88,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 // Admin-only route - only for admin users
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
-  const { isAdmin, isLoading: roleLoading } = useRole();
+  const { isAdmin, role, isLoading: roleLoading } = useRole();
 
   if (isLoading || roleLoading) {
     return (
@@ -98,6 +103,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAdmin) {
+    console.log('User is not admin, redirecting to guest. Role:', role);
     return <Navigate to="/guest" replace />;
   }
 
@@ -121,8 +127,35 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Admins go to admin dashboard
+  // Admins go to admin/enterprise
   if (role === 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  if (role === 'superadmin') {
+    return <Navigate to="/enterprise" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// SuperAdmin route - only for superadmins
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const { isSuperAdmin, isLoading: roleLoading } = useRole();
+
+  if (isLoading || roleLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (!isSuperAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -144,6 +177,9 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
 
   if (user) {
     // Redirect based on role
+    if (role === 'superadmin') {
+      return <Navigate to="/enterprise" replace />;
+    }
     if (role === 'admin') {
       return <Navigate to="/dashboard" replace />;
     }
@@ -175,6 +211,16 @@ function AppRoutes() {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/data-deletion" element={<DataDeletion />} />
+      <Route path="/features" element={<Features />} />
+      <Route path="/pricing" element={<Pricing />} />
+      <Route path="/creators" element={<Creators />} />
+      <Route path="/contact" element={<Contact />} />
+
+      <Route path="/enterprise/*" element={
+        <SuperAdminRoute>
+          <Enterprise />
+        </SuperAdminRoute>
+      } />
 
       <Route path="/store/:username/:slug" element={<PublicProduct />} />
       <Route path="/view/:accessToken" element={<ProductViewer />} />
