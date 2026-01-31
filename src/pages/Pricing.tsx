@@ -114,7 +114,7 @@ export default function Pricing() {
                                         ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-xl shadow-orange-600/20'
                                         : 'bg-foreground text-background hover:opacity-90'
                                 )} asChild>
-                                    <Link to="/auth">{plan.button_text}</Link>
+                                    <Link to={`/checkout?planId=${plan.id}`}>{plan.button_text}</Link>
                                 </Button>
                                 <p className="mt-6 text-center text-sm font-bold text-muted-foreground italic">No credit card required to start</p>
                             </div>

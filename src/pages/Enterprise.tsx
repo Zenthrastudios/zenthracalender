@@ -438,16 +438,16 @@ export default function Enterprise() {
     return (
         <div className="min-h-screen bg-background flex flex-col lg:flex-row">
             {/* Sidebar */}
-            <aside className="w-full lg:w-72 bg-card border-r border-border flex flex-col lg:sticky lg:top-0 h-auto lg:h-screen z-50">
-                <div className="p-6 lg:p-8 flex-1">
-                    <Link to="/" className="flex items-center gap-3 mb-10 group">
-                        <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/20 group-hover:scale-105 transition-transform">
+            <aside className="w-full lg:w-72 bg-card border-r border-border/60 flex flex-col lg:sticky lg:top-0 h-auto lg:h-screen z-50">
+                <div className="p-6 lg:p-10 flex-1">
+                    <Link to="/" className="flex items-center gap-4 mb-14 group">
+                        <div className="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center shadow-xl shadow-orange-600/30 group-hover:rotate-6 transition-all duration-500">
                             <Calendar className="w-6 h-6 text-white" />
                         </div>
-                        <span className="font-black text-xl tracking-tighter text-foreground uppercase">Zenthra</span>
+                        <span className="font-black text-2xl tracking-[ -0.05em] text-foreground uppercase">Zenthra</span>
                     </Link>
 
-                    <nav className="space-y-1">
+                    <nav className="space-y-2">
                         {[
                             { id: 'overview', icon: BarChart3, label: 'Overview' },
                             { id: 'users', icon: Users, label: 'Manage Users' },
@@ -461,22 +461,22 @@ export default function Enterprise() {
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id)}
                                 className={cn(
-                                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all duration-200",
+                                    "w-full flex items-center gap-4 px-5 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.1em] transition-all duration-300",
                                     activeTab === item.id
-                                        ? 'bg-orange-600/10 text-orange-600 shadow-sm border border-orange-600/20'
+                                        ? 'bg-orange-600 text-white shadow-2xl shadow-orange-600/40 translate-x-1'
                                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                 )}
                             >
-                                <item.icon className={cn("w-5 h-5", activeTab === item.id ? "text-orange-600" : "text-muted-foreground")} />
+                                <item.icon className={cn("w-5 h-5", activeTab === item.id ? "text-white" : "text-muted-foreground")} />
                                 {item.label}
                             </button>
                         ))}
                     </nav>
                 </div>
 
-                <div className="p-6 lg:p-8 border-t border-border mt-auto">
-                    <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted font-bold px-4" asChild>
-                        <Link to="/dashboard"><ArrowLeft className="w-4 h-4 mr-2" /> Back to App</Link>
+                <div className="p-6 lg:p-10 border-t border-border/40 mt-auto bg-muted/20">
+                    <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-orange-600 hover:bg-orange-600/5 font-black uppercase tracking-widest text-[9px] px-5 py-6 rounded-2xl" asChild>
+                        <Link to="/dashboard"><ArrowLeft className="w-4 h-4 mr-3" /> Back to App</Link>
                     </Button>
                 </div>
             </aside>
@@ -501,107 +501,114 @@ export default function Enterprise() {
                     </div>
                 </header>
 
-                <div className="space-y-10">
+                <div className="space-y-12">
                     {activeTab === 'overview' && (
-                        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-5 duration-700">
-                            {/* Protocol Intelligence - Macro View */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-5 duration-1000">
+                            {/* Macro Matrix - Stat Cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                                 {[
-                                    { label: 'Platform Users', value: stats?.total_users || 0, delta: '+12%', sub: 'Active Identities', icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                                    { label: 'Platform Users', value: stats?.total_users || 0, delta: '+12%', sub: 'Identities', icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
                                     { label: 'Revenue Flow', value: `₹${stats?.total_revenue?.toLocaleString() || '0'}`, delta: '+25%', sub: 'Gross Volume', icon: BarChart3, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                                    { label: 'Inventory Items', value: stats?.total_products || 0, delta: '+8%', sub: 'Digital Assets', icon: LayoutGrid, color: 'text-orange-600', bg: 'bg-orange-600/10' },
-                                    { label: 'Conversion', value: '3.2%', delta: '+0.4%', sub: 'User to Creator', icon: Zap, color: 'text-purple-500', bg: 'bg-purple-500/10' }
+                                    { label: 'Inventory Items', value: stats?.total_products || 0, delta: '+8%', sub: 'Assets', icon: LayoutGrid, color: 'text-orange-600', bg: 'bg-orange-600/10' },
+                                    { label: 'Conversion', value: '3.2%', delta: '+0.4%', sub: 'Ratio', icon: Zap, color: 'text-purple-500', bg: 'bg-purple-500/10' }
                                 ].map((stat, i) => (
-                                    <Card key={i} className="border border-border/50 shadow-2xl shadow-black/[0.03] rounded-[2.5rem] bg-card overflow-hidden group hover:border-orange-600/20 transition-all duration-500">
-                                        <CardContent className="p-8">
-                                            <div className="flex justify-between items-start mb-6">
-                                                <div className={`${stat.bg} ${stat.color} w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 duration-500`}>
-                                                    <stat.icon className="w-6 h-6" />
+                                    <div key={i} className="relative group">
+                                        <div className="absolute inset-0 bg-foreground/5 rounded-[2.5rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                                        <Card className="relative border border-border/50 shadow-2xl shadow-black/[0.03] rounded-[2.5rem] bg-card overflow-hidden group hover:border-orange-600/40 transition-all duration-500 p-8">
+                                            <div className="flex justify-between items-start mb-8">
+                                                <div className={`${stat.bg} ${stat.color} w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-black/[0.02] transition-all duration-500 group-hover:rotate-12`}>
+                                                    <stat.icon className="w-7 h-7" />
                                                 </div>
-                                                <Badge className="bg-emerald-500/10 text-emerald-500 border-none px-2 py-0.5 font-black text-[9px] uppercase tracking-widest">{stat.delta}</Badge>
+                                                <Badge className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-3 py-1 font-black text-[9px] uppercase tracking-widest rounded-full">{stat.delta}</Badge>
                                             </div>
                                             <div className="space-y-1">
-                                                <div className="text-3xl font-black text-foreground tracking-tighter leading-none tabular-nums">{stat.value}</div>
-                                                <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest pt-1">{stat.label}</div>
+                                                <div className="text-4xl font-black text-foreground tracking-[-0.05em] leading-none tabular-nums group-hover:text-orange-600 transition-colors duration-500">{stat.value}</div>
+                                                <div className="flex items-center justify-between mt-3">
+                                                    <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{stat.label}</div>
+                                                    <div className="text-[8px] font-bold text-muted-foreground/40 italic">{stat.sub}</div>
+                                                </div>
                                             </div>
-                                        </CardContent>
-                                    </Card>
+                                        </Card>
+                                    </div>
                                 ))}
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                                 {/* Infrastructure Pulse - Simulated Analytics */}
-                                <Card className="lg:col-span-2 border border-border/40 shadow-2xl shadow-black/[0.02] rounded-[3rem] bg-card/50 backdrop-blur-sm overflow-hidden p-10 space-y-8">
+                                <Card className="lg:col-span-2 border border-border/40 shadow-2xl shadow-black/[0.01] rounded-[3.5rem] bg-card overflow-hidden p-12 space-y-10">
                                     <div className="flex justify-between items-center">
                                         <div>
-                                            <h3 className="text-xl font-black text-foreground uppercase tracking-tight">Growth Signals</h3>
-                                            <p className="text-muted-foreground font-bold text-xs mt-1 italic">Real-time platform expansion metrics (Last 30 Days)</p>
+                                            <h3 className="text-2xl font-black text-foreground uppercase tracking-tighter">Growth Signals</h3>
+                                            <p className="text-muted-foreground font-black text-[10px] uppercase tracking-widest mt-1 opacity-60">Macro platform expansion matrix</p>
                                         </div>
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 p-1 bg-muted rounded-2xl border border-border/50">
                                             {['Daily', 'Weekly', 'Monthly'].map(p => (
-                                                <Badge key={p} variant={p === 'Monthly' ? 'default' : 'outline'} className="rounded-lg px-3 py-1 cursor-pointer">{p}</Badge>
+                                                <button key={p} className={cn("px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all", p === 'Monthly' ? "bg-foreground text-background shadow-lg" : "text-muted-foreground hover:text-foreground")}>{p}</button>
                                             ))}
                                         </div>
                                     </div>
 
-                                    <div className="h-64 flex items-end gap-3 px-4">
-                                        {[40, 60, 45, 90, 65, 80, 55, 100, 75, 85, 95, 110].map((h, i) => (
+                                    <div className="h-72 flex items-end gap-4 px-2">
+                                        {[40, 65, 45, 95, 65, 85, 55, 110, 75, 90, 105, 130].map((h, i) => (
                                             <div key={i} className="flex-1 group/bar relative">
                                                 <div
-                                                    className="w-full bg-gradient-to-t from-orange-600/10 to-orange-600/40 rounded-t-xl transition-all duration-1000 group-hover/bar:to-orange-600 group-hover/bar:shadow-[0_0_20px_rgba(234,88,12,0.3)]"
+                                                    className="w-full bg-gradient-to-t from-orange-600/5 to-orange-600/30 rounded-2xl transition-all duration-700 group-hover/bar:bg-orange-600 group-hover/bar:shadow-[0_0_40px_rgba(234,88,12,0.4)]"
                                                     style={{ height: `${h}%` }}
                                                 />
-                                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] font-black px-2 py-1 rounded opacity-0 group-hover/bar:opacity-100 transition-opacity">
-                                                    {h}%
+                                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] font-black px-3 py-1.5 rounded-xl opacity-0 group-hover/bar:opacity-100 transition-all shadow-xl tracking-tighter scale-90 group-hover/bar:scale-100">
+                                                    {h * 10}pts
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
 
-                                    <div className="grid grid-cols-3 gap-10 pt-8 border-t border-border/50">
-                                        <div>
-                                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Peak Concurrent</div>
-                                            <div className="text-2xl font-black text-foreground">1,204 <span className="text-emerald-500 text-xs">+14%</span></div>
-                                        </div>
-                                        <div>
-                                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Avg Session</div>
-                                            <div className="text-2xl font-black text-foreground">14m <span className="text-orange-600 text-xs">-2%</span></div>
-                                        </div>
-                                        <div>
-                                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Load Latency</div>
-                                            <div className="text-2xl font-black text-foreground">84ms <span className="text-emerald-500 text-xs">-18%</span></div>
-                                        </div>
+                                    <div className="grid grid-cols-3 gap-12 pt-10 border-t border-border/40">
+                                        {[
+                                            { label: 'Peak Concurrent', value: '1,204', delta: '+14%', deltaColor: 'text-emerald-500' },
+                                            { label: 'Avg Session', value: '14m', delta: '-2%', deltaColor: 'text-orange-600' },
+                                            { label: 'Load Latency', value: '84ms', delta: '-18%', deltaColor: 'text-emerald-500' }
+                                        ].map((m, i) => (
+                                            <div key={i}>
+                                                <div className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-2 opacity-50">{m.label}</div>
+                                                <div className="text-3xl font-black text-foreground tracking-tighter">
+                                                    {m.value} <span className={`${m.deltaColor} text-[10px] ml-1`}>{m.delta}</span>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </Card>
 
-                                {/* Real-time Channel signals */}
-                                <Card className="border border-border/40 shadow-2xl shadow-black/[0.02] rounded-[3rem] bg-card/80 p-8 space-y-8">
-                                    <h3 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-3">
-                                        <Zap className="w-5 h-5 text-orange-600 fill-orange-600" /> Activity Stream
-                                    </h3>
+                                {/* Real-time Activity Matrix */}
+                                <Card className="border border-border/40 shadow-2xl shadow-black/[0.01] rounded-[3.5rem] bg-card p-10 space-y-10">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-3">
+                                            <Zap className="w-5 h-5 text-orange-600 fill-orange-600" /> Activity Stream
+                                        </h3>
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
+                                    </div>
 
-                                    <div className="space-y-6">
+                                    <div className="space-y-8">
                                         {[
                                             { user: 'Nirmal K.', action: 'created Intimate Talks', time: '2m ago', icon: Video, color: 'text-blue-500', bg: 'bg-blue-500/10' },
                                             { user: 'Sanya M.', action: 'sold Personal Training', time: '12m ago', icon: CreditCard, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
                                             { user: 'Aditi V.', action: 'joined as Creator', time: '24m ago', icon: UserPlus, color: 'text-orange-600', bg: 'bg-orange-600/10' },
                                             { user: 'Rahul D.', action: 'updated Service Tier', time: '45m ago', icon: ShieldCheck, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-                                            { user: 'Platform', action: 'applied System Patch 4.2', time: '1h ago', icon: Settings, color: 'text-muted-foreground', bg: 'bg-muted/10' }
+                                            { user: 'Infrastructure', action: 'applied System Patch 4.2', time: '1h ago', icon: Settings, color: 'text-muted-foreground', bg: 'bg-muted/10' }
                                         ].map((act, i) => (
-                                            <div key={i} className="flex gap-4 group/act cursor-pointer">
-                                                <div className={`w-10 h-10 rounded-xl ${act.bg} ${act.color} flex items-center justify-center shrink-0 group-hover/act:scale-110 transition-transform`}>
-                                                    <act.icon className="w-5 h-5" />
+                                            <div key={i} className="flex gap-5 group/act cursor-pointer">
+                                                <div className={`w-12 h-12 rounded-2xl ${act.bg} ${act.color} flex items-center justify-center shrink-0 group-hover/act:rotate-12 group-hover/act:scale-110 transition-all duration-500 shadow-lg shadow-black/[0.02]`}>
+                                                    <act.icon className="w-6 h-6" />
                                                 </div>
-                                                <div className="space-y-0.5">
-                                                    <div className="text-sm font-bold text-foreground group-hover/act:text-orange-600 transition-colors">{act.user}</div>
-                                                    <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{act.action}</div>
-                                                    <div className="text-[9px] font-medium italic text-muted-foreground/60">{act.time}</div>
+                                                <div className="space-y-1">
+                                                    <div className="text-[13px] font-black text-foreground group-hover/act:text-orange-600 transition-colors uppercase tracking-tight">{act.user}</div>
+                                                    <div className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-80">{act.action}</div>
+                                                    <div className="text-[8px] font-black text-orange-600/40 uppercase tracking-widest">{act.time}</div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
 
-                                    <Button variant="outline" className="w-full rounded-2xl h-12 border-border/50 text-xs font-black uppercase tracking-widest hover:bg-muted">
+                                    <Button variant="outline" className="w-full rounded-2xl border-border/60 h-14 font-black uppercase tracking-widest text-[10px] hover:bg-foreground hover:text-background transition-all shadow-sm">
                                         View All Protocols
                                     </Button>
                                 </Card>

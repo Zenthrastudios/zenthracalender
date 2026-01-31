@@ -57,6 +57,7 @@ import Pricing from './pages/Pricing';
 import Creators from './pages/Creators';
 import Contact from './pages/Contact';
 import Enterprise from './pages/Enterprise';
+import Checkout from './pages/Checkout';
 
 const queryClient = new QueryClient();
 
@@ -215,6 +216,7 @@ function AppRoutes() {
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/creators" element={<Creators />} />
       <Route path="/contact" element={<Contact />} />
+      <Route path="/checkout" element={<Checkout />} />
 
       <Route path="/enterprise/*" element={
         <SuperAdminRoute>
