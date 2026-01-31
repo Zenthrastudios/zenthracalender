@@ -26,6 +26,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { differenceInDays, isPast } from 'date-fns';
+
+const TRIAL_PLAN_ID = '11111111-1111-1111-1111-111111111111';
 
 import { useFeatures } from '@/hooks/useFeatures';
 
@@ -57,6 +60,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Trial Governor Logic
+  const trialEnds = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
+  const isTrialActive = trialEnds && !isPast(trialEnds) && profile?.plan_id === TRIAL_PLAN_ID;
+  const isTrialExpired = trialEnds && isPast(trialEnds) && profile?.plan_id === TRIAL_PLAN_ID;
+  const daysRemaining = trialEnds ? differenceInDays(trialEnds, new Date()) : 0;
 
   const handleLogout = async () => {
     await signOut();
@@ -260,7 +269,42 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto relative">
-        {children}
+        {/* Trial Banner or Lockdown */}
+        {isTrialActive && (
+          <div className="bg-orange-600/10 border-b border-orange-600/20 px-4 py-2 flex items-center justify-between backdrop-blur-sm sticky top-0 z-30">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-orange-600 animate-pulse" />
+              <span className="text-xs font-bold text-orange-600 uppercase tracking-widest">
+                Pulse Trial Active: {daysRemaining + 1} Days Remaining
+              </span>
+            </div>
+            <Link to="/pricing" className="text-xs font-black bg-orange-600 text-white px-3 py-1 rounded-lg hover:bg-orange-700 transition-colors uppercase tracking-wider">
+              Upgrade Protocol
+            </Link>
+          </div>
+        )}
+
+        {isTrialExpired ? (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xl">
+            <div className="max-w-md w-full p-8 text-center space-y-6">
+              <div className="w-20 h-20 bg-orange-600/10 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                <LogOut className="w-8 h-8 text-orange-600" />
+              </div>
+              <h2 className="text-3xl font-black uppercase tracking-tighter">Protocol Expired</h2>
+              <p className="text-muted-foreground font-medium text-lg">
+                Your 4-day trial access to the Zenthra Pulse has concluded. Secure a subscription to restore full operational capability.
+              </p>
+              <Button
+                onClick={() => navigate('/pricing')}
+                className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-lg rounded-2xl shadow-xl shadow-orange-600/20"
+              >
+                Restore Access
+              </Button>
+            </div>
+          </div>
+        ) : (
+          children
+        )}
       </main>
     </div>
   );

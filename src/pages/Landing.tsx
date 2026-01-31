@@ -78,6 +78,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             <Link to="/auth" className="text-[13px] font-black uppercase tracking-widest text-muted-foreground hover:text-orange-600 transition-colors hidden sm:block">Log in</Link>
+            <Link to="/auth?signup=true" className="text-[13px] font-black uppercase tracking-widest text-muted-foreground hover:text-orange-600 transition-colors hidden sm:block">Sign Up</Link>
             <Button asChild className="rounded-2xl bg-orange-600 hover:bg-orange-700 text-white px-8 h-12 text-sm font-black uppercase tracking-widest shadow-xl shadow-orange-600/20 transition-all active:scale-95">
               <Link to="/auth">Get Started</Link>
             </Button>
@@ -114,11 +115,11 @@ export default function LandingPage() {
                 value={storeName}
                 onChange={(e) => setStoreName(e.target.value)}
               />
-              <Button className="rounded-2xl bg-foreground text-background hover:opacity-90 px-8 py-6 text-sm font-black uppercase tracking-widest transition-all active:scale-95">
-                Claim Store
+              <Button className="rounded-2xl bg-foreground text-background hover:opacity-90 px-8 py-6 text-sm font-black uppercase tracking-widest transition-all active:scale-95" asChild>
+                <Link to={`/auth?username=${storeName}`}>Claim Store</Link>
               </Button>
             </div>
-            <p className="mt-4 text-[10px] text-muted-foreground font-black uppercase tracking-widest">Join 50,000+ creators • 14-day free trial</p>
+            <p className="mt-4 text-[10px] text-muted-foreground font-black uppercase tracking-widest">Join 50,000+ creators • 4-day free trial</p>
           </div>
 
           <div className="relative animate-in fade-in zoom-in duration-1000">
@@ -306,7 +307,7 @@ export default function LandingPage() {
             <Button size="xl" className="rounded-2xl bg-foreground text-background hover:opacity-90 px-16 h-20 text-xl font-black uppercase tracking-widest shadow-2xl transition-all active:scale-[0.98]" asChild>
               <Link to="/auth">Claim Your Store</Link>
             </Button>
-            <p className="text-muted-foreground font-black text-xs uppercase tracking-[0.2em]">14-day free trial • No credit card</p>
+            <p className="text-muted-foreground font-black text-xs uppercase tracking-[0.2em]">4-day free trial • No credit card</p>
           </div>
         </div>
       </section>

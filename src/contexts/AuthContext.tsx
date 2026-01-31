@@ -23,6 +23,9 @@ interface ProfileData {
   timezone: string;
   avatar_url: string | null;
   phone: string | null;
+  onboarding_completed: boolean;
+  trial_ends_at: string | null;
+  plan_id: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

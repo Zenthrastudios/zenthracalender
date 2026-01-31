@@ -155,7 +155,7 @@ export default function Features() {
                         Ready to <span className="text-orange-600 italic underline decoration-8 underline-offset-8">scale?</span>
                     </h2>
                     <Button size="xl" className="rounded-full bg-slate-900 hover:bg-slate-800 text-white px-12 h-16 text-xl font-bold shadow-2xl shadow-slate-200 transition-all active:scale-95" asChild>
-                        <Link to="/auth">Start Your Free Trial</Link>
+                        <Link to="/auth">Claim Your Store</Link>
                     </Button>
                 </div>
             </section>

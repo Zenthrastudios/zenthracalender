@@ -243,6 +243,23 @@ export default function GuestDashboard() {
         </div>
       </header>
 
+      {/* Creator Nudge */}
+      <div className="bg-orange-600/5 border-b border-orange-600/10 px-4 py-3">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-sm font-medium text-orange-900 dark:text-orange-200 text-center sm:text-left">
+            Looking to create your own booking page and sell products?
+          </p>
+          <Button
+            size="sm"
+            variant="default"
+            className="bg-orange-600 hover:bg-orange-700 text-white border-none shadow-sm whitespace-nowrap"
+            onClick={() => navigate('/onboarding')}
+          >
+            Become a Creator <ExternalLink className="w-3 h-3 ml-2" />
+          </Button>
+        </div>
+      </div>
+
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-8">

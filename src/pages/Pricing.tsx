@@ -116,7 +116,7 @@ export default function Pricing() {
                                 )} asChild>
                                     <Link to={`/checkout?planId=${plan.id}`}>{plan.button_text}</Link>
                                 </Button>
-                                <p className="mt-6 text-center text-sm font-bold text-muted-foreground italic">No credit card required to start</p>
+                                <p className="mt-6 text-center text-sm font-bold text-muted-foreground italic">Start your 4-day free trial</p>
                             </div>
                         ))
                     )}

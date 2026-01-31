@@ -11,6 +11,7 @@ import { useRole } from "@/hooks/useRole";
 import { Capacitor } from "@capacitor/core";
 import { App as AppPlugin } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
+import { Loader2 } from "lucide-react";
 
 // Pages
 import Landing from "./pages/Landing";
@@ -58,6 +59,7 @@ import Creators from './pages/Creators';
 import Contact from './pages/Contact';
 import Enterprise from './pages/Enterprise';
 import Checkout from './pages/Checkout';
+import Onboarding from './pages/Onboarding';
 
 const queryClient = new QueryClient();
 
@@ -78,8 +80,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Guests get redirected to guest dashboard
-  if (role === 'guest') {
+  // Guests get redirected to guest dashboard, UNLESS they are trying to access onboarding
+  if (role === 'guest' && window.location.pathname !== '/onboarding') {
     return <Navigate to="/guest" replace />;
   }
 
@@ -88,19 +90,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Admin-only route - only for admin users
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, profile, isLoading } = useAuth();
   const { isAdmin, role, isLoading: roleLoading } = useRole();
 
-  if (isLoading || roleLoading) {
+  if (isLoading || roleLoading || !profile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+        <Loader2 className="w-10 h-10 text-orange-600 animate-spin" />
       </div>
     );
   }
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Force onboarding for Admins (Creators)
+  if (isAdmin && !profile.onboarding_completed) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   if (!isAdmin) {
@@ -232,6 +239,12 @@ function AppRoutes() {
         <GuestRoute>
           <GuestDashboard />
         </GuestRoute>
+      } />
+
+      <Route path="/onboarding" element={
+        <ProtectedRoute>
+          <Onboarding />
+        </ProtectedRoute>
       } />
 
       {/* Admin Protected Routes */}
