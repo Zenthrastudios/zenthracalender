@@ -94,7 +94,9 @@ export function useCreateRazorpayOrder() {
 
   return useMutation({
     mutationFn: async (data: {
-      bookingId: string;
+      bookingId?: string;
+      webinarRegistrationId?: string;
+      coursePurchaseId?: string;
       amount: number; // Amount in paise
       customerName: string;
       customerEmail: string;

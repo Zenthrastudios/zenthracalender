@@ -20,6 +20,7 @@ import {
     Video,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import SEO from '@/components/common/SEO';
 
 declare global {
     interface Window {
@@ -89,6 +90,12 @@ export default function PublicCoursePage() {
 
                 setAccessToken(purchase.access_token);
                 setPurchaseSuccess(true);
+
+                // Email notification
+                supabase.functions.invoke('send-product-notification', {
+                    body: { type: 'course_purchase', id: purchase.id }
+                }).catch(err => console.error("Notification failed", err));
+
                 setIsProcessing(false);
                 return;
             }
@@ -143,6 +150,11 @@ export default function PublicCoursePage() {
                         setAccessToken(purchase.access_token);
                         setPurchaseSuccess(true);
                         toast.success('Purchase successful! 🎉');
+
+                        // Email notification
+                        supabase.functions.invoke('send-product-notification', {
+                            body: { type: 'course_purchase', id: purchase.id }
+                        }).catch(err => console.error("Notification failed", err));
                     } catch (err: any) {
                         toast.error(err.message || 'Payment verification failed');
                     }
@@ -231,6 +243,13 @@ export default function PublicCoursePage() {
 
     return (
         <div className="min-h-screen bg-zinc-950 text-white">
+            <SEO
+                title={course.title}
+                description={course.description || `Enroll in ${course.title} by ${instructor.name}`}
+                image={course.thumbnail_url || undefined}
+                url={window.location.href}
+                type="article"
+            />
             {/* Hero Section */}
             <div className="relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-zinc-900 to-zinc-950" />

@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Download, ShieldCheck, FileText, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendWhatsAppNotification } from '@/utils/whatsapp';
+import SEO from '@/components/common/SEO';
 
 declare global {
     interface Window {
@@ -128,6 +129,10 @@ export default function PublicProductPage() {
 
                             // Send WhatsApp notification with access link
                             try {
+                                await supabase.functions.invoke('send-product-notification', {
+                                    body: { type: 'product_purchase', id: purchase.id }
+                                });
+
                                 await sendWhatsAppNotification(
                                     data.seller.id, // userId (seller)
                                     'product_purchase',
@@ -228,6 +233,13 @@ export default function PublicProductPage() {
 
     return (
         <div className="min-h-screen bg-muted/10 flex flex-col items-center justify-center p-4 sm:p-8">
+            <SEO
+                title={product.title}
+                description={product.description || `Buy ${product.title} by ${seller.name}`}
+                image={product.thumbnail_url || undefined}
+                url={window.location.href}
+                type="article"
+            />
             <Card className="max-w-4xl w-full grid md:grid-cols-2 overflow-hidden shadow-2xl border-0">
                 {/* Left: Product Image & Details */}
                 <div className="bg-zinc-900 text-white p-8 flex flex-col justify-between relative overflow-hidden">

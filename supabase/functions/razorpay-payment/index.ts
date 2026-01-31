@@ -15,6 +15,7 @@ interface CreateOrderRequest {
   action: "create-order";
   bookingId?: string;
   coursePurchaseId?: string;
+  webinarRegistrationId?: string;
   amount: number; // Amount in paise
   currency?: string;
   customerName: string;
@@ -35,7 +36,7 @@ const handler = async (req: Request): Promise<Response> => {
     const body = await req.json();
 
     if (body.action === "create-order") {
-      const { bookingId, coursePurchaseId, amount, currency = "INR", customerName, customerEmail, hostId } = body as CreateOrderRequest;
+      const { bookingId, coursePurchaseId, webinarRegistrationId, amount, currency = "INR", customerName, customerEmail, hostId } = body as CreateOrderRequest;
 
       // Fetch user-specific Razorpay settings
       const { data: settings, error: settingsError } = await supabase
@@ -56,7 +57,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       const authHeader = btoa(`${keyId}:${keySecret}`);
-      const referenceId = bookingId || coursePurchaseId || `temp_${Date.now()}`;
+      const referenceId = bookingId || coursePurchaseId || webinarRegistrationId || `temp_${Date.now()}`;
 
       // Truncate receipt to max 40 chars
       // Use last 12 chars of ID + short timestamp
@@ -70,6 +71,7 @@ const handler = async (req: Request): Promise<Response> => {
         notes: {
           booking_id: bookingId,
           course_purchase_id: coursePurchaseId,
+          webinar_registration_id: webinarRegistrationId,
           customer_name: customerName,
           customer_email: customerEmail,
           host_id: hostId,
@@ -98,6 +100,7 @@ const handler = async (req: Request): Promise<Response> => {
       const { error: insertError } = await supabase.from("payments").insert({
         booking_id: bookingId && !bookingId.startsWith('temp_') ? bookingId : null,
         course_purchase_id: coursePurchaseId || null,
+        webinar_registration_id: webinarRegistrationId || null,
         provider: "razorpay",
         order_id: orderResult.id,
         amount: amount / 100, // Convert paise to rupees
@@ -131,7 +134,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Fetch the host ID and purchase IDs from the payment record
       const { data: payment, error: paymentError } = await supabase
         .from("payments")
-        .select("metadata, order_id, booking_id, course_purchase_id")
+        .select("metadata, order_id, booking_id, course_purchase_id, webinar_registration_id")
         .eq("order_id", razorpayOrderId)
         .maybeSingle();
 
@@ -194,6 +197,15 @@ const handler = async (req: Request): Promise<Response> => {
               payment_id: razorpayPaymentId
             })
             .eq("id", payment.course_purchase_id);
+        } else if (payment.webinar_registration_id) {
+          console.log(`Updating webinar registration ${payment.webinar_registration_id} to paid`);
+          await supabase
+            .from("webinar_registrations")
+            .update({
+              payment_status: "paid",
+              payment_id: payment.id // or razorpayPaymentId if you prefer
+            })
+            .eq("id", payment.webinar_registration_id);
         } else if (payment.booking_id) {
           console.log(`Updating booking ${payment.booking_id} to confirmed`);
           await supabase

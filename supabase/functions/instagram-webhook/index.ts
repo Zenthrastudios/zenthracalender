@@ -158,7 +158,7 @@ async function processEvent(event: any, supabase: any) {
 
         const senderId = event.sender.id;
         const recipientId = event.recipient.id; // Usually the Page ID or IG ID
-        const text = event.message.text;
+        const text = event.message.text || (event.message.attachments ? 'Media/Attachment' : 'Unknown Content');
 
         // Match the integration
         // Try multiple lookup strategies to find the correct integration
@@ -171,7 +171,7 @@ async function processEvent(event: any, supabase: any) {
             .eq('instagram_account_id', recipientId)
             .eq('is_active', true)
             .maybeSingle();
-        
+
         if (accountMatch) {
             integration = accountMatch;
             console.log('✓ Matched by instagram_account_id:', recipientId);
@@ -185,7 +185,7 @@ async function processEvent(event: any, supabase: any) {
                 .eq('instagram_user_id', recipientId)
                 .eq('is_active', true)
                 .maybeSingle();
-            
+
             if (userMatch) {
                 integration = userMatch;
                 console.log('✓ Matched by instagram_user_id:', recipientId);
@@ -201,7 +201,7 @@ async function processEvent(event: any, supabase: any) {
                 .or(`instagram_account_id.eq.${event.entry_id},instagram_user_id.eq.${event.entry_id}`)
                 .eq('is_active', true)
                 .maybeSingle();
-            
+
             if (entryMatch) {
                 integration = entryMatch;
                 console.log('✓ Matched by entry_id:', event.entry_id);
@@ -219,15 +219,6 @@ async function processEvent(event: any, supabase: any) {
         const isStoryReply = !!event.message.reply_to;
         const eventType = isStoryReply ? 'story_reply' : 'dm_received';
 
-        // Log the received message
-        await supabase.from('instagram_automation_logs').insert({
-            user_id: integration.user_id,
-            integration_id: integration.id,
-            event_type: eventType,
-            trigger_content: text,
-            status: 'success'
-        })
-
         // Find matching rules for DM or Story Reply
         const { data: rules } = await supabase
             .from('instagram_automation_rules')
@@ -236,15 +227,30 @@ async function processEvent(event: any, supabase: any) {
             .eq('is_active', true)
             .in('trigger_type', isStoryReply ? ['story_reply', 'dm'] : ['dm']);
 
-        if (!rules || rules.length === 0) return;
+        if (!rules || rules.length === 0) {
+            console.log('No active rules found for this event type. Skipping log.');
+            return;
+        }
 
         for (const rule of rules) {
             // Check keywords if present
             if (rule.trigger_keywords && rule.trigger_keywords.length > 0) {
                 if (!text) continue;
+                // Simple keyword check (can be expanded to regex if needed)
                 const matches = rule.trigger_keywords.some((k: string) => text.toLowerCase().includes(k.toLowerCase()));
                 if (!matches) continue;
             }
+
+            console.log(`✓ Rule Matched: ${rule.id}. Executing automation.`);
+
+            // Log the received message ONLY if it triggered a rule
+            await supabase.from('instagram_automation_logs').insert({
+                user_id: integration.user_id,
+                integration_id: integration.id,
+                event_type: eventType,
+                trigger_content: text,
+                status: 'success'
+            })
 
             // Execute Response (Always DM for these triggers)
             const res = await sendDM(
@@ -303,9 +309,9 @@ async function sendDM(accessToken: string, senderId: string, message: string, im
 
     const textRes = await fetch(`https://${host}/v21.0/${igId}/messages`, {
         method: 'POST',
-        headers: { 
+        headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json' 
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify(textBody)
     });
@@ -329,15 +335,15 @@ async function sendDM(accessToken: string, senderId: string, message: string, im
 
         const imageRes = await fetch(`https://${host}/v21.0/${igId}/messages`, {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json' 
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(imageBody)
         });
         const imageData = await imageRes.json();
         console.log(`Image sent:`, JSON.stringify(imageData));
-        
+
         if (imageData.error) {
             console.error('Error sending image:', imageData.error);
         }

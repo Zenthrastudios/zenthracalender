@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
@@ -44,6 +45,13 @@ import PublicCourse from "./pages/PublicCourse";
 import CourseViewer from "./pages/CourseViewer";
 import InstagramAutomation from "./pages/InstagramAutomation";
 import DataDeletion from "./pages/DataDeletion";
+import Webinars from "./pages/Webinars";
+import WebinarPublic from "./pages/WebinarPublic";
+import WebinarEditor from './pages/WebinarEditor';
+import LinkTreeDashboard from './pages/LinkTreeDashboard';
+import LinkTreeEditor from './pages/LinkTreeEditor';
+import LinkTreePublic from './pages/LinkTreePublic';
+import WebinarAnalytics from './pages/WebinarAnalytics';
 
 const queryClient = new QueryClient();
 
@@ -159,6 +167,7 @@ function AppRoutes() {
       } />
       <Route path="/book/:username" element={<PublicProfile />} />
       <Route path="/book/:username/:eventSlug" element={<PublicBooking />} />
+      <Route path="/webinar/:id" element={<WebinarPublic />} />
       <Route path="/booking/confirmed/:bookingId" element={<BookingConfirmation />} />
       <Route path="/reschedule/:token" element={<Reschedule />} />
       <Route path="/my-bookings" element={<MyBookings />} />
@@ -253,6 +262,34 @@ function AppRoutes() {
           <CourseEditor />
         </AdminRoute>
       } />
+      <Route path="/dashboard/webinars" element={
+        <AdminRoute>
+          <Webinars />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/webinars/:id/edit" element={
+        <AdminRoute>
+          <WebinarEditor />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/webinars/:id/analytics" element={
+        <AdminRoute>
+          <WebinarAnalytics />
+        </AdminRoute>
+      } />
+      {/* Link Tree Routes */}
+      <Route path="/dashboard/links" element={
+        <AdminRoute>
+          <LinkTreeDashboard />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/links/:id/edit" element={
+        <AdminRoute>
+          <LinkTreeEditor />
+        </AdminRoute>
+      } />
+      <Route path="/links/:slug" element={<LinkTreePublic />} />
+
       <Route path="/dashboard/instagram" element={
         <AdminRoute>
           <InstagramAutomation />
@@ -294,17 +331,18 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <HelmetProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthProvider>
+            <TooltipProvider>
+              <Sonner />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </TooltipProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </HelmetProvider>
     </QueryClientProvider>
   );
 };
