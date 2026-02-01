@@ -98,6 +98,134 @@ interface PurchaseData {
     course: CourseData;
 }
 
+// ==================== CANVAS LOGIC (RENDER & PROTECT) ====================
+function CanvasLogic({ videoRef, isPlaying, setSecurityWarning }: { videoRef: any, isPlaying: boolean, setSecurityWarning: (w: boolean) => void }) {
+    const requestRef = useRef<number>();
+    const lastTimeRef = useRef<number>(0);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+    // 1. EXTENSION & RECORDER DETECTOR
+    useEffect(() => {
+        // List of known recording tool classes/IDs
+        const BLOCKED_SELECTORS = [
+            '#loom-companion-mv3',
+            'loom-container',
+            'div[class*="loom"]',
+            'div[class*="screenity"]',
+            '#screenity-ui',
+            '.drift-widget-container',
+            '[data-locator-id]', // Often used by automated tools
+            '#recorder-ui-overlay'
+        ];
+
+        const checkForRecorders = () => {
+            for (const selector of BLOCKED_SELECTORS) {
+                if (document.querySelector(selector)) {
+                    console.warn("Screen recorder detected:", selector);
+                    setSecurityWarning(true);
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        const observer = new MutationObserver((mutations) => {
+            let found = false;
+            mutations.forEach((mutation) => {
+                if (found) return;
+                mutation.addedNodes.forEach((node) => {
+                    if (node instanceof HTMLElement) {
+                        // Check for suspicious full-screen or fixed elements
+                        const style = window.getComputedStyle(node);
+                        const isOverlay = style.position === 'fixed' || style.position === 'absolute';
+                        const isHighZ = parseInt(style.zIndex) > 1000;
+
+                        // Check specifically for the "red pill" UI (likely high Z, fixed, top/bottom)
+                        if (isOverlay && isHighZ && node.innerText && node.innerText.match(/\d\d:\d\d/)) {
+                            // Likely a timer overlay
+                            found = true;
+                        }
+
+                        // Check known classes
+                        const className = node.className.toString();
+                        if (className.includes('loom') || className.includes('recorder') || className.includes('screenity')) {
+                            found = true;
+                        }
+                    }
+                });
+            });
+
+            if (found || checkForRecorders()) {
+                setSecurityWarning(true);
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        // Initial check
+        const interval = setInterval(checkForRecorders, 2000);
+
+        return () => {
+            observer.disconnect();
+            clearInterval(interval);
+        };
+    }, []);
+
+    // 2. VIEWPORT MONITOR (Detects "Sharing" banners)
+    useEffect(() => {
+        let lastHeight = window.innerHeight;
+        const handleResize = () => {
+            const currentHeight = window.innerHeight;
+            // Native sharing banners often push content down by ~30-50px without changing outerHeight
+            // Normal resize changes outerHeight too usually? Not always.
+            // But sudden small height drop often means a banner appeared.
+            const diff = lastHeight - currentHeight;
+            if (diff > 20 && diff < 100 && window.outerHeight === window.outerHeight) {
+                // Suspicious resize
+                // setSecurityWarning(true); // Can be too sensitive
+            }
+            lastHeight = currentHeight;
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // 3. RENDER LOOP
+    const animate = (time: number) => {
+        if (videoRef.current && videoRef.current.parentElement) {
+            // Find sibling canvas (the one rendered in parent)
+            const canvas = videoRef.current.nextElementSibling as HTMLCanvasElement;
+            if (canvas && (canvas as any)._ctx) {
+                const ctx = (canvas as any)._ctx as CanvasRenderingContext2D;
+                const video = videoRef.current;
+
+                if (!video.paused && !video.ended) {
+                    // Update canvas size if needed (responsive)
+                    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+                        if (video.videoWidth) {
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                        }
+                    }
+
+                    // Draw frame
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                }
+            }
+        }
+        requestRef.current = requestAnimationFrame(animate);
+    };
+
+    useEffect(() => {
+        requestRef.current = requestAnimationFrame(animate);
+        return () => {
+            if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        };
+    }, [isPlaying]);
+
+    return null;
+}
+
 export default function CourseViewer() {
     const { accessToken } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -125,6 +253,7 @@ export default function CourseViewer() {
 
     // Video player state
     const videoRef = useRef<HTMLVideoElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
     const playerContainerRef = useRef<HTMLDivElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
@@ -144,131 +273,133 @@ export default function CourseViewer() {
 
     // ==================== SECURITY PROTECTIONS ====================
 
-    // 1. Disable right-click context menu
-    useEffect(() => {
-        const handleContextMenu = (e: MouseEvent) => {
-            e.preventDefault();
-            setSecurityWarning(true);
-            setTimeout(() => setSecurityWarning(false), 2000);
-            return false;
-        };
 
-        document.addEventListener('contextmenu', handleContextMenu);
-        return () => document.removeEventListener('contextmenu', handleContextMenu);
-    }, []);
 
-    // 2. Disable keyboard shortcuts for download/screenshot
+    // ==================== ULTRA SECURITY PROTECTION ====================
     useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // Disable common screenshot/save shortcuts
-            if (
-                // Ctrl+S (save)
-                (e.ctrlKey && e.key === 's') ||
-                // Ctrl+Shift+S (save as)
-                (e.ctrlKey && e.shiftKey && e.key === 'S') ||
-                // Ctrl+P (print)
-                (e.ctrlKey && e.key === 'p') ||
-                // PrintScreen
-                e.key === 'PrintScreen' ||
-                // F12 (DevTools)
-                e.key === 'F12' ||
-                // Ctrl+Shift+I (DevTools)
+        // 1. Aggressive Key Interception
+        const preventScreenshotKeys = (e: KeyboardEvent) => {
+            const isRestrictedKey =
+                (e.key === 'PrintScreen' || e.code === 'PrintScreen' || e.keyCode === 44) ||
+                (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) || // Mac Cmd+Shift+3/4/5
+                (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) || // Win+Shift+S (if meta mapped)
+                (e.ctrlKey && e.shiftKey && (e.key === 's' || e.key === 'S')) || // Common save/record shortcuts
+                (e.key === 'F12') ||
                 (e.ctrlKey && e.shiftKey && e.key === 'I') ||
-                // Ctrl+Shift+J (DevTools Console)
-                (e.ctrlKey && e.shiftKey && e.key === 'J') ||
-                // Ctrl+U (View Source)
-                (e.ctrlKey && e.key === 'u')
-            ) {
+                (e.ctrlKey && e.shiftKey && e.key === 'C') || // DevTools
+                (e.metaKey && (e.key === 'g' || e.key === 'G')) || // Win + G (Game Bar)
+                (e.metaKey && e.altKey && (e.key === 'r' || e.key === 'R')); // Win + Alt + R (Game Bar Record)
+
+            if (isRestrictedKey) {
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 setSecurityWarning(true);
-                setTimeout(() => setSecurityWarning(false), 2000);
                 return false;
             }
-        };
 
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, []);
-
-    // 3. Detect DevTools opening
-    useEffect(() => {
-        const devToolsDetector = () => {
-            const threshold = 160;
-            const widthDiff = window.outerWidth - window.innerWidth > threshold;
-            const heightDiff = window.outerHeight - window.innerHeight > threshold;
-
-            if (widthDiff || heightDiff) {
-                setSecurityWarning(true);
-                // Optionally pause video when DevTools detected
-                if (videoRef.current && isPlaying) {
-                    videoRef.current.pause();
+            // PRE-EMPTIVE BLACKOUT: If Windows/Meta key is pressed, hide content immediately
+            // This protects against ANY Win+Shortcut before it happens
+            if (e.key === 'Meta' || e.key === 'OS') {
+                if (contentRef.current) {
+                    contentRef.current.style.opacity = '0';
                 }
             }
         };
 
-        window.addEventListener('resize', devToolsDetector);
-        return () => window.removeEventListener('resize', devToolsDetector);
-    }, [isPlaying]);
-
-    // 4. Prevent video drag
-    useEffect(() => {
-        const handleDragStart = (e: DragEvent) => {
-            e.preventDefault();
-            return false;
-        };
-
-        const video = videoRef.current;
-        if (video) {
-            video.addEventListener('dragstart', handleDragStart);
-            return () => video.removeEventListener('dragstart', handleDragStart);
-        }
-    }, [currentLesson]);
-
-    // 5. Visibility change detection (tab switching during screen record)
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            // Log when user switches tabs (potential screen recording)
-            if (document.hidden && purchase) {
-                console.log('Tab hidden - potential recording detected');
-                // Could log this to analytics
+        const handleKeyUp = (e: KeyboardEvent) => {
+            // Restore content when Windows key is released
+            if (e.key === 'Meta' || e.key === 'OS') {
+                if (contentRef.current) {
+                    contentRef.current.style.opacity = '1';
+                }
             }
         };
 
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [purchase]);
+        // Attach to window and document with CAPTURE phase (runs first!)
+        window.addEventListener('keydown', preventScreenshotKeys, { capture: true });
+        window.addEventListener('keyup', handleKeyUp, { capture: true }); // Separate handler for restore
+        document.addEventListener('keydown', preventScreenshotKeys, { capture: true });
+        document.addEventListener('keyup', handleKeyUp, { capture: true });
 
-    // 6. Disable text selection on video container
-    useEffect(() => {
-        const container = playerContainerRef.current;
-        if (container) {
-            container.style.userSelect = 'none';
-            container.style.webkitUserSelect = 'none';
-        }
-    }, []);
-
-    // 7. Fullscreen change detection
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(!!(
-                document.fullscreenElement ||
-                (document as any).webkitFullscreenElement ||
-                (document as any).mozFullScreenElement ||
-                (document as any).msFullscreenElement
-            ));
+        // Override onkeydown as a backup
+        const originalOnKeyDown = window.onkeydown;
+        window.onkeydown = (e) => {
+            // @ts-ignore
+            if (preventScreenshotKeys(e) === false) return false;
+            // @ts-ignore
+            if (originalOnKeyDown) return originalOnKeyDown(e);
         };
 
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+        // 2. High-Frequency Focus Monitor (Anti-Snipping Tool / OS Record)
+        // OS tools often steal focus for 10-50ms when activated.
+        // Increased frequency to 16ms (approx 1 frame) to catch even faster focus switches
+        let lastFocusTime = Date.now();
+        const focusCheckInterval = setInterval(() => {
+            const now = Date.now();
+            const isFocused = document.hasFocus();
+
+            // If we lost focus and it's been less than 100ms since we last checked/had focus
+            if (!isFocused && (now - lastFocusTime) < 100) {
+                // Suspicious focus loss - likely a tool activation like Game Bar
+                if (isPlaying) {
+                    // Pause and warn immediately
+                    if (videoRef.current) videoRef.current.pause();
+                    setIsPlaying(false);
+                    setSecurityWarning(true);
+                }
+            }
+            if (isFocused) {
+                lastFocusTime = now;
+            }
+        }, 16);
+
+        // 3. Blur & Visibility Prevention
+        const handleBlur = () => {
+            if (isPlaying) {
+                // FORCE PAUSE immediately on blur
+                if (videoRef.current) videoRef.current.pause();
+                setIsPlaying(false);
+                setSecurityWarning(true);
+            }
+        };
+
+        window.addEventListener('blur', handleBlur);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) handleBlur();
+        });
+
+        // 4. Context Menu & Drag
+        const preventDefault = (e: Event) => e.preventDefault();
+        document.addEventListener('contextmenu', preventDefault);
+        document.addEventListener('dragstart', preventDefault);
 
         return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-            document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+            window.removeEventListener('keydown', preventScreenshotKeys, { capture: true });
+            window.removeEventListener('keyup', preventScreenshotKeys, { capture: true });
+            document.removeEventListener('keydown', preventScreenshotKeys, { capture: true });
+            document.removeEventListener('keyup', preventScreenshotKeys, { capture: true });
+            window.removeEventListener('blur', handleBlur);
+            document.removeEventListener('contextmenu', preventDefault);
+            document.removeEventListener('dragstart', preventDefault);
+            clearInterval(focusCheckInterval);
+            window.onkeydown = originalOnKeyDown;
         };
+    }, [isPlaying]);
+
+    // 5. DevTools Detector (Resize-based)
+    useEffect(() => {
+        const checkDevTools = () => {
+            const threshold = 160;
+            if (
+                (window.outerWidth - window.innerWidth > threshold) ||
+                (window.outerHeight - window.innerHeight > threshold)
+            ) {
+                setSecurityWarning(true);
+            }
+        };
+        window.addEventListener('resize', checkDevTools);
+        return () => window.removeEventListener('resize', checkDevTools);
     }, []);
 
     // ==================== END SECURITY ====================
@@ -289,7 +420,7 @@ export default function CourseViewer() {
                     .select(`
             id,
             customer_email,
-            course:courses(id, title, thumbnail_url, user_id)
+            course:courses(id, title, thumbnail_url, user_id, slug)
           `)
                     .eq('access_token', accessToken)
                     .eq('status', 'paid')
@@ -436,15 +567,12 @@ export default function CourseViewer() {
             const vidDuration = videoRef.current.duration;
             setDuration(vidDuration);
 
-            // Dynamically update lesson duration in local state if missing/incorrect
-            // This ensures "midway" progress tracking works even if the DB duration is 0
             if (currentLesson && (currentLesson.video_duration === 0 || !currentLesson.video_duration)) {
                 setLessons(prev => prev.map(l =>
                     l.id === currentLesson.id ? { ...l, video_duration: Math.floor(vidDuration) } : l
                 ));
             }
 
-            // Resume from saved progress
             const lessonProgress = progress.find((p) => p.lesson_id === currentLesson?.id);
             if (lessonProgress && lessonProgress.progress_seconds > 0) {
                 videoRef.current.currentTime = lessonProgress.progress_seconds;
@@ -463,50 +591,9 @@ export default function CourseViewer() {
             }
 
             const nextLesson = lessons[index];
-            const nextSlug = currentLesson ? purchase?.course.slug : ''; // Keep same course slug
-
-            // Navigate needs to construct the URL correctly
-            // Standard: /dashboard/courses/view/:purchaseId/:lessonId
-            // Or Public: /:username/course/:slug?lesson=:lessonId
-
-            // Based on current URL check logic in useEffect, we rely on the URL param 'lessonId' usually.
-            // But here we might just change the 'lessonId' state if we were fully SPA, 
-            // but the routing seems to be URL based.
-
-            // Let's assume URL navigation for now to be safe with router
-            // Actually, the component reads `currentLessonIndex` from `lessons` and `lessonId` param.
-
-            // We need to trigger navigation.
-            // Find existing navigation logic? 
-            // The original code passed `goToLesson` to siblings? 
-            // Ah, looking at the previous file content, `goToLesson` logic was:
-
-            /*
-            const goToLesson = (index: number) => {
-                const lesson = lessons[index];
-                if (lesson) {
-                    // Update URL params
-                    setSearchParams(prev => {
-                        prev.set('lesson', lesson.id);
-                        return prev;
-                    });
-                }
-            };
-            */
-
-            // Wait, the snippet I'm replacing had the logic. I will use the logic from the file I viewed.
-            const lesson = lessons[index];
-            if (lesson) {
-                // Use Search Params for lesson navigation as seen in other parts or typical for this app
-                // Or navigate() if route changes.
-                // Looking at the imports, we have setSearchParams via useSearchParams? 
-                // Or just `setSearchParams` if it was defined.
-
-                // Wait, I need to see how `goToLesson` was implemented in the file.
-                // It used `setSearchParams`.
-
+            if (nextLesson) {
                 setSearchParams(prev => {
-                    prev.set('lessonId', lesson.id);
+                    prev.set('lessonId', nextLesson.id);
                     return prev;
                 });
             }
@@ -528,14 +615,11 @@ export default function CourseViewer() {
             // 2. Check for Ad
             if (currentLesson.ad_settings?.enabled) {
                 setShowAdPopup(true);
-                // Don't auto-advance if showing ad? Or auto-advance after ad?
-                // Let's pause auto-advance if ad is shown.
                 return;
             }
 
             // 3. Auto-advance if no ad
             if (currentLessonIndex < lessons.length - 1) {
-                // Optional: slight delay or check user preference
                 setTimeout(() => goToLesson(currentLessonIndex + 1), 1500);
             }
         }
@@ -581,6 +665,7 @@ export default function CourseViewer() {
                 videoRef.current.pause();
             } else {
                 videoRef.current.play();
+                setSecurityWarning(false); // Clear warning on purposeful play
             }
             setIsPlaying(!isPlaying);
         }
@@ -615,7 +700,6 @@ export default function CourseViewer() {
                 } else if ((container as any).msRequestFullscreen) {
                     (container as any).msRequestFullscreen();
                 } else if (videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
-                    // Fallback for iOS Safari which only supports fullscreen on video element
                     (videoRef.current as any).webkitEnterFullscreen();
                 }
             } catch (err) {
@@ -673,32 +757,22 @@ export default function CourseViewer() {
         return progress.find((p) => p.lesson_id === lessonId);
     };
 
-    // Generate dynamic watermark text with customer info
-    const getWatermarkText = () => {
-        if (!purchase) return brandName;
-        // Include partial email for traceability
-        const email = purchase.customer_email;
-        const maskedEmail = email.replace(/(.{3})(.*)(@.*)/, '$1***$3');
-        return `${brandName} • ${maskedEmail}`;
-    };
+
 
     const completedCount = progress.filter((p) => p.is_completed).length;
+
     // Calculate granular overall progress (midway tracking)
     const overallProgress = useMemo(() => {
         if (lessons.length === 0) return 0;
-
         const totalPossibleProgress = lessons.length * 100;
         const currentTotalProgress = lessons.reduce((sum, lesson) => {
             const lp = progress.find(p => p.lesson_id === lesson.id);
             if (!lp) return sum;
             if (lp.is_completed) return sum + 100;
-
-            // Lesson-specific midway progress
             const lessonDuration = lesson.video_duration || 1;
             const midwayPercent = Math.min(99, (lp.progress_seconds / lessonDuration) * 100);
             return sum + midwayPercent;
         }, 0);
-
         return (currentTotalProgress / totalPossibleProgress) * 100;
     }, [lessons, progress]);
 
@@ -706,7 +780,6 @@ export default function CourseViewer() {
         if (!showSettings) {
             setSettingsView('main');
             setShowSettings(true);
-            // Keep controls visible while settings are open
             if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
             setShowControls(true);
         } else {
@@ -739,7 +812,7 @@ export default function CourseViewer() {
     return (
         <>
             <div
-                className="flex flex-col h-screen bg-black text-white font-sans selection:bg-primary/30 overflow-hidden"
+                className="flex flex-col h-screen bg-black text-white font-sans selection:bg-primary/30 overflow-hidden select-none"
                 onContextMenu={(e) => e.preventDefault()}
             >
                 {/* Desktop Header - Global Full Width */}
@@ -807,27 +880,81 @@ export default function CourseViewer() {
                             )}>
                             {currentLesson?.video_url ? (
                                 <>
-                                    <video
-                                        ref={videoRef}
-                                        src={currentLesson.video_url}
-                                        className="w-full h-full object-contain"
-                                        onTimeUpdate={handleTimeUpdate}
-                                        onLoadedMetadata={handleLoadedMetadata}
-                                        onEnded={handleVideoEnd}
-                                        onPlay={() => setIsPlaying(true)}
-                                        onPause={() => setIsPlaying(false)}
-                                        controlsList="nodownload noremoteplayback"
-                                        disablePictureInPicture
-                                        playsInline
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            togglePlay();
-                                        }}
+                                    {/* WRAPPER FOR CONTENT THAT GETS HIDDEN ON BLACKOUT */}
+                                    <div ref={contentRef} className="absolute inset-0 w-full h-full transition-opacity duration-75">
+                                        {/* HIDDEN VIDEO SOURCE */}
+                                        <video
+                                            ref={videoRef}
+                                            src={currentLesson.video_url}
+                                            className="hidden"
+                                            crossOrigin="anonymous"
+                                            onTimeUpdate={handleTimeUpdate}
+                                            onLoadedMetadata={handleLoadedMetadata}
+                                            onEnded={handleVideoEnd}
+                                            onPlay={() => setIsPlaying(true)}
+                                            onPause={() => setIsPlaying(false)}
+                                            controlsList="nodownload noremoteplayback"
+                                            disablePictureInPicture
+                                            playsInline
+                                        />
+
+                                        {/* CANVAS RENDERER (The Visible "Screen") */}
+                                        <canvas
+                                            ref={(ref) => {
+                                                // Assign refs
+                                                if (ref) {
+                                                    const ctx = ref.getContext('2d', { alpha: false });
+                                                    // @ts-ignore
+                                                    ref._ctx = ctx;
+                                                }
+                                            }}
+                                            className={cn("w-full h-full object-contain cursor-pointer", securityWarning && "blur-2xl opacity-10")}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                togglePlay();
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* RENDER LOOP & EXTENSION DETECTION */}
+                                    <CanvasLogic
+                                        videoRef={videoRef}
+                                        isPlaying={isPlaying}
+                                        setSecurityWarning={setSecurityWarning}
                                     />
+
+                                    {/* SECURITY OVERLAY */}
+                                    {securityWarning && (
+                                        <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+                                            <div className="bg-red-500/20 p-4 rounded-full mb-4">
+                                                <AlertCircle className="w-12 h-12 text-red-500 animate-pulse" />
+                                            </div>
+                                            <h3 className="text-xl font-bold text-white mb-2">Recording Detected</h3>
+                                            <p className="text-zinc-400 max-w-md text-sm mb-6">
+                                                Please stop any screen recording software or browser extensions to continue watching.
+                                                <br />
+                                                Playback has been paused.
+                                            </p>
+                                            <Button
+                                                variant="outline"
+                                                className="border-white/10 hover:bg-white/10"
+                                                onClick={() => {
+                                                    setSecurityWarning(false);
+                                                }}
+                                            >
+                                                Resume Playback
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Static Watermark (Always Visible) */}
+                                    <div className="absolute top-4 right-4 z-20 opacity-20 pointer-events-none text-[10px] text-white/50 select-none">
+                                        Protected Content • {purchase?.customer_email}
+                                    </div>
 
                                     {/* Clickable Overlay */}
                                     <div
-                                        className="absolute inset-0 z-10 cursor-pointer"
+                                        className="absolute inset-0 z-10 cursor-pointer text-transparent"
                                         onClick={togglePlay}
                                     />
 
