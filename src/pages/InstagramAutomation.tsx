@@ -64,8 +64,9 @@ interface AutomationRule {
     name: string;
     trigger_type: 'comment' | 'dm' | 'story_mention' | 'story_reply';
     trigger_keywords: string[] | null;
-    response_type: 'dm' | 'comment_reply';
+    response_type: 'dm' | 'comment_reply' | 'comment_reply_and_dm';
     response_message: string;
+    dm_response_message?: string | null;
     response_image_url: string | null;
     response_button_text: string | null;
     response_button_url: string | null;
@@ -124,9 +125,11 @@ export default function InstagramAutomation() {
     // Form states
     const [ruleName, setRuleName] = useState('');
     const [triggerType, setTriggerType] = useState<string>('comment');
-    const [triggerKeywords, setTriggerKeywords] = useState('');
+    const [tags, setTags] = useState<string[]>([]);
+    const [inputValue, setInputValue] = useState('');
     const [responseType, setResponseType] = useState<string>('dm');
     const [responseMessage, setResponseMessage] = useState('');
+    const [dmResponseMessage, setDmResponseMessage] = useState('');
     const [responseImageUrl, setResponseImageUrl] = useState('');
     const [responseButtonText, setResponseButtonText] = useState('');
     const [responseButtonUrl, setResponseButtonUrl] = useState('');
@@ -140,6 +143,10 @@ export default function InstagramAutomation() {
     const [scheduleMessage, setScheduleMessage] = useState('');
     const [scheduleDateTime, setScheduleDateTime] = useState('');
     const [selectedMediaId, setSelectedMediaId] = useState<string>('');
+    const [mediaSearch, setMediaSearch] = useState('');
+    const [mediaTypeFilter, setMediaTypeFilter] = useState<string>('ALL');
+    const [mediaPage, setMediaPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
     // Fetch integration
     const { data: integration, isLoading: integrationLoading } = useQuery({
@@ -335,9 +342,10 @@ export default function InstagramAutomation() {
                 integration_id: integration.id,
                 name: ruleName,
                 trigger_type: triggerType,
-                trigger_keywords: triggerKeywords ? triggerKeywords.split(',').map(k => k.trim()) : null,
+                trigger_keywords: tags.length > 0 ? tags : null,
                 response_type: responseType,
                 response_message: responseMessage,
+                dm_response_message: responseType === 'comment_reply_and_dm' ? dmResponseMessage : null,
                 response_image_url: responseImageUrl || null,
                 response_button_text: responseButtonText || null,
                 response_button_url: responseButtonUrl || null,
@@ -467,9 +475,11 @@ export default function InstagramAutomation() {
     const resetRuleForm = () => {
         setRuleName('');
         setTriggerType('comment');
-        setTriggerKeywords('');
+        setTags([]);
+        setInputValue('');
         setResponseType('dm');
         setResponseMessage('');
+        setDmResponseMessage('');
         setResponseImageUrl('');
         setResponseButtonText('');
         setResponseButtonUrl('');
@@ -490,9 +500,11 @@ export default function InstagramAutomation() {
         setEditingRule(rule);
         setRuleName(rule.name);
         setTriggerType(rule.trigger_type);
-        setTriggerKeywords(rule.trigger_keywords?.join(', ') || '');
+        setTags(rule.trigger_keywords || []);
+        setInputValue('');
         setResponseType(rule.response_type);
         setResponseMessage(rule.response_message);
+        setDmResponseMessage(rule.dm_response_message || '');
         setResponseImageUrl(rule.response_image_url || '');
         setResponseButtonText(rule.response_button_text || '');
         setResponseButtonUrl(rule.response_button_url || '');
@@ -893,9 +905,9 @@ export default function InstagramAutomation() {
                                                     <div className="flex items-start justify-between mb-3">
                                                         <h3 className="font-semibold">{template.name}</h3>
                                                         <div className="flex gap-1">
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="icon" 
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
                                                                 className="h-7 w-7"
                                                                 onClick={() => {
                                                                     setEditingTemplate(template);
@@ -909,9 +921,9 @@ export default function InstagramAutomation() {
                                                             >
                                                                 <Edit className="w-3.5 h-3.5" />
                                                             </Button>
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="icon" 
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
                                                                 className="h-7 w-7 text-destructive"
                                                                 onClick={() => {
                                                                     if (confirm('Delete this template?')) {
@@ -1079,7 +1091,37 @@ export default function InstagramAutomation() {
                         {triggerType === 'comment' && media.length > 0 && (
                             <div className="w-full lg:w-80 flex-shrink-0 lg:border-r lg:pr-6 mb-4 lg:mb-0">
                                 <Label className="mb-3 block text-sm sm:text-base">Select Post/Reel</Label>
-                                <div className="space-y-2 max-h-[40vh] lg:max-h-[60vh] overflow-y-auto pr-2">
+                                {/* Search and Filter */}
+                                <div className="space-y-2 mb-4">
+                                    <Input
+                                        placeholder="Search by caption..."
+                                        value={mediaSearch}
+                                        onChange={(e) => {
+                                            setMediaSearch(e.target.value);
+                                            setMediaPage(1);
+                                        }}
+                                        className="h-8 text-xs"
+                                    />
+                                    <Select
+                                        value={mediaTypeFilter}
+                                        onValueChange={(val) => {
+                                            setMediaTypeFilter(val);
+                                            setMediaPage(1);
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-8 text-xs">
+                                            <SelectValue placeholder="All Media Types" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All Posts</SelectItem>
+                                            <SelectItem value="IMAGE">Images</SelectItem>
+                                            <SelectItem value="VIDEO">Videos/Reels</SelectItem>
+                                            <SelectItem value="CAROUSEL_ALBUM">Carousels</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2 max-h-[40vh] lg:max-h-[50vh] overflow-y-auto pr-2">
                                     <div
                                         onClick={() => setSelectedMediaId('')}
                                         className={cn(
@@ -1095,174 +1137,267 @@ export default function InstagramAutomation() {
                                             <p className="text-xs text-muted-foreground">Any post</p>
                                         </div>
                                     </div>
-                                    
-                                    {media.map((item) => (
-                                        <div
-                                            key={item.id}
-                                            onClick={() => setSelectedMediaId(item.id)}
-                                            className={cn(
-                                                "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
-                                                selectedMediaId === item.id ? "bg-primary/10 border-2 border-primary" : "hover:bg-muted/50 border border-border"
-                                            )}
-                                        >
-                                            <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
-                                                <img
-                                                    src={item.media_type === 'VIDEO' ? item.thumbnail_url : item.media_url}
-                                                    alt={item.caption || 'Post'}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => {
-                                                        e.currentTarget.style.display = 'none';
-                                                        e.currentTarget.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-2xl">${item.media_type === 'VIDEO' ? '🎥' : '📷'}</div>`;
-                                                    }}
-                                                />
-                                                {item.media_type === 'VIDEO' && (
-                                                    <div className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-                                                        VIDEO
-                                                    </div>
+
+                                    {media
+                                        .filter(item => {
+                                            const matchesSearch = (item.caption || '').toLowerCase().includes(mediaSearch.toLowerCase());
+                                            const matchesType = mediaTypeFilter === 'ALL' || item.media_type === mediaTypeFilter;
+                                            return matchesSearch && matchesType;
+                                        })
+                                        .slice((mediaPage - 1) * ITEMS_PER_PAGE, mediaPage * ITEMS_PER_PAGE)
+                                        .map((item) => (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => setSelectedMediaId(item.id)}
+                                                className={cn(
+                                                    "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+                                                    selectedMediaId === item.id ? "bg-primary/10 border-2 border-primary" : "hover:bg-muted/50 border border-border"
                                                 )}
+                                            >
+                                                <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                                                    <img
+                                                        src={item.media_type === 'VIDEO' ? item.thumbnail_url : item.media_url}
+                                                        alt={item.caption || 'Post'}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            e.currentTarget.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-2xl">${item.media_type === 'VIDEO' ? '🎥' : '📷'}</div>`;
+                                                        }}
+                                                    />
+                                                    {item.media_type === 'VIDEO' && (
+                                                        <div className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                                                            VIDEO
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium line-clamp-2">
+                                                        {item.caption || 'No caption'}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {new Date(item.timestamp).toLocaleDateString()}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium line-clamp-2">
-                                                    {item.caption || 'No caption'}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {new Date(item.timestamp).toLocaleDateString()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                </div>
+
+                                {/* Pagination Controls */}
+                                <div className="flex items-center justify-between mt-4 px-1">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setMediaPage(p => Math.max(1, p - 1))}
+                                        disabled={mediaPage === 1}
+                                        className="h-7 text-xs"
+                                    >
+                                        Previous
+                                    </Button>
+                                    <span className="text-xs text-muted-foreground">
+                                        Page {mediaPage}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setMediaPage(p => p + 1)}
+                                        disabled={media.filter(item => {
+                                            const matchesSearch = (item.caption || '').toLowerCase().includes(mediaSearch.toLowerCase());
+                                            const matchesType = mediaTypeFilter === 'ALL' || item.media_type === mediaTypeFilter;
+                                            return matchesSearch && matchesType;
+                                        }).length <= mediaPage * ITEMS_PER_PAGE}
+                                        className="h-7 text-xs"
+                                    >
+                                        Next
+                                    </Button>
                                 </div>
                             </div>
                         )}
 
                         {/* Center - Form Fields */}
                         <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[50vh] lg:max-h-[60vh]">
-                        <div>
-                            <Label>Rule Name</Label>
-                            <Input
-                                placeholder="e.g., Welcome DM for new comments"
-                                value={ruleName}
-                                onChange={(e) => setRuleName(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label>Trigger Type</Label>
-                                <Select value={triggerType} onValueChange={setTriggerType}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="comment">Comment on Post</SelectItem>
-                                        <SelectItem value="dm">Direct Message</SelectItem>
-                                        <SelectItem value="story_mention">Story Mention</SelectItem>
-                                        <SelectItem value="story_reply">Story Reply</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label>Rule Name</Label>
+                                <Input
+                                    placeholder="e.g., Welcome DM for new comments"
+                                    value={ruleName}
+                                    onChange={(e) => setRuleName(e.target.value)}
+                                />
                             </div>
 
-                            <div>
-                                <Label>Response Type</Label>
-                                <Select value={responseType} onValueChange={setResponseType}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="dm">Send DM</SelectItem>
-                                        <SelectItem value="comment_reply">Reply to Comment</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label>Trigger Keywords (optional)</Label>
-                            <Input
-                                placeholder="price, info, details (comma separated)"
-                                value={triggerKeywords}
-                                onChange={(e) => setTriggerKeywords(e.target.value)}
-                            />
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Leave empty to trigger on all {triggerType}s
-                            </p>
-                        </div>
-
-
-                        <div>
-                            <Label>Use Template (optional)</Label>
-                            {templates.length > 0 ? (
-                                <>
-                                    <Select onValueChange={(templateId) => {
-                                        const template = templates.find(t => t.id === templateId);
-                                        if (template) {
-                                            setResponseMessage(template.message_text);
-                                            setResponseImageUrl(template.image_url || '');
-                                        }
-                                    }}>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Trigger Type</Label>
+                                    <Select value={triggerType} onValueChange={setTriggerType}>
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Select a template..." />
+                                            <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {templates.map((template) => (
-                                                <SelectItem key={template.id} value={template.id}>
-                                                    {template.name}
-                                                </SelectItem>
-                                            ))}
+                                            <SelectItem value="comment">Comment on Post</SelectItem>
+                                            <SelectItem value="dm">Direct Message</SelectItem>
+                                            <SelectItem value="story_mention">Story Mention</SelectItem>
+                                            <SelectItem value="story_reply">Story Reply</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Select a template to auto-fill the message
-                                    </p>
-                                </>
-                            ) : (
-                                <p className="text-sm text-muted-foreground py-2">
-                                    No templates yet. Create templates in the Templates tab to use them here.
-                                </p>
-                            )}
-                        </div>
+                                </div>
 
-                        <div>
-                            <Label>Response Message</Label>
-                            <Textarea
-                                placeholder="Hi! Thanks for reaching out..."
-                                value={responseMessage}
-                                onChange={(e) => setResponseMessage(e.target.value)}
-                                rows={4}
-                            />
-                        </div>
+                                <div>
+                                    <Label>Response Type</Label>
+                                    <Select value={responseType} onValueChange={setResponseType}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="dm">Send DM</SelectItem>
+                                            <SelectItem value="comment_reply">Reply to Comment</SelectItem>
+                                            <SelectItem value="comment_reply_and_dm">Reply to Comment & Send DM</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
 
-                        <div>
-                            <Label>Image URL (optional)</Label>
-                            <Input
-                                placeholder="https://..."
-                                value={responseImageUrl}
-                                onChange={(e) => setResponseImageUrl(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label>Button Text (optional)</Label>
-                                <Input
-                                    placeholder="Learn More"
-                                    value={responseButtonText}
-                                    onChange={(e) => setResponseButtonText(e.target.value)}
+                                <Label>Trigger Keywords (optional)</Label>
+                                <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 min-h-[42px]">
+                                    {tags.map((tag, index) => (
+                                        <Badge key={index} variant="secondary" className="flex items-center gap-1 h-7">
+                                            {tag}
+                                            <button
+                                                className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        const newTags = [...tags];
+                                                        newTags.splice(index, 1);
+                                                        setTags(newTags);
+                                                    }
+                                                }}
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                onClick={() => {
+                                                    const newTags = [...tags];
+                                                    newTags.splice(index, 1);
+                                                    setTags(newTags);
+                                                }}
+                                            >
+                                                <XCircle className="h-3 w-3 hover:text-destructive" />
+                                                <span className="sr-only">Remove {tag}</span>
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                    <input
+                                        className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground text-sm min-w-[120px]"
+                                        placeholder={tags.length === 0 ? "Type keyword and press Enter or Space..." : ""}
+                                        value={inputValue}
+                                        onChange={(e) => setInputValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if ((e.key === 'Enter' || e.key === ' ') && inputValue.trim()) {
+                                                e.preventDefault();
+                                                if (!tags.includes(inputValue.trim())) {
+                                                    setTags([...tags, inputValue.trim()]);
+                                                }
+                                                setInputValue('');
+                                            }
+                                            if (e.key === 'Backspace' && !inputValue && tags.length > 0) {
+                                                setTags(tags.slice(0, -1));
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Press Enter or Space to add a keyword. Leave empty to trigger on all {triggerType}s.
+                                </p>
+                            </div>
+
+
+                            <div>
+                                <Label>Use Template (optional)</Label>
+                                {templates.length > 0 ? (
+                                    <>
+                                        <Select onValueChange={(templateId) => {
+                                            const template = templates.find(t => t.id === templateId);
+                                            if (template) {
+                                                setResponseMessage(template.message_text);
+                                                setResponseImageUrl(template.image_url || '');
+                                            }
+                                        }}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select a template..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {templates.map((template) => (
+                                                    <SelectItem key={template.id} value={template.id}>
+                                                        {template.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Select a template to auto-fill the message
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground py-2">
+                                        No templates yet. Create templates in the Templates tab to use them here.
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label>{responseType === 'comment_reply_and_dm' ? 'Comment Reply Message' : 'Response Message'}</Label>
+                                <Textarea
+                                    placeholder="Hi! Thanks for reaching out..."
+                                    value={responseMessage}
+                                    onChange={(e) => setResponseMessage(e.target.value)}
+                                    rows={responseType === 'comment_reply_and_dm' ? 3 : 4}
                                 />
                             </div>
+
+                            {responseType === 'comment_reply_and_dm' && (
+                                <div>
+                                    <Label>DM Message Content</Label>
+                                    <Textarea
+                                        placeholder="Here is the info you asked for..."
+                                        value={dmResponseMessage}
+                                        onChange={(e) => setDmResponseMessage(e.target.value)}
+                                        rows={4}
+                                        className="mt-1"
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">This message will be sent to their DMs.</p>
+                                </div>
+                            )}
+
                             <div>
-                                <Label>Button URL (optional)</Label>
+                                <Label>Image URL (optional)</Label>
                                 <Input
                                     placeholder="https://..."
-                                    value={responseButtonUrl}
-                                    onChange={(e) => setResponseButtonUrl(e.target.value)}
+                                    value={responseImageUrl}
+                                    onChange={(e) => setResponseImageUrl(e.target.value)}
                                 />
                             </div>
-                        </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Button Text (optional)</Label>
+                                    <Input
+                                        placeholder="Learn More"
+                                        value={responseButtonText}
+                                        onChange={(e) => setResponseButtonText(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Button URL (optional)</Label>
+                                    <Input
+                                        placeholder="https://..."
+                                        value={responseButtonUrl}
+                                        onChange={(e) => setResponseButtonUrl(e.target.value)}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Right Sidebar - Message Preview */}
-                        {responseMessage && (
+                        {(responseMessage || dmResponseMessage) && (
                             <div className="w-full lg:w-96 flex-shrink-0 lg:border-l lg:pl-6 mt-4 lg:mt-0">
                                 <Label className="mb-3 block text-sm sm:text-base">Message Preview</Label>
                                 <div className="space-y-4 max-h-[40vh] lg:max-h-[60vh] overflow-y-auto pr-2">
@@ -1279,15 +1414,17 @@ export default function InstagramAutomation() {
                                                 <p className="text-xs text-gray-400">Active now</p>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="space-y-3">
                                             {/* Message Bubble */}
                                             <div className="flex justify-end">
                                                 <div className="max-w-[85%] space-y-2">
                                                     <div className="bg-blue-600 rounded-3xl rounded-tr-md px-4 py-2.5">
-                                                        <p className="text-sm text-white whitespace-pre-wrap break-words">{responseMessage}</p>
+                                                        <p className="text-sm text-white whitespace-pre-wrap break-words">
+                                                            {responseType === 'comment_reply_and_dm' ? (dmResponseMessage || 'Type DM message...') : responseMessage}
+                                                        </p>
                                                     </div>
-                                                    
+
                                                     {/* Image */}
                                                     {responseImageUrl && (
                                                         <div className="relative w-full rounded-2xl overflow-hidden bg-gray-800">
@@ -1302,28 +1439,28 @@ export default function InstagramAutomation() {
                                                             />
                                                         </div>
                                                     )}
-                                                    
+
                                                     {/* Button */}
                                                     {responseButtonText && responseButtonUrl && (
                                                         <div className="bg-gray-800 rounded-2xl p-3 border border-gray-700">
                                                             <div className="flex items-center justify-between">
-                                                                <div className="flex-1">
-                                                                    <p className="text-xs text-gray-400 mb-1">Link</p>
-                                                                    <p className="text-sm font-medium text-white">{responseButtonText}</p>
+                                                                <div className="flex-1 min-w-0 pr-2">
+                                                                    <p className="text-xs text-gray-400 mb-0.5 truncate">{responseButtonUrl}</p>
+                                                                    <p className="text-sm font-medium text-white break-words">{responseButtonText}</p>
                                                                 </div>
-                                                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                                                 </svg>
                                                             </div>
                                                         </div>
                                                     )}
-                                                    
+
                                                     <p className="text-xs text-gray-500 text-right">Just now</p>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="text-xs text-muted-foreground space-y-1 px-2">
                                         <p className="font-medium">Preview includes:</p>
                                         <ul className="space-y-1 list-disc list-inside">
@@ -1359,52 +1496,52 @@ export default function InstagramAutomation() {
                     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 py-4 overflow-hidden">
                         {/* Left Side - Form Fields */}
                         <div className="flex-1 space-y-4 overflow-y-auto pr-2 max-h-[50vh] lg:max-h-[60vh]">
-                        <div>
-                            <Label>Template Name</Label>
-                            <Input
-                                placeholder="e.g., Welcome Message"
-                                value={templateName}
-                                onChange={(e) => setTemplateName(e.target.value)}
-                            />
-                        </div>
-
-                        <div>
-                            <Label>Message</Label>
-                            <Textarea
-                                placeholder="Your message content..."
-                                value={templateMessage}
-                                onChange={(e) => setTemplateMessage(e.target.value)}
-                                rows={4}
-                            />
-                        </div>
-
-                        <div>
-                            <Label>Image URL (optional)</Label>
-                            <Input
-                                placeholder="https://..."
-                                value={templateImageUrl}
-                                onChange={(e) => setTemplateImageUrl(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label>Button Text (optional)</Label>
+                                <Label>Template Name</Label>
                                 <Input
-                                    placeholder="Learn More"
-                                    value={templateButtonText}
-                                    onChange={(e) => setTemplateButtonText(e.target.value)}
+                                    placeholder="e.g., Welcome Message"
+                                    value={templateName}
+                                    onChange={(e) => setTemplateName(e.target.value)}
                                 />
                             </div>
+
                             <div>
-                                <Label>Button URL</Label>
+                                <Label>Message</Label>
+                                <Textarea
+                                    placeholder="Your message content..."
+                                    value={templateMessage}
+                                    onChange={(e) => setTemplateMessage(e.target.value)}
+                                    rows={4}
+                                />
+                            </div>
+
+                            <div>
+                                <Label>Image URL (optional)</Label>
                                 <Input
                                     placeholder="https://..."
-                                    value={templateButtonUrl}
-                                    onChange={(e) => setTemplateButtonUrl(e.target.value)}
+                                    value={templateImageUrl}
+                                    onChange={(e) => setTemplateImageUrl(e.target.value)}
                                 />
                             </div>
-                        </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Button Text (optional)</Label>
+                                    <Input
+                                        placeholder="Learn More"
+                                        value={templateButtonText}
+                                        onChange={(e) => setTemplateButtonText(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Button URL</Label>
+                                    <Input
+                                        placeholder="https://..."
+                                        value={templateButtonUrl}
+                                        onChange={(e) => setTemplateButtonUrl(e.target.value)}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Right Side - Template Preview */}
@@ -1425,7 +1562,7 @@ export default function InstagramAutomation() {
                                                 <p className="text-xs text-gray-400">Active now</p>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="space-y-3">
                                             {/* Message Bubble */}
                                             <div className="flex justify-end">
@@ -1433,7 +1570,7 @@ export default function InstagramAutomation() {
                                                     <div className="bg-blue-600 rounded-3xl rounded-tr-md px-4 py-2.5">
                                                         <p className="text-sm text-white whitespace-pre-wrap break-words">{templateMessage}</p>
                                                     </div>
-                                                    
+
                                                     {/* Image */}
                                                     {templateImageUrl && (
                                                         <div className="relative w-full rounded-2xl overflow-hidden bg-gray-800">
@@ -1448,7 +1585,7 @@ export default function InstagramAutomation() {
                                                             />
                                                         </div>
                                                     )}
-                                                    
+
                                                     {/* Button */}
                                                     {templateButtonText && templateButtonUrl && (
                                                         <div className="bg-gray-800 rounded-2xl p-3 border border-gray-700">
@@ -1463,13 +1600,13 @@ export default function InstagramAutomation() {
                                                             </div>
                                                         </div>
                                                     )}
-                                                    
+
                                                     <p className="text-xs text-gray-500 text-right">Just now</p>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="text-xs text-muted-foreground space-y-1 px-2">
                                         <p className="font-medium">Template includes:</p>
                                         <ul className="space-y-1 list-disc list-inside">
@@ -1531,6 +1668,6 @@ export default function InstagramAutomation() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </DashboardLayout>
+        </DashboardLayout >
     );
 }

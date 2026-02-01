@@ -138,10 +138,78 @@ async function processChange(change: any, supabase: any, businessAccountId: stri
 
                 await supabase.from('instagram_automation_logs').insert({
                     user_id: integration.user_id,
+                    integration_id: integration.id,
                     event_type: 'comment_reply_sent',
                     response_sent: rule.response_message,
                     status: 'success'
                 })
+            } else if (rule.response_type === 'comment_reply_and_dm') {
+                // 1. Reply to Comment
+                console.log(`Executing Comment Reply & DM for rule ${rule.id}`);
+
+                try {
+                    await replyToComment(
+                        integration.access_token,
+                        value.id,
+                        rule.response_message
+                    );
+
+                    await supabase.from('instagram_automation_logs').insert({
+                        user_id: integration.user_id,
+                        integration_id: integration.id,
+                        event_type: 'comment_reply_sent',
+                        response_sent: rule.response_message,
+                        status: 'success'
+                    })
+                } catch (e) {
+                    console.error('Failed to send comment reply:', e)
+                    await supabase.from('instagram_automation_logs').insert({
+                        user_id: integration.user_id,
+                        integration_id: integration.id,
+                        event_type: 'error',
+                        error_message: 'Comment Reply Failed: ' + e.message,
+                        status: 'failed'
+                    })
+                }
+
+                // 2. Send DM to Commenter
+                const commenterId = value.from?.id;
+                if (commenterId) {
+                    try {
+                        const dmRes = await sendDM(
+                            integration.access_token,
+                            commenterId,
+                            rule.dm_response_message || "Thanks for your comment! Check this out.", // Fallback if empty
+                            rule.response_image_url,
+                            rule.response_button_text,
+                            rule.response_button_url
+                        );
+
+                        if (dmRes.error) {
+                            throw new Error(dmRes.error.message || JSON.stringify(dmRes.error));
+                        }
+
+                        await supabase.from('instagram_automation_logs').insert({
+                            user_id: integration.user_id,
+                            integration_id: integration.id,
+                            event_type: 'dm_sent',
+                            response_sent: rule.dm_response_message,
+                            recipient_instagram_id: commenterId,
+                            status: 'success'
+                        })
+                    } catch (e) {
+                        console.error('Failed to send DM to commenter:', e)
+                        await supabase.from('instagram_automation_logs').insert({
+                            user_id: integration.user_id,
+                            integration_id: integration.id,
+                            event_type: 'error',
+                            error_message: 'DM to Commenter Failed: ' + e.message,
+                            status: 'failed'
+                        })
+                    }
+                } else {
+                    console.warn('Could not find commenter ID to send DM');
+                }
             }
         }
     }
