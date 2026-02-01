@@ -45,6 +45,7 @@ import CourseEditor from "./pages/CourseEditor";
 import PublicCourse from "./pages/PublicCourse";
 import CourseViewer from "./pages/CourseViewer";
 import InstagramAutomation from "./pages/InstagramAutomation";
+import InstagramAnalytics from "./pages/InstagramAnalytics";
 import DataDeletion from "./pages/DataDeletion";
 import Webinars from "./pages/Webinars";
 import WebinarPublic from "./pages/WebinarPublic";
@@ -354,6 +355,11 @@ function AppRoutes() {
       <Route path="/dashboard/instagram" element={
         <AdminRoute>
           <InstagramAutomation />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/instagram-analytics" element={
+        <AdminRoute>
+          <InstagramAnalytics />
         </AdminRoute>
       } />
 

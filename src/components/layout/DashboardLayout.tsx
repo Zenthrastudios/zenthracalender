@@ -41,6 +41,7 @@ const navItems = [
   { icon: Video, label: 'Webinars', path: '/dashboard/webinars', feature: 'webinars' },
   { icon: Smartphone, label: 'Bio Links', path: '/dashboard/links', feature: 'bio_links' },
   { icon: Instagram, label: 'Instagram', path: '/dashboard/instagram', feature: 'instagram' },
+  { icon: Sparkles, label: 'Content Strategist', path: '/dashboard/instagram-analytics', feature: 'instagram' },
   { icon: BarChart3, label: 'Analytics', path: '/dashboard/analytics', feature: 'advanced_analytics' },
   { icon: Users, label: 'Instructors', path: '/dashboard/instructors', feature: 'instructors' },
   { icon: Users, label: 'Teams', path: '/dashboard/teams', feature: 'team_management' },
