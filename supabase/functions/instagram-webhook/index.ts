@@ -85,17 +85,39 @@ async function processChange(change: any, supabase: any, businessAccountId: stri
         const value = change.value;
         // Check if it's a new comment on a media object
         // We need to look up the user who owns this business account
-        const { data: integration } = await supabase
+        let integration = null;
+
+        // Try lookup by instagram_user_id first
+        const { data: userMatch } = await supabase
             .from('instagram_integrations')
             .select('*')
             .eq('instagram_user_id', businessAccountId)
-            .single();
+            .maybeSingle();
 
-        if (!integration) return;
+        if (userMatch) {
+            integration = userMatch;
+        } else {
+            // Try lookup by instagram_account_id
+            const { data: accountMatch } = await supabase
+                .from('instagram_integrations')
+                .select('*')
+                .eq('instagram_account_id', businessAccountId)
+                .maybeSingle();
+
+            if (accountMatch) integration = accountMatch;
+        }
+
+        if (!integration) {
+            console.error(`No integration found for businessAccountId: ${businessAccountId}`);
+            return;
+        }
+
+        console.log(`Integration found for user: ${integration.user_id}`);
 
         // Log the event
         await supabase.from('instagram_automation_logs').insert({
             user_id: integration.user_id,
+            integration_id: integration.id,
             event_type: 'comment_received',
             trigger_content: value.text,
             status: 'success'
@@ -109,7 +131,12 @@ async function processChange(change: any, supabase: any, businessAccountId: stri
             .eq('is_active', true)
             .eq('trigger_type', 'comment');
 
-        if (!rules || rules.length === 0) return;
+        if (!rules || rules.length === 0) {
+            console.log('No active comment rules found for user.');
+            return;
+        }
+
+        console.log(`Found ${rules.length} active comment rules.`);
 
         // Get the media_id from the comment if available
         const commentMediaId = value.media?.id || value.media_id;
