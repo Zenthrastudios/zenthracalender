@@ -7,8 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-    console.log(`Incoming request: ${req.method} ${req.url}`)
-
     // 1. Handle Webhook Verification (GET request)
     if (req.method === 'GET') {
         const url = new URL(req.url)
@@ -16,16 +14,11 @@ serve(async (req) => {
         const token = url.searchParams.get('hub.verify_token')
         const challenge = url.searchParams.get('hub.challenge')
 
-        console.log(`Verification request: mode=${mode}, token=${token}`)
-
-        // You should set this in your database or env vars
         const VERIFY_TOKEN = Deno.env.get('INSTAGRAM_WEBHOOK_VERIFY_TOKEN') || 'zenthra_secure_webhook_123'
 
         if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-            console.log('WEBHOOK_VERIFIED')
             return new Response(challenge, { status: 200 })
         } else {
-            console.error('WEBHOOK_VERIFICATION_FAILED: Token mismatch')
             return new Response('Forbidden', { status: 403 })
         }
     }
@@ -41,31 +34,22 @@ serve(async (req) => {
                 Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
             )
 
-            // Process each entry in the batch
             if (payload.entry && Array.isArray(payload.entry)) {
                 for (const entry of payload.entry) {
-                    console.log(`Processing entry ID: ${entry.id}`)
-
-                    // We only care about Instagram messaging/comments events
+                    // Messaging Events (DMs)
                     if (entry.messaging) {
-                        console.log(`Met messaging events in entry: ${entry.messaging.length}`)
                         for (const event of entry.messaging) {
-                            // Inject entry ID for matching fallbacks
                             event.entry_id = entry.id;
                             await processEvent(event, supabaseClient)
                         }
-                    } else if (entry.changes) {
-                        console.log(`Met changes in entry: ${entry.changes.length}`)
-                        // Handle comments/other changes
+                    }
+                    // Changes (Comments)
+                    else if (entry.changes) {
                         for (const change of entry.changes) {
                             await processChange(change, supabaseClient, entry.id)
                         }
-                    } else {
-                        console.log('Entry contains no recognized events (messaging/changes)')
                     }
                 }
-            } else {
-                console.warn('Payload contains no entries')
             }
 
             return new Response('EVENT_RECEIVED', { status: 200 })
@@ -80,406 +64,288 @@ serve(async (req) => {
 })
 
 async function processChange(change: any, supabase: any, businessAccountId: string) {
-    // Handle Comments
-    if (change.field === 'comments') {
-        const value = change.value;
-        // Check if it's a new comment on a media object
-        // We need to look up the user who owns this business account
-        let integration = null;
+    if (change.field !== 'comments') return;
 
-        // Try lookup by instagram_user_id first
-        const { data: userMatch } = await supabase
+    const value = change.value;
+    const commentId = value.id;
+    const text = value.text;
+
+    console.log(`[processChange] New comment: ${commentId}, Text: "${text}"`);
+
+    // Integration Lookup
+    let integration = null;
+    const { data: userMatch } = await supabase
+        .from('instagram_integrations')
+        .select('*')
+        .eq('instagram_user_id', businessAccountId)
+        .maybeSingle();
+
+    if (userMatch) {
+        integration = userMatch;
+    } else {
+        const { data: accountMatch } = await supabase
             .from('instagram_integrations')
             .select('*')
-            .eq('instagram_user_id', businessAccountId)
+            .eq('instagram_account_id', businessAccountId)
             .maybeSingle();
+        if (accountMatch) integration = accountMatch;
+    }
 
-        if (userMatch) {
-            integration = userMatch;
-        } else {
-            // Try lookup by instagram_account_id
-            const { data: accountMatch } = await supabase
-                .from('instagram_integrations')
-                .select('*')
-                .eq('instagram_account_id', businessAccountId)
-                .maybeSingle();
+    if (!integration) {
+        console.error(`[processChange] No integration found for BusinessID: ${businessAccountId}`);
+        return;
+    }
 
-            if (accountMatch) integration = accountMatch;
+    // Fetch Rules
+    const { data: rules } = await supabase
+        .from('instagram_automation_rules')
+        .select('*')
+        .eq('user_id', integration.user_id)
+        .eq('is_active', true)
+        .eq('trigger_type', 'comment');
+
+    if (!rules || rules.length === 0) return;
+
+    for (const rule of rules) {
+        // Keyword Check
+        if (rule.trigger_keywords && rule.trigger_keywords.length > 0) {
+            const lowerText = text.toLowerCase();
+            const hasMatch = rule.trigger_keywords.some((k: string) => lowerText.includes(k.toLowerCase()));
+            if (!hasMatch) continue;
         }
 
-        if (!integration) {
-            console.error(`No integration found for businessAccountId: ${businessAccountId}`);
-            return;
-        }
+        console.log(`[processChange] Executing Rule: ${rule.name}`);
 
-        console.log(`Integration found for user: ${integration.user_id}`);
+        try {
+            // 1. Reply to Comment (Always allowed)
+            await replyToComment(integration.access_token, commentId, rule.response_message);
 
-        // Log the event
-        await supabase.from('instagram_automation_logs').insert({
-            user_id: integration.user_id,
-            integration_id: integration.id,
-            event_type: 'comment_received',
-            trigger_content: value.text,
-            status: 'success'
-        })
+            await supabase.from('instagram_automation_logs').insert({
+                user_id: integration.user_id,
+                integration_id: integration.id,
+                event_type: 'comment_reply_sent',
+                response_sent: rule.response_message,
+                status: 'success'
+            });
 
-        // Find matching rules
-        const { data: rules } = await supabase
-            .from('instagram_automation_rules')
-            .select('*')
-            .eq('user_id', integration.user_id)
-            .eq('is_active', true)
-            .eq('trigger_type', 'comment');
+            // 2. Private Reply (Text Only - Bridge to DM)
+            if (rule.response_type === 'comment_reply_and_dm') {
+                const dmMessage = rule.dm_response_message || "Thanks! Reply with 'START' to get options.";
 
-        if (!rules || rules.length === 0) {
-            console.log('No active comment rules found for user.');
-            return;
-        }
+                // IMPORTANT: Private replies via Comment ID allow TEXT ONLY.
+                // We append the button URL as text if present, just in case, but real templates won't work here.
+                const finalMessage = rule.response_button_url ? `${dmMessage}\n${rule.response_button_url}` : dmMessage;
 
-        console.log(`Found ${rules.length} active comment rules.`);
-
-        // Get the media_id from the comment if available
-        const commentMediaId = value.media?.id || value.media_id;
-
-        for (const rule of rules) {
-            // Check if rule is for a specific media (content-specific automation)
-            if (rule.media_id && commentMediaId && rule.media_id !== commentMediaId) {
-                console.log(`Skipping rule ${rule.id}: media_id mismatch (rule: ${rule.media_id}, comment: ${commentMediaId})`);
-                continue;
-            }
-
-            // Check keywords
-            if (rule.trigger_keywords && rule.trigger_keywords.length > 0) {
-                const text = value.text.toLowerCase();
-                const matches = rule.trigger_keywords.some((k: string) => text.includes(k.toLowerCase()));
-                if (!matches) continue;
-            }
-
-            // Execute Response
-            if (rule.response_type === 'comment_reply') {
-                await replyToComment(
-                    integration.access_token,
-                    value.id,
-                    rule.response_message
-                );
+                await sendPrivateReply(integration.access_token, commentId, finalMessage);
 
                 await supabase.from('instagram_automation_logs').insert({
                     user_id: integration.user_id,
                     integration_id: integration.id,
-                    event_type: 'comment_reply_sent',
-                    response_sent: rule.response_message,
+                    event_type: 'dm_sent',
+                    response_sent: finalMessage,
+                    recipient_instagram_id: 'comment:' + commentId,
                     status: 'success'
-                })
-            } else if (rule.response_type === 'comment_reply_and_dm') {
-                // 1. Reply to Comment
-                console.log(`Executing Comment Reply & DM for rule ${rule.id}`);
-
-                try {
-                    await replyToComment(
-                        integration.access_token,
-                        value.id,
-                        rule.response_message
-                    );
-
-                    await supabase.from('instagram_automation_logs').insert({
-                        user_id: integration.user_id,
-                        integration_id: integration.id,
-                        event_type: 'comment_reply_sent',
-                        response_sent: rule.response_message,
-                        status: 'success'
-                    })
-                } catch (e) {
-                    console.error('Failed to send comment reply:', e)
-                    await supabase.from('instagram_automation_logs').insert({
-                        user_id: integration.user_id,
-                        integration_id: integration.id,
-                        event_type: 'error',
-                        error_message: 'Comment Reply Failed: ' + e.message,
-                        status: 'failed'
-                    })
-                }
-
-                // 2. Send DM to Commenter
-                const commenterId = value.from?.id;
-                if (commenterId) {
-                    try {
-                        const dmRes = await sendDM(
-                            integration.access_token,
-                            commenterId,
-                            rule.dm_response_message || "Thanks for your comment! Check this out.", // Fallback if empty
-                            rule.response_image_url,
-                            rule.response_button_text,
-                            rule.response_button_url
-                        );
-
-                        if (dmRes.error) {
-                            throw new Error(dmRes.error.message || JSON.stringify(dmRes.error));
-                        }
-
-                        await supabase.from('instagram_automation_logs').insert({
-                            user_id: integration.user_id,
-                            integration_id: integration.id,
-                            event_type: 'dm_sent',
-                            response_sent: rule.dm_response_message,
-                            recipient_instagram_id: commenterId,
-                            status: 'success'
-                        })
-                    } catch (e) {
-                        console.error('Failed to send DM to commenter:', e)
-                        await supabase.from('instagram_automation_logs').insert({
-                            user_id: integration.user_id,
-                            integration_id: integration.id,
-                            event_type: 'error',
-                            error_message: 'DM to Commenter Failed: ' + e.message,
-                            status: 'failed'
-                        })
-                    }
-                } else {
-                    console.warn('Could not find commenter ID to send DM');
-                }
+                });
             }
+        } catch (err: any) {
+            console.error(`[processChange] Rule execution failed:`, err);
         }
     }
 }
 
 async function processEvent(event: any, supabase: any) {
-    // Handle DMs and Story Interactions
-    if (event.message) {
-        // Skip message echoes (messages sent by the bot itself)
-        if (event.message.is_echo) {
-            console.log('Skipping message echo (bot sent message)');
-            return;
-        }
+    if (!event.message || event.message.is_echo) return;
 
-        const senderId = event.sender.id;
-        const recipientId = event.recipient.id; // Usually the Page ID or IG ID
-        const text = event.message.text || (event.message.attachments ? 'Media/Attachment' : 'Unknown Content');
+    const senderId = event.sender.id;
+    const recipientId = event.recipient.id;
+    const text = event.message.text || 'Attachment/Media';
 
-        // Match the integration
-        // Try multiple lookup strategies to find the correct integration
-        let integration = null;
+    console.log(`[processEvent] DM from ${senderId}: "${text}"`);
 
-        // Strategy 1: Match by instagram_account_id (Business Account ID from webhook)
-        const { data: accountMatch } = await supabase
+    // Integration Lookup (Simplified for brevity/reliability)
+    let integration = null;
+    const { data: match } = await supabase
+        .from('instagram_integrations')
+        .select('*')
+        .or(`instagram_account_id.eq.${recipientId},instagram_user_id.eq.${recipientId}`)
+        .eq('is_active', true)
+        .maybeSingle();
+
+    if (!match && event.entry_id) {
+        const { data: matchEntry } = await supabase
             .from('instagram_integrations')
             .select('*')
-            .eq('instagram_account_id', recipientId)
+            .or(`instagram_account_id.eq.${event.entry_id},instagram_user_id.eq.${event.entry_id}`)
             .eq('is_active', true)
             .maybeSingle();
+        integration = matchEntry;
+    } else {
+        integration = match;
+    }
 
-        if (accountMatch) {
-            integration = accountMatch;
-            console.log('✓ Matched by instagram_account_id:', recipientId);
+    if (!integration) {
+        console.error(`[processEvent] No integration found.`);
+        return;
+    }
+
+    const isStoryReply = !!event.message.reply_to;
+    const triggerTypes = isStoryReply ? ['story_reply', 'dm'] : ['dm'];
+
+    const { data: rules } = await supabase
+        .from('instagram_automation_rules')
+        .select('*')
+        .eq('user_id', integration.user_id)
+        .eq('is_active', true)
+        .in('trigger_type', triggerTypes);
+
+    if (!rules) return;
+
+    for (const rule of rules) {
+        if (rule.trigger_keywords?.length > 0) {
+            const lowerText = text.toLowerCase();
+            const hasMatch = rule.trigger_keywords.some((k: string) => lowerText.includes(k.toLowerCase()));
+            if (!hasMatch) continue;
         }
 
-        // Strategy 2: Try instagram_user_id as fallback
-        if (!integration) {
-            const { data: userMatch } = await supabase
-                .from('instagram_integrations')
-                .select('*')
-                .eq('instagram_user_id', recipientId)
-                .eq('is_active', true)
-                .maybeSingle();
+        console.log(`[processEvent] Executing Rule: ${rule.name}`);
 
-            if (userMatch) {
-                integration = userMatch;
-                console.log('✓ Matched by instagram_user_id:', recipientId);
-            }
-        }
+        // HERE IS THE RICH MESSAGE!
+        // User has replied (DM/Story), so we are in a message window.
+        // We can use Generic Templates (Image + Buttons).
+        await sendRichDM(
+            integration.access_token,
+            senderId,
+            rule.response_message,
+            rule.response_image_url,
+            rule.response_button_text,
+            rule.response_button_url
+        );
 
-        // Strategy 3: Try entry_id as fallback
-        if (!integration && event.entry_id) {
-            console.log('No match for recipientId, trying entry_id:', event.entry_id);
-            const { data: entryMatch } = await supabase
-                .from('instagram_integrations')
-                .select('*')
-                .or(`instagram_account_id.eq.${event.entry_id},instagram_user_id.eq.${event.entry_id}`)
-                .eq('is_active', true)
-                .maybeSingle();
-
-            if (entryMatch) {
-                integration = entryMatch;
-                console.log('✓ Matched by entry_id:', event.entry_id);
-            }
-        }
-
-        if (!integration) {
-            console.error('CRITICAL: No integration found in database');
-            console.error('  - Recipient ID:', recipientId);
-            console.error('  - Entry ID:', event.entry_id);
-            console.error('  - Please verify the instagram_account_id in your database matches the webhook recipient.id');
-            return;
-        }
-
-        const isStoryReply = !!event.message.reply_to;
-        const eventType = isStoryReply ? 'story_reply' : 'dm_received';
-
-        // Find matching rules for DM or Story Reply
-        const { data: rules } = await supabase
-            .from('instagram_automation_rules')
-            .select('*')
-            .eq('user_id', integration.user_id)
-            .eq('is_active', true)
-            .in('trigger_type', isStoryReply ? ['story_reply', 'dm'] : ['dm']);
-
-        if (!rules || rules.length === 0) {
-            console.log('No active rules found for this event type. Skipping log.');
-            return;
-        }
-
-        for (const rule of rules) {
-            // Check keywords if present
-            if (rule.trigger_keywords && rule.trigger_keywords.length > 0) {
-                if (!text) continue;
-                // Simple keyword check (can be expanded to regex if needed)
-                const matches = rule.trigger_keywords.some((k: string) => text.toLowerCase().includes(k.toLowerCase()));
-                if (!matches) continue;
-            }
-
-            console.log(`✓ Rule Matched: ${rule.id}. Executing automation.`);
-
-            // Log the received message ONLY if it triggered a rule
-            await supabase.from('instagram_automation_logs').insert({
-                user_id: integration.user_id,
-                integration_id: integration.id,
-                event_type: eventType,
-                trigger_content: text,
-                status: 'success'
-            })
-
-            // Execute Response (Always DM for these triggers)
-            const res = await sendDM(
-                integration.access_token,
-                senderId,                      // The person who sent the message
-                rule.response_message,
-                rule.response_image_url,
-                rule.response_button_text,
-                rule.response_button_url
-            );
-
-            if (res.error) {
-                console.error('Error sending response:', res.error);
-                await supabase.from('instagram_automation_logs').insert({
-                    user_id: integration.user_id,
-                    integration_id: integration.id,
-                    event_type: 'error',
-                    error_message: JSON.stringify(res.error),
-                    status: 'failed'
-                })
-            } else {
-                await supabase.from('instagram_automation_logs').insert({
-                    user_id: integration.user_id,
-                    integration_id: integration.id,
-                    event_type: 'dm_sent',
-                    response_sent: rule.response_message,
-                    recipient_instagram_id: senderId,
-                    status: 'success'
-                })
-            }
-        }
+        await supabase.from('instagram_automation_logs').insert({
+            user_id: integration.user_id,
+            integration_id: integration.id,
+            event_type: 'dm_sent',
+            response_sent: rule.response_message,
+            recipient_instagram_id: senderId,
+            status: 'success'
+        });
     }
 }
 
-async function sendDM(accessToken: string, senderId: string, message: string, imageUrl?: string | null, buttonText?: string | null, buttonUrl?: string | null) {
-    console.log(`Sending DM to ${senderId}: ${message}, imageUrl: ${imageUrl}, button: ${buttonText}`);
+// --- API FUNCTIONS ---
 
-    // Use graph.instagram.com for Instagram tokens (IGA prefix)
-    const host = accessToken.startsWith('IGA')
-        ? 'graph.instagram.com'
-        : 'graph.facebook.com';
+const IG_HOST = 'graph.instagram.com';
+const VERSION = 'v21.0';
 
-    // Get Instagram Business Account ID from access token
-    // For Instagram API, we need to use /<IG_ID>/messages endpoint
-    const igIdRes = await fetch(`https://${host}/v21.0/me?fields=id&access_token=${accessToken}`);
-    const igIdData = await igIdRes.json();
-    const igId = igIdData.id;
-
-    console.log(`Using Instagram ID: ${igId}`);
-
-    // Send text message
-    const textBody = {
-        recipient: { id: senderId },
-        message: { text: message }
-    };
-
-    const textRes = await fetch(`https://${host}/v21.0/${igId}/messages`, {
+async function replyToComment(token: string, commentId: string, message: string) {
+    await fetch(`https://${IG_HOST}/${VERSION}/${commentId}/replies`, {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(textBody)
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
     });
-    const textData = await textRes.json();
-    console.log(`Text message sent:`, JSON.stringify(textData));
+}
 
-    // If there's an image, send it as a separate message using correct Instagram format
-    if (imageUrl) {
-        console.log(`Sending image: ${imageUrl}`);
-        const imageBody = {
-            recipient: { id: senderId },
+// Private Reply (Text Only) - Bridge to DM
+async function sendPrivateReply(token: string, commentId: string, message: string) {
+    // Determine my ID to send from
+    const meRes = await fetch(`https://${IG_HOST}/${VERSION}/me?fields=id&access_token=${token}`);
+    const me = await meRes.json();
+    if (!me.id) return { error: 'No ID' };
+
+    const res = await fetch(`https://${IG_HOST}/${VERSION}/${me.id}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            recipient: { comment_id: commentId },
+            message: { text: message }
+        })
+    });
+    return res.json();
+}
+
+// Rich DM (Templates) - For active threads
+async function sendRichDM(token: string, recipientId: string, text: string, imgUrl?: string, btnText?: string, btnUrl?: string) {
+    const meRes = await fetch(`https://${IG_HOST}/${VERSION}/me?fields=id&access_token=${token}`);
+    const me = await meRes.json();
+    if (!me.id) return { error: 'No ID' };
+
+    const url = `https://${IG_HOST}/${VERSION}/${me.id}/messages`;
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+    // 1. Generic Template (Image + Text + Link Button)
+    if (imgUrl && btnUrl) {
+        // Truncate title/subtitle to meet API limits (80 chars)
+        const title = text.length > 80 ? text.substring(0, 77) + '...' : text;
+        const subtitle = text.length > 80 ? text.substring(0, 80) : '';
+
+        const body = {
+            recipient: { id: recipientId },
             message: {
                 attachment: {
-                    type: 'image',
+                    type: "template",
                     payload: {
-                        url: imageUrl
+                        template_type: "generic",
+                        elements: [{
+                            title: title,
+                            subtitle: subtitle,
+                            image_url: imgUrl,
+                            buttons: [{
+                                type: "web_url",
+                                url: btnUrl,
+                                title: btnText || "Open Link"
+                            }]
+                        }]
                     }
                 }
             }
         };
-
-        const imageRes = await fetch(`https://${host}/v21.0/${igId}/messages`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(imageBody)
-        });
-        const imageData = await imageRes.json();
-        console.log(`Image sent:`, JSON.stringify(imageData));
-
-        if (imageData.error) {
-            console.error('Error sending image:', imageData.error);
-        }
+        console.log('[sendRichDM] Sending Generic Template:', JSON.stringify(body, null, 2));
+        const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+        return res.json();
     }
 
-    // Send "button" as a link preview card (Instagram shows a rich preview when a URL is sent)
-    // Instagram does not support Messenger-style template buttons reliably, so URL preview is the best UX.
-    if (buttonUrl) {
-        const linkText = buttonText ? `${buttonText}\n${buttonUrl}` : buttonUrl;
-
-        const linkRes = await fetch(`https://${host}/v21.0/${igId}/messages`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                recipient: { id: senderId },
-                message: { text: linkText }
-            })
-        });
-
-        const linkData = await linkRes.json();
-        console.log(`Link message sent:`, JSON.stringify(linkData));
-
-        if (linkData?.error) {
-            console.error('Error sending link message:', linkData.error);
-        }
+    // 2. Button Template (Text + Link Button)
+    if (btnUrl) {
+        // Button Template text max 640 chars
+        const safeText = text.length > 600 ? text.substring(0, 600) + '...' : text;
+        const body = {
+            recipient: { id: recipientId },
+            message: {
+                attachment: {
+                    type: "template",
+                    payload: {
+                        template_type: "button",
+                        text: safeText,
+                        buttons: [{
+                            type: "web_url",
+                            url: btnUrl,
+                            title: btnText || "Open Link"
+                        }]
+                    }
+                }
+            }
+        };
+        console.log('[sendRichDM] Sending Button Template:', JSON.stringify(body, null, 2));
+        const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+        return res.json();
     }
 
-    return textData;
-}
-
-async function replyToComment(accessToken: string, commentId: string, message: string) {
-    const res = await fetch(`https://graph.facebook.com/v18.0/${commentId}/replies`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            message: message,
-            access_token: accessToken
+    // 3. Fallback: Text (+ Image if present)
+    await fetch(url, {
+        method: 'POST', headers, body: JSON.stringify({
+            recipient: { id: recipientId },
+            message: { text: text }
         })
     });
-    return res.json();
+
+    if (imgUrl) {
+        await fetch(url, {
+            method: 'POST', headers, body: JSON.stringify({
+                recipient: { id: recipientId },
+                message: { attachment: { type: 'image', payload: { url: imgUrl } } }
+            })
+        });
+    }
+
+    return { success: true };
 }
