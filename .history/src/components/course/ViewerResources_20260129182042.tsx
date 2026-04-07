@@ -7,7 +7,6 @@ import {
     SheetContent,
     SheetHeader,
     SheetTitle,
-    SheetDescription,
     SheetTrigger,
 } from '@/components/ui/sheet';
 import {
@@ -250,9 +249,7 @@ export default function ViewerResources({ lessonId, lessonTitle, variant = 'shee
             <SheetContent className="bg-zinc-900 border-zinc-800 text-white w-full sm:max-w-[400px]">
                 <SheetHeader>
                     <SheetTitle className="text-white">Lesson Resources</SheetTitle>
-                    <SheetDescription className="text-sm text-zinc-400 truncate">
-                        {lessonTitle}
-                    </SheetDescription>
+                    <p className="text-sm text-zinc-400 truncate">{lessonTitle}</p>
                 </SheetHeader>
 
                 <ScrollArea className="h-[calc(100vh-120px)] mt-6">

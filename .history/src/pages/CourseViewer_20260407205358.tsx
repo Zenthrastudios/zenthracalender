@@ -283,9 +283,6 @@ export default function CourseViewer() {
     const [lessonThumbnails, setLessonThumbnails] = useState<Record<string, string>>({});
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    // Current lesson must be defined before videoStreamUrl
-    const currentLesson = lessons[currentLessonIndex];
-
     // Video stream URL — points to our edge function which:
     //  1. Verifies the purchase (only paid users)
     //  2. Fetches from R2 with proper SigV4 auth (bypasses public access 403)
@@ -295,6 +292,8 @@ export default function CourseViewer() {
     const videoStreamUrl = currentLesson?.id && accessToken
         ? `${SUPABASE_FN_URL}?lessonId=${currentLesson.id}&token=${accessToken}`
         : null;
+
+    const currentLesson = lessons[currentLessonIndex];
 
     // ==================== SECURITY PROTECTIONS ====================
 
@@ -452,27 +451,7 @@ export default function CourseViewer() {
     // iOS / mobile: explicitly call load() when lesson changes so Safari picks up the new source
     useEffect(() => {
         if (!videoRef.current) return;
-        
-        // Reset loading state
-        setIsVideoLoading(true);
-        setCurrentTime(0);
-        setDuration(0);
-        
-        // iOS requires explicit load() call for new sources
         videoRef.current.load();
-        
-        // iOS-specific: Force metadata preloading
-        if (isIOS) {
-            const video = videoRef.current;
-            video.preload = 'metadata';
-            
-            // Add one-time loadstart listener for iOS
-            const handleLoadStart = () => {
-                console.log('iOS video loadstart');
-                video.removeEventListener('loadstart', handleLoadStart);
-            };
-            video.addEventListener('loadstart', handleLoadStart);
-        }
     }, [currentLessonIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // When loading a new lesson: clear canvas then draw its thumbnail (or black)
@@ -858,63 +837,23 @@ export default function CourseViewer() {
     // Playback controls
     const togglePlay = () => {
         if (!videoRef.current) return;
-        
-        const video = videoRef.current;
-        
         if (isPlaying) {
-            video.pause();
+            videoRef.current.pause();
             // onPause event handler will set isPlaying(false)
         } else {
-            // iOS: Ensure video is ready before attempting to play
-            if (isIOS) {
-                console.log('iOS play attempt - readyState:', video.readyState, 'networkState:', video.networkState);
-                
-                // If metadata isn't loaded yet, try loading first
-                if (video.readyState < 1) {
-                    console.log('iOS: Video not ready, loading metadata first');
-                    video.load();
-                    
-                    const handleCanPlay = () => {
-                        video.removeEventListener('canplay', handleCanPlay);
-                        console.log('iOS: Video ready after load, attempting play');
-                        const playPromise = video.play();
-                        if (playPromise !== undefined) {
-                            playPromise
-                                .then(() => {
-                                    setSecurityWarning(false);
-                                    console.log('iOS: Play successful');
-                                })
-                                .catch((err: Error) => {
-                                    console.warn('iOS: Video play() rejected after load:', err.message);
-                                    setIsPlaying(false);
-                                });
-                        }
-                    };
-                    
-                    video.addEventListener('canplay', handleCanPlay);
-                    return;
-                }
-            }
-            
             // iOS: play() returns a Promise that can reject (e.g. not enough data buffered,
             // ATS block, or user-gesture timeout). Ignoring it causes state desync where
             // the UI shows "playing" but nothing plays.
-            const playPromise = video.play();
+            const playPromise = videoRef.current.play();
             if (playPromise !== undefined) {
                 playPromise
                     .then(() => {
                         setSecurityWarning(false);
-                        console.log('Video play successful');
                         // onPlay event handler will set isPlaying(true)
                     })
                     .catch((err: Error) => {
-                        console.warn('Video play() rejected:', err.message, err.name);
+                        console.warn('Video play() rejected:', err.message);
                         setIsPlaying(false); // Ensure UI stays in sync on failure
-                        
-                        // iOS: Some specific error handling
-                        if (isIOS && err.name === 'NotAllowedError') {
-                            console.warn('iOS: Play blocked by autoplay policy - user interaction may be required');
-                        }
                     });
             } else {
                 // Fallback for browsers that don't return a Promise

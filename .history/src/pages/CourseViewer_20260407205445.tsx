@@ -283,9 +283,6 @@ export default function CourseViewer() {
     const [lessonThumbnails, setLessonThumbnails] = useState<Record<string, string>>({});
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    // Current lesson must be defined before videoStreamUrl
-    const currentLesson = lessons[currentLessonIndex];
-
     // Video stream URL — points to our edge function which:
     //  1. Verifies the purchase (only paid users)
     //  2. Fetches from R2 with proper SigV4 auth (bypasses public access 403)
@@ -295,6 +292,8 @@ export default function CourseViewer() {
     const videoStreamUrl = currentLesson?.id && accessToken
         ? `${SUPABASE_FN_URL}?lessonId=${currentLesson.id}&token=${accessToken}`
         : null;
+
+    const currentLesson = lessons[currentLessonIndex];
 
     // ==================== SECURITY PROTECTIONS ====================
 
