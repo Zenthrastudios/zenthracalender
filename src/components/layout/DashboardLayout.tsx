@@ -38,6 +38,7 @@ const navItems = [
   { icon: Clock, label: 'Availability', path: '/dashboard/availability', feature: 'availability' },
   { icon: ShoppingBag, label: 'Products', path: '/dashboard/products', feature: 'products' },
   { icon: GraduationCap, label: 'Courses', path: '/dashboard/courses', feature: 'courses' },
+  { icon: Users, label: 'Customers', path: '/dashboard/customers', feature: 'courses' },
   { icon: Video, label: 'Webinars', path: '/dashboard/webinars', feature: 'webinars' },
   { icon: Smartphone, label: 'Bio Links', path: '/dashboard/links', feature: 'bio_links' },
   { icon: Instagram, label: 'Instagram', path: '/dashboard/instagram', feature: 'instagram' },

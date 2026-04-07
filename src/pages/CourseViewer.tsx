@@ -49,13 +49,11 @@ function useMediaQuery(query: string) {
 
     useEffect(() => {
         const media = window.matchMedia(query);
-        if (media.matches !== matches) {
-            setMatches(media.matches);
-        }
+        setMatches(media.matches);
         const listener = () => setMatches(media.matches);
         media.addEventListener("change", listener);
         return () => media.removeEventListener("change", listener);
-    }, [matches, query]);
+    }, [query]);
 
     return matches;
 }
@@ -245,12 +243,8 @@ export default function CourseViewer() {
     const [showFullDescription, setShowFullDescription] = useState(false);
     const [isVideoLoading, setIsVideoLoading] = useState(false);
 
-    // Check Mobile - assuming useMediaQuery works or failing gracefully? 
-    // If @uidotdev/usehooks is not installed, this will fail.
-    // I will try to use it since the user provided code had it (presumably).
-    // If it fails again on import, I will remove it and use window.matchMedia.
-    // Actually, to be safe, I'll remove the import and correct the usage later if it errors.
-    // But I will keep it for now as I saw it in the file content trace.
+    // Mobile detection — on mobile we render <video> directly; canvas is desktop-only
+    const isMobile = useMediaQuery('(max-width: 1024px)');
 
     // Video player state
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -380,9 +374,9 @@ export default function CourseViewer() {
 
         return () => {
             window.removeEventListener('keydown', preventScreenshotKeys, { capture: true });
-            window.removeEventListener('keyup', preventScreenshotKeys, { capture: true });
+            window.removeEventListener('keyup', handleKeyUp, { capture: true });
             document.removeEventListener('keydown', preventScreenshotKeys, { capture: true });
-            document.removeEventListener('keyup', preventScreenshotKeys, { capture: true });
+            document.removeEventListener('keyup', handleKeyUp, { capture: true });
             window.removeEventListener('blur', handleBlur);
             document.removeEventListener('contextmenu', preventDefault);
             document.removeEventListener('dragstart', preventDefault);
@@ -427,6 +421,12 @@ export default function CourseViewer() {
             document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
         };
     }, []);
+
+    // iOS / mobile: explicitly call load() when lesson src changes so Safari picks up the new source
+    useEffect(() => {
+        if (!videoRef.current) return;
+        videoRef.current.load();
+    }, [currentLessonIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // When loading a new lesson: clear canvas then draw its thumbnail (or black)
     useEffect(() => {
@@ -812,11 +812,9 @@ export default function CourseViewer() {
                 } else if ((container as any).msRequestFullscreen) {
                     (container as any).msRequestFullscreen();
                 } else if (videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
-                    // iOS native fullscreen: temporarily show video element
+                    // iOS native fullscreen — video is already visible on mobile
                     const vid = videoRef.current;
-                    vid.classList.remove('hidden');
                     const onEndFs = () => {
-                        vid.classList.add('hidden');
                         setIsFullscreen(false);
                         vid.removeEventListener('webkitendfullscreen', onEndFs);
                     };
@@ -1003,47 +1001,71 @@ export default function CourseViewer() {
                                 <>
                                     {/* WRAPPER FOR CONTENT THAT GETS HIDDEN ON BLACKOUT */}
                                     <div ref={contentRef} className="absolute inset-0 w-full h-full transition-opacity duration-75">
-                                        {/* HIDDEN VIDEO SOURCE */}
-                                        <video
-                                            ref={videoRef}
-                                            src={currentLesson.video_url}
-                                            className="hidden"
-                                            crossOrigin="anonymous"
-                                            onTimeUpdate={handleTimeUpdate}
-                                            onLoadedMetadata={handleLoadedMetadata}
-                                            onEnded={handleVideoEnd}
-                                            onPlay={() => setIsPlaying(true)}
-                                            onPause={() => setIsPlaying(false)}
-                                            controlsList="nodownload noremoteplayback"
-                                            disablePictureInPicture
-                                            playsInline
-                                        />
 
-                                        {/* CANVAS RENDERER (The Visible "Screen") */}
-                                        <canvas
-                                            ref={(ref) => {
-                                                (canvasRef as any).current = ref;
-                                                if (ref) {
-                                                    const ctx = ref.getContext('2d', { alpha: false });
-                                                    // @ts-ignore
-                                                    ref._ctx = ctx;
-                                                }
-                                            }}
-                                            className={cn("w-full h-full object-contain cursor-pointer", securityWarning && "blur-2xl opacity-10")}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                togglePlay();
-                                            }}
-                                        />
+                                        {isMobile ? (
+                                            /* ── MOBILE: native <video> rendered directly ── */
+                                            <video
+                                                ref={videoRef}
+                                                src={currentLesson.video_url}
+                                                className={cn(
+                                                    "w-full h-full object-contain bg-black cursor-pointer",
+                                                    securityWarning && "blur-2xl opacity-10"
+                                                )}
+                                                onTimeUpdate={handleTimeUpdate}
+                                                onLoadedMetadata={handleLoadedMetadata}
+                                                onEnded={handleVideoEnd}
+                                                onPlay={() => setIsPlaying(true)}
+                                                onPause={() => setIsPlaying(false)}
+                                                controlsList="nodownload noremoteplayback"
+                                                disablePictureInPicture
+                                                playsInline
+                                                onClick={togglePlay}
+                                            />
+                                        ) : (
+                                            /* ── DESKTOP: hidden video + canvas (DRM protection) ── */
+                                            <>
+                                                <video
+                                                    ref={videoRef}
+                                                    src={currentLesson.video_url}
+                                                    className="hidden"
+                                                    crossOrigin="anonymous"
+                                                    onTimeUpdate={handleTimeUpdate}
+                                                    onLoadedMetadata={handleLoadedMetadata}
+                                                    onEnded={handleVideoEnd}
+                                                    onPlay={() => setIsPlaying(true)}
+                                                    onPause={() => setIsPlaying(false)}
+                                                    controlsList="nodownload noremoteplayback"
+                                                    disablePictureInPicture
+                                                    playsInline
+                                                />
+                                                <canvas
+                                                    ref={(ref) => {
+                                                        (canvasRef as any).current = ref;
+                                                        if (ref) {
+                                                            const ctx = ref.getContext('2d', { alpha: false });
+                                                            // @ts-ignore
+                                                            ref._ctx = ctx;
+                                                        }
+                                                    }}
+                                                    className={cn(
+                                                        "w-full h-full object-contain cursor-pointer",
+                                                        securityWarning && "blur-2xl opacity-10"
+                                                    )}
+                                                    onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                                                />
+                                            </>
+                                        )}
 
                                     </div>
 
-                                    {/* RENDER LOOP & EXTENSION DETECTION */}
-                                    <CanvasLogic
-                                        videoRef={videoRef}
-                                        isPlaying={isPlaying}
-                                        setSecurityWarning={setSecurityWarning}
-                                    />
+                                    {/* RENDER LOOP & EXTENSION DETECTION — desktop only */}
+                                    {!isMobile && (
+                                        <CanvasLogic
+                                            videoRef={videoRef}
+                                            isPlaying={isPlaying}
+                                            setSecurityWarning={setSecurityWarning}
+                                        />
+                                    )}
 
                                     {/* SECURITY OVERLAY */}
                                     {securityWarning && (
