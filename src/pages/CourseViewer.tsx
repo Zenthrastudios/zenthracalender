@@ -1631,9 +1631,8 @@ export default function CourseViewer() {
                                                         {lessonThumbnails[lesson.id] ? (
                                                             <img src={lessonThumbnails[lesson.id]} className="absolute inset-0 w-full h-full object-cover" alt="" draggable={false} />
                                                         ) : (
-                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-800">
-                                                                <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
-                                                                <div className="text-[9px] text-zinc-700 mt-0.5 line-clamp-1 px-1 text-center">{lesson.title}</div>
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900">
+                                                                <div className="text-sm font-bold text-zinc-600">{index + 1}</div>
                                                             </div>
                                                         )}
                                                 {lessonProgress && !isCompleted && lessonProgress.progress_seconds > 0 && (
