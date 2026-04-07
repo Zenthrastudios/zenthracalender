@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCourseBySlug } from '@/hooks/useCourses';
+import { usePublicPaymentInfo } from '@/hooks/usePayments';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ import SEO from '@/components/common/SEO';
 declare global {
     interface Window {
         Razorpay?: unknown;
+        Cashfree?: unknown;
     }
 }
 
@@ -41,16 +43,20 @@ export default function PublicCoursePage() {
     const [purchaseSuccess, setPurchaseSuccess] = useState(false);
     const [accessToken, setAccessToken] = useState<string | null>(null);
 
-    // Load Razorpay script
+    const { data: paymentInfo } = usePublicPaymentInfo(data?.instructor?.id);
+
+    // Load the correct payment SDK based on host's active gateway
     useEffect(() => {
+        if (!data?.course || data.course.is_free || data.course.price === 0) return;
+        const src = paymentInfo?.activeGateway === 'cashfree'
+            ? 'https://sdk.cashfree.com/js/v3/cashfree.js'
+            : 'https://checkout.razorpay.com/v1/checkout.js';
         const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.src = src;
         script.async = true;
         document.body.appendChild(script);
-        return () => {
-            document.body.removeChild(script);
-        };
-    }, []);
+        return () => { document.body.removeChild(script); };
+    }, [data?.course, data?.instructor?.id, paymentInfo?.activeGateway]);
 
     const handlePurchase = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -74,7 +80,7 @@ export default function PublicCoursePage() {
                     customer_phone: customerPhone,
                     amount: data.course.price,
                     status: 'pending',
-                    payment_provider: 'razorpay',
+                    payment_provider: paymentInfo?.activeGateway || 'razorpay',
                 })
                 .select()
                 .single();
@@ -100,82 +106,124 @@ export default function PublicCoursePage() {
                 return;
             }
 
-            // 2. Create Razorpay order via edge function
-            // 2. Create Razorpay order via edge function
-            const { data: orderData, error: orderError } = await supabase.functions.invoke(
-                'razorpay-payment',
-                {
-                    body: {
-                        action: 'create-order',
-                        coursePurchaseId: purchase.id,
-                        amount: Math.round(data.course.price * 100), // paise
-                        currency: 'INR',
-                        customerName,
-                        customerEmail,
-                        customerPhone,
-                        hostId: data.instructor.id,
-                    },
-                }
-            );
+            const gateway = paymentInfo?.activeGateway || 'razorpay';
 
-            if (orderError || !orderData) throw new Error('Failed to create payment order');
+            if (gateway === 'cashfree') {
+                // ── Cashfree flow ──────────────────────────────────────────────
+                const { data: orderData, error: orderError } = await supabase.functions.invoke(
+                    'cashfree-payment',
+                    {
+                        body: {
+                            action: 'create-order',
+                            coursePurchaseId: purchase.id,
+                            amount: data.course.price,
+                            currency: 'INR',
+                            customerName,
+                            customerEmail,
+                            customerPhone,
+                            returnUrl: window.location.href,
+                            hostId: data.instructor.id,
+                        },
+                    }
+                );
 
-            // 3. Open Razorpay checkout
-            if (!window.Razorpay) throw new Error('Razorpay not loaded');
+                if (orderError || !orderData) throw new Error('Failed to create Cashfree order');
 
-            const options = {
-                key: orderData.keyId,
-                amount: orderData.amount,
-                currency: orderData.currency || 'INR',
-                name: data.instructor.name,
-                description: `Course: ${data.course.title}`,
-                order_id: orderData.orderId,
-                handler: async (response: any) => {
-                    try {
-                        // Verify payment
-                        const { error: verifyError } = await supabase.functions.invoke(
-                            'razorpay-payment',
-                            {
-                                body: {
-                                    action: 'verify-payment',
-                                    razorpayOrderId: response.razorpay_order_id,
-                                    razorpayPaymentId: response.razorpay_payment_id,
-                                    razorpaySignature: response.razorpay_signature,
-                                },
-                            }
-                        );
+                const cashfreeFactory = window.Cashfree as unknown as (opts: { mode: string }) => {
+                    checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<{ error?: unknown }>;
+                };
+                const cashfree = cashfreeFactory({ mode: paymentInfo?.cashfreeMode || 'sandbox' });
 
-                        if (verifyError) throw verifyError;
-
+                cashfree.checkout({
+                    paymentSessionId: orderData.paymentSessionId,
+                    redirectTarget: '_modal',
+                }).then(async (result: { error?: unknown }) => {
+                    if (result.error) {
+                        toast.error('Payment failed. Please try again.');
+                        setIsProcessing(false);
+                        return;
+                    }
+                    // Verify
+                    const { data: verifyData } = await supabase.functions.invoke('cashfree-payment', {
+                        body: { action: 'verify-payment', orderId: orderData.orderId },
+                    });
+                    if (verifyData?.isPaid) {
                         setAccessToken(purchase.access_token);
                         setPurchaseSuccess(true);
-                        toast.success('Purchase successful! 🎉');
-
-                        // Email notification
+                        toast.success('Purchase successful!');
                         supabase.functions.invoke('send-product-notification', {
                             body: { type: 'course_purchase', id: purchase.id }
-                        }).catch(err => console.error("Notification failed", err));
-                    } catch (err: any) {
-                        toast.error(err.message || 'Payment verification failed');
+                        }).catch(err => console.error('Notification failed', err));
+                    } else {
+                        toast.error('Payment not completed. Please try again.');
                     }
                     setIsProcessing(false);
-                },
-                modal: {
-                    ondismiss: () => setIsProcessing(false),
-                },
-                prefill: {
-                    name: customerName,
-                    email: customerEmail,
-                    contact: customerPhone,
-                },
-                theme: {
-                    color: '#F5A623',
-                },
-            };
+                }).catch(() => {
+                    toast.error('Payment was cancelled.');
+                    setIsProcessing(false);
+                });
+            } else {
+                // ── Razorpay flow ──────────────────────────────────────────────
+                const { data: orderData, error: orderError } = await supabase.functions.invoke(
+                    'razorpay-payment',
+                    {
+                        body: {
+                            action: 'create-order',
+                            coursePurchaseId: purchase.id,
+                            amount: data.course.price,
+                            currency: 'INR',
+                            customerName,
+                            customerEmail,
+                            customerPhone,
+                            hostId: data.instructor.id,
+                        },
+                    }
+                );
 
-            const RazorpayConstructor = window.Razorpay as any;
-            const razorpay = new RazorpayConstructor(options);
-            razorpay.open();
+                if (orderError || !orderData) throw new Error('Failed to create payment order');
+                if (!window.Razorpay) throw new Error('Razorpay not loaded');
+
+                const options = {
+                    key: orderData.keyId,
+                    amount: orderData.amount,
+                    currency: orderData.currency || 'INR',
+                    name: data.instructor.name,
+                    description: `Course: ${data.course.title}`,
+                    order_id: orderData.id,
+                    handler: async (response: any) => {
+                        try {
+                            const { error: verifyError } = await supabase.functions.invoke(
+                                'razorpay-payment',
+                                {
+                                    body: {
+                                        action: 'verify-payment',
+                                        razorpayOrderId: response.razorpay_order_id,
+                                        razorpayPaymentId: response.razorpay_payment_id,
+                                        razorpaySignature: response.razorpay_signature,
+                                    },
+                                }
+                            );
+                            if (verifyError) throw verifyError;
+                            setAccessToken(purchase.access_token);
+                            setPurchaseSuccess(true);
+                            toast.success('Purchase successful!');
+                            supabase.functions.invoke('send-product-notification', {
+                                body: { type: 'course_purchase', id: purchase.id }
+                            }).catch(err => console.error('Notification failed', err));
+                        } catch (err: any) {
+                            toast.error(err.message || 'Payment verification failed');
+                        }
+                        setIsProcessing(false);
+                    },
+                    modal: { ondismiss: () => setIsProcessing(false) },
+                    prefill: { name: customerName, email: customerEmail, contact: customerPhone },
+                    theme: { color: '#F5A623' },
+                };
+
+                const RazorpayConstructor = window.Razorpay as any;
+                const razorpay = new RazorpayConstructor(options);
+                razorpay.open();
+            }
         } catch (error: any) {
             console.error('Purchase error:', error);
             toast.error(error.message || 'Failed to process purchase');

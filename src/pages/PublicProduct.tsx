@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useProductBySlug } from '@/hooks/useDigitalProducts';
-import { useCreateRazorpayOrder, useVerifyRazorpayPayment, useCreateCashfreeOrder, useVerifyCashfreePayment } from '@/hooks/usePayments';
+import { useCreateRazorpayOrder, useVerifyRazorpayPayment, usePublicPaymentInfo } from '@/hooks/usePayments';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,15 +34,20 @@ export default function PublicProductPage() {
     // Payment Hooks
     const createRazorpayOrder = useCreateRazorpayOrder();
     const verifyRazorpayPayment = useVerifyRazorpayPayment();
+    const { data: paymentInfo } = usePublicPaymentInfo(data?.seller?.id);
 
-    // Scripts loading for Payments
+    // Load the correct payment SDK based on host's active gateway
     useEffect(() => {
+        if (!data?.product || data.product.price === 0) return;
+        const src = paymentInfo?.activeGateway === 'cashfree'
+            ? 'https://sdk.cashfree.com/js/v3/cashfree.js'
+            : 'https://checkout.razorpay.com/v1/checkout.js';
         const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.src = src;
         script.async = true;
         document.body.appendChild(script);
         return () => { document.body.removeChild(script); };
-    }, []);
+    }, [data?.product, data?.seller?.id, paymentInfo?.activeGateway]);
 
     const handlePurchase = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -66,108 +71,134 @@ export default function PublicProductPage() {
                     customer_phone: customerPhone,
                     amount: data.product.price,
                     status: 'pending',
-                    payment_provider: 'razorpay' // Defaulting to Razorpay for now
+                    payment_provider: paymentInfo?.activeGateway || 'razorpay'
                 })
                 .select()
                 .single();
 
             if (error || !purchase) throw new Error('Failed to initialize purchase');
 
-            // 2. Create Razorpay Order
-            // Note: We are using the purchase ID as the "bookingId" for the metadata, strictly speaking
-            // the existing hook expects a bookingId string. We'll pass purchase.id.
-            // If the backend enforces FK on booking_id, this might fail unless updated.
-            // Assuming for this implementation that we can reuse the generic payment intent.
-
-            const amountInPaise = Math.round(data.product.price * 100);
-            // Use short ID for receipt (Razorpay has 40 char limit for receipt)
+            const gateway = paymentInfo?.activeGateway || 'razorpay';
             const shortId = purchase.id.slice(-8);
-            const orderResult = await createRazorpayOrder.mutateAsync({
-                bookingId: `temp_prod_${shortId}`, // Short ID to keep receipt under 40 chars
-                amount: amountInPaise,
-                customerName,
-                customerEmail,
-                customerPhone,
-                hostId: data.seller.id,
-            });
 
-            // 3. Open Razorpay
-            const RazorpayCtor = window.Razorpay as unknown as (new (opts: unknown) => { open: () => void });
-            const options = {
-                key: orderResult.keyId,
-                amount: orderResult.amount,
-                currency: orderResult.currency,
-                name: data.product.title,
-                description: 'Digital Product Purchase',
-                // image: data.product.thumbnail_url,
-                order_id: orderResult.orderId,
-                handler: async function (response: unknown) {
-                    try {
-                        const r = response as { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string };
+            const onSuccess = async (paymentId: string, provider: string) => {
+                await supabase
+                    .from('product_purchases')
+                    .update({ status: 'paid', payment_id: paymentId, payment_provider: provider })
+                    .eq('id', purchase.id);
 
-                        // Verify payment on backend
-                        const verifyResult = await verifyRazorpayPayment.mutateAsync({
-                            razorpayOrderId: r.razorpay_order_id || '',
-                            razorpayPaymentId: r.razorpay_payment_id || '',
-                            razorpaySignature: r.razorpay_signature || '',
-                        });
+                setAccessToken(purchase.access_token);
+                setPurchaseSuccess(true);
+                toast.success('Payment successful!');
 
-                        if (verifyResult.verified) {
-                            // Update purchase status to 'paid'
-                            await supabase
-                                .from('product_purchases')
-                                .update({
-                                    status: 'paid',
-                                    payment_id: r.razorpay_payment_id,
-                                    payment_provider: 'razorpay'
-                                })
-                                .eq('id', purchase.id);
-
-                            setAccessToken(purchase.access_token);
-                            setPurchaseSuccess(true);
-                            toast.success('Payment successful!');
-
-                            // Send WhatsApp notification with access link
-                            try {
-                                await supabase.functions.invoke('send-product-notification', {
-                                    body: { type: 'product_purchase', id: purchase.id }
-                                });
-
-                                await sendWhatsAppNotification(
-                                    data.seller.id, // userId (seller)
-                                    'product_purchase',
-                                    customerPhone,
-                                    {
-                                        customerName,
-                                        productTitle: data.product.title,
-                                        amount: data.product.price.toString(),
-                                        accessLink: `${window.location.origin}/view/${purchase.access_token}`
-                                    }
-                                );
-                            } catch (notifError) {
-                                console.error('Failed to send WhatsApp notification:', notifError);
-                                // Don't fail the purchase if notification fails
-                            }
-                        } else {
-                            toast.error('Payment verification failed');
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        toast.error('Payment verification failed');
-                    }
-                    setIsProcessing(false);
-                },
-                prefill: {
-                    name: customerName,
-                    email: customerEmail
-                },
-                theme: {
-                    color: '#000000'
+                try {
+                    await supabase.functions.invoke('send-product-notification', {
+                        body: { type: 'product_purchase', id: purchase.id }
+                    });
+                    await sendWhatsAppNotification(data.seller.id, 'product_purchase', customerPhone, {
+                        customerName,
+                        productTitle: data.product.title,
+                        amount: data.product.price.toString(),
+                        accessLink: `${window.location.origin}/view/${purchase.access_token}`,
+                    });
+                } catch (notifError) {
+                    console.error('Failed to send notification:', notifError);
                 }
             };
 
-            const razorpay = new RazorpayCtor(options);
-            razorpay.open();
+            if (gateway === 'cashfree') {
+                // ── Cashfree flow ──────────────────────────────────────────────
+                const { data: orderData, error: orderError } = await supabase.functions.invoke(
+                    'cashfree-payment',
+                    {
+                        body: {
+                            action: 'create-order',
+                            bookingId: `temp_prod_${shortId}`,
+                            amount: data.product.price,
+                            currency: 'INR',
+                            customerName,
+                            customerEmail,
+                            customerPhone,
+                            returnUrl: window.location.href,
+                            hostId: data.seller.id,
+                        },
+                    }
+                );
+
+                if (orderError || !orderData) throw new Error('Failed to create Cashfree order');
+
+                const cashfreeFactory = window.Cashfree as unknown as (opts: { mode: string }) => {
+                    checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<{ error?: unknown }>;
+                };
+                const cashfree = cashfreeFactory({ mode: paymentInfo?.cashfreeMode || 'sandbox' });
+
+                cashfree.checkout({
+                    paymentSessionId: orderData.paymentSessionId,
+                    redirectTarget: '_modal',
+                }).then(async (result: { error?: unknown }) => {
+                    if (result.error) {
+                        toast.error('Payment failed. Please try again.');
+                        setIsProcessing(false);
+                        return;
+                    }
+                    const { data: verifyData } = await supabase.functions.invoke('cashfree-payment', {
+                        body: { action: 'verify-payment', orderId: orderData.orderId },
+                    });
+                    if (verifyData?.isPaid) {
+                        await onSuccess(orderData.orderId, 'cashfree');
+                    } else {
+                        toast.error('Payment not completed. Please try again.');
+                    }
+                    setIsProcessing(false);
+                }).catch(() => {
+                    toast.error('Payment was cancelled.');
+                    setIsProcessing(false);
+                });
+            } else {
+                // ── Razorpay flow ──────────────────────────────────────────────
+                const orderResult = await createRazorpayOrder.mutateAsync({
+                    bookingId: `temp_prod_${shortId}`,
+                    amount: data.product.price,
+                    customerName,
+                    customerEmail,
+                    customerPhone,
+                    hostId: data.seller.id,
+                });
+
+                const RazorpayCtor = window.Razorpay as unknown as (new (opts: unknown) => { open: () => void });
+                const options = {
+                    key: orderResult.keyId,
+                    amount: orderResult.amount,
+                    currency: orderResult.currency,
+                    name: data.product.title,
+                    description: 'Digital Product Purchase',
+                    order_id: orderResult.id,
+                    handler: async function (response: unknown) {
+                        try {
+                            const r = response as { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string };
+                            const verifyResult = await verifyRazorpayPayment.mutateAsync({
+                                razorpayOrderId: r.razorpay_order_id || '',
+                                razorpayPaymentId: r.razorpay_payment_id || '',
+                                razorpaySignature: r.razorpay_signature || '',
+                            });
+                            if (verifyResult.verified) {
+                                await onSuccess(r.razorpay_payment_id || '', 'razorpay');
+                            } else {
+                                toast.error('Payment verification failed');
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            toast.error('Payment verification failed');
+                        }
+                        setIsProcessing(false);
+                    },
+                    prefill: { name: customerName, email: customerEmail },
+                    theme: { color: '#000000' },
+                };
+
+                const razorpay = new RazorpayCtor(options);
+                razorpay.open();
+            }
 
         } catch (error: any) {
             console.error('Purchase error:', error);

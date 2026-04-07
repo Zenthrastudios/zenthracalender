@@ -7,6 +7,7 @@ export interface PaymentSettings {
     user_id: string;
     razorpay_key_id: string | null;
     razorpay_key_secret: string | null;
+    razorpay_webhook_secret: string | null;
     cashfree_app_id: string | null;
     cashfree_secret_key: string | null;
     is_razorpay_enabled: boolean;

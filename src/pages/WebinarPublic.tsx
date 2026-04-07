@@ -80,7 +80,6 @@ export default function WebinarPublic() {
     };
 
     const handlePayment = async () => {
-        const amountInPaise = Math.round(webinar.price * 100);
         let registrationId: string;
         try {
             const reg = await registerWebinar.mutateAsync({
@@ -96,7 +95,7 @@ export default function WebinarPublic() {
 
         const orderResult = await createRazorpayOrder.mutateAsync({
             webinarRegistrationId: registrationId,
-            amount: amountInPaise,
+            amount: webinar.price,
             customerName: name,
             customerEmail: email,
             hostId: webinar.user_id,
@@ -108,7 +107,7 @@ export default function WebinarPublic() {
             currency: orderResult.currency,
             name: webinar.title,
             description: 'Webinar Registration',
-            order_id: orderResult.orderId,
+            order_id: orderResult.id,
             handler: async function (response: any) {
                 try {
                     const verifyResult = await verifyRazorpayPayment.mutateAsync({

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { useEventTypeBySlug } from '@/hooks/useEventTypes';
 import { useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useAvailability';
 import { useBookingAvailability } from '@/hooks/useAvailabilitySchedules';
@@ -7,7 +8,7 @@ import { useAvailabilityOverridesByUserId } from '@/hooks/useAvailabilityOverrid
 import { useCreateBooking } from '@/hooks/useBookings';
 import { useTestimonials } from '@/hooks/useTestimonials';
 import { sendWhatsAppNotification } from '@/utils/whatsapp';
-import { useCreateRazorpayOrder, useVerifyRazorpayPayment, useCreateCashfreeOrder, useVerifyCashfreePayment } from '@/hooks/usePayments';
+import { useCreateRazorpayOrder, useVerifyRazorpayPayment, useCreateCashfreeOrder, useVerifyCashfreePayment, usePublicPaymentInfo } from '@/hooks/usePayments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -102,6 +103,11 @@ export default function PublicBookingPage() {
   const { data: eventData, isLoading } = useEventTypeBySlug(username, eventSlug);
   const { data: branding } = useBrandingSettings(eventData?.host?.id);
 
+  // Fetch host's active payment gateway via edge function (works on unauthenticated public pages)
+  const { data: publicPaymentInfo } = usePublicPaymentInfo(
+    eventData?.eventType?.is_paid ? eventData?.host?.id : undefined
+  );
+
   // Get schedule_id from event type, or use default schedule
   const scheduleId = eventData?.eventType?.schedule_id || null;
   const { data: availability } = useBookingAvailability(eventData?.host?.id, scheduleId);
@@ -137,7 +143,13 @@ export default function PublicBookingPage() {
     : [];
   const isPaidEvent = !!eventData?.eventType?.is_paid;
   const eventPrice = eventData?.eventType?.price || 0;
-  const paymentProvider = eventData?.eventType?.payment_provider || 'razorpay';
+
+  // Active payment gateway comes from the backend (edge fn). Falls back to the
+  // event-type preference while the fetch is in-flight.
+  const paymentProvider = useMemo(() => {
+    if (publicPaymentInfo) return publicPaymentInfo.activeGateway;
+    return (eventData?.eventType?.payment_provider as 'razorpay' | 'cashfree') || 'razorpay';
+  }, [publicPaymentInfo, eventData?.eventType?.payment_provider]);
 
   const showTestimonials = eventData?.eventType?.show_testimonials ?? true;
   const { data: testimonials } = useTestimonials(eventData?.eventType?.id, { includeHidden: false });
@@ -383,10 +395,9 @@ export default function PublicBookingPage() {
     setIsProcessingPayment(true);
     try {
       const tempBookingId = `temp_${Date.now()}`;
-      const amountInPaise = Math.round(eventPrice * 100);
       const orderResult = await createRazorpayOrder.mutateAsync({
         bookingId: tempBookingId,
-        amount: amountInPaise,
+        amount: eventPrice,
         customerName: attendeeName,
         customerEmail: attendeeEmail,
         hostId: eventData.host.id,
@@ -399,7 +410,7 @@ export default function PublicBookingPage() {
         currency: orderResult.currency,
         name: eventData.eventType.title,
         description: `Booking with ${eventData.eventType.instructor?.name || eventData.host.name}`,
-        order_id: orderResult.orderId,
+        order_id: orderResult.id,
         handler: async function (response: unknown) {
           try {
             const r = response as { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string };
@@ -471,7 +482,7 @@ export default function PublicBookingPage() {
         checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<{ error?: unknown }>;
       };
       const cashfree = cashfreeFactory({
-        mode: 'sandbox', // Change to 'production' for live
+        mode: publicPaymentInfo?.cashfreeMode || 'sandbox',
       });
 
       cashfree.checkout({

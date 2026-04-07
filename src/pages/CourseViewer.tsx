@@ -199,16 +199,16 @@ function CanvasLogic({ videoRef, isPlaying, setSecurityWarning }: { videoRef: an
                 const ctx = (canvas as any)._ctx as CanvasRenderingContext2D;
                 const video = videoRef.current;
 
-                if (!video.paused && !video.ended) {
-                    // Update canvas size if needed (responsive)
-                    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-                        if (video.videoWidth) {
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                        }
+                // Update canvas size if needed (responsive)
+                if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+                    if (video.videoWidth) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
                     }
+                }
 
-                    // Draw frame
+                // Draw frame whenever data is available (playing OR paused) so fullscreen shows current frame
+                if (video.readyState >= 2) {
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 }
             }
@@ -243,6 +243,7 @@ export default function CourseViewer() {
     // Ad Popup State
     const [showAdPopup, setShowAdPopup] = useState(false);
     const [showFullDescription, setShowFullDescription] = useState(false);
+    const [isVideoLoading, setIsVideoLoading] = useState(false);
 
     // Check Mobile - assuming useMediaQuery works or failing gracefully? 
     // If @uidotdev/usehooks is not installed, this will fail.
@@ -268,6 +269,9 @@ export default function CourseViewer() {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const progressUpdateRef = useRef<NodeJS.Timeout | null>(null);
+    const durationLoadedRef = useRef<Set<string>>(new Set());
+    const [lessonThumbnails, setLessonThumbnails] = useState<Record<string, string>>({});
+    const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const currentLesson = lessons[currentLessonIndex];
 
@@ -404,6 +408,48 @@ export default function CourseViewer() {
 
     // ==================== END SECURITY ====================
 
+    // Fullscreen state sync
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            const isFs = !!(
+                document.fullscreenElement ||
+                (document as any).webkitFullscreenElement ||
+                (document as any).msFullscreenElement
+            );
+            setIsFullscreen(isFs);
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+        };
+    }, []);
+
+    // When loading a new lesson: clear canvas then draw its thumbnail (or black)
+    useEffect(() => {
+        if (!isVideoLoading) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Always clear to black first so old frame is gone immediately
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
+
+        const thumbnailUrl = currentLesson?.id ? lessonThumbnails[currentLesson.id] : null;
+        if (thumbnailUrl) {
+            const img = new Image();
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, canvas.width || 1280, canvas.height || 720);
+            };
+            img.src = thumbnailUrl;
+        }
+    }, [isVideoLoading, currentLesson?.id, lessonThumbnails]);
+
     // Load course data
     useEffect(() => {
         async function loadCourse() {
@@ -506,6 +552,67 @@ export default function CourseViewer() {
         loadCourse();
     }, [accessToken]);
 
+    // Sync currentLessonIndex from URL on initial deep-link load
+    useEffect(() => {
+        if (lessons.length === 0) return;
+        const lessonId = searchParams.get('lessonId');
+        if (!lessonId) return;
+        const index = lessons.findIndex(l => l.id === lessonId);
+        if (index !== -1 && index !== currentLessonIndex) {
+            setCurrentLessonIndex(index);
+            setCurrentTime(0);
+            setDuration(0);
+        }
+    }, [lessons.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Preload duration + first-frame thumbnail for every lesson
+    useEffect(() => {
+        if (lessons.length === 0) return;
+        lessons.forEach(lesson => {
+            if (!lesson.video_url || durationLoadedRef.current.has(lesson.id)) return;
+            durationLoadedRef.current.add(lesson.id);
+
+            const vid = document.createElement('video');
+            vid.preload = 'metadata';
+            vid.crossOrigin = 'anonymous';
+            vid.muted = true;
+            vid.src = lesson.video_url;
+
+            vid.onloadedmetadata = () => {
+                // Fill in missing duration
+                if (!lesson.video_duration || lesson.video_duration === 0) {
+                    const dur = Math.floor(vid.duration);
+                    if (dur > 0) {
+                        setLessons(prev => prev.map(l => l.id === lesson.id ? { ...l, video_duration: dur } : l));
+                    }
+                }
+                // Seek to first frame for thumbnail
+                vid.currentTime = 0.1;
+            };
+
+            vid.onseeked = () => {
+                try {
+                    const tc = document.createElement('canvas');
+                    tc.width = 320;
+                    tc.height = 180;
+                    const ctx = tc.getContext('2d');
+                    if (ctx) {
+                        ctx.drawImage(vid, 0, 0, 320, 180);
+                        const dataUrl = tc.toDataURL('image/jpeg', 0.7);
+                        if (dataUrl && dataUrl !== 'data:,') {
+                            setLessonThumbnails(prev => ({ ...prev, [lesson.id]: dataUrl }));
+                        }
+                    }
+                } catch (_e) {
+                    // CORS or canvas security error — thumbnail unavailable
+                }
+                vid.src = '';
+            };
+
+            vid.onerror = () => { vid.src = ''; };
+        });
+    }, [lessons.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Log lesson view analytics
     useEffect(() => {
         if (purchase && currentLesson) {
@@ -566,6 +673,7 @@ export default function CourseViewer() {
         if (videoRef.current) {
             const vidDuration = videoRef.current.duration;
             setDuration(vidDuration);
+            setIsVideoLoading(false);
 
             if (currentLesson && (currentLesson.video_duration === 0 || !currentLesson.video_duration)) {
                 setLessons(prev => prev.map(l =>
@@ -598,8 +706,12 @@ export default function CourseViewer() {
                 });
             }
 
+            // Actually switch the lesson
+            setCurrentLessonIndex(index);
             setIsPlaying(false);
             setCurrentTime(0);
+            setDuration(0);
+            setIsVideoLoading(true);
         }
     }, [lessons, purchase, currentLesson, updateProgress, setSearchParams]);
 
@@ -700,7 +812,16 @@ export default function CourseViewer() {
                 } else if ((container as any).msRequestFullscreen) {
                     (container as any).msRequestFullscreen();
                 } else if (videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
-                    (videoRef.current as any).webkitEnterFullscreen();
+                    // iOS native fullscreen: temporarily show video element
+                    const vid = videoRef.current;
+                    vid.classList.remove('hidden');
+                    const onEndFs = () => {
+                        vid.classList.add('hidden');
+                        setIsFullscreen(false);
+                        vid.removeEventListener('webkitendfullscreen', onEndFs);
+                    };
+                    vid.addEventListener('webkitendfullscreen', onEndFs);
+                    (vid as any).webkitEnterFullscreen();
                 }
             } catch (err) {
                 console.error("Fullscreen error:", err);
@@ -901,7 +1022,7 @@ export default function CourseViewer() {
                                         {/* CANVAS RENDERER (The Visible "Screen") */}
                                         <canvas
                                             ref={(ref) => {
-                                                // Assign refs
+                                                (canvasRef as any).current = ref;
                                                 if (ref) {
                                                     const ctx = ref.getContext('2d', { alpha: false });
                                                     // @ts-ignore
@@ -914,6 +1035,7 @@ export default function CourseViewer() {
                                                 togglePlay();
                                             }}
                                         />
+
                                     </div>
 
                                     {/* RENDER LOOP & EXTENSION DETECTION */}
@@ -1309,9 +1431,13 @@ export default function CourseViewer() {
                                                     )}
                                                 >
                                                     <div className="relative w-28 aspect-video bg-zinc-900 rounded-lg overflow-hidden flex-shrink-0 border border-white/5">
-                                                        <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
-                                                            <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
-                                                        </div>
+                                                        {lessonThumbnails[lesson.id] ? (
+                                                            <img src={lessonThumbnails[lesson.id]} className="absolute inset-0 w-full h-full object-cover" alt="" draggable={false} />
+                                                        ) : (
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
+                                                                <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
+                                                            </div>
+                                                        )}
                                                         {isCurrent && (
                                                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                                                                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
@@ -1385,9 +1511,13 @@ export default function CourseViewer() {
                                             )}
                                         >
                                             <div className="relative w-32 aspect-video bg-zinc-900 rounded overflow-hidden flex-shrink-0 border border-white/5 group-hover:border-white/10 transition-colors">
-                                                <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
-                                                    <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
-                                                </div>
+                                                {lessonThumbnails[lesson.id] ? (
+                                                    <img src={lessonThumbnails[lesson.id]} className="absolute inset-0 w-full h-full object-cover" alt="" draggable={false} />
+                                                ) : (
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
+                                                        <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
+                                                    </div>
+                                                )}
                                                 {lessonProgress && !isCompleted && lessonProgress.progress_seconds > 0 && (
                                                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-zinc-800">
                                                         <div

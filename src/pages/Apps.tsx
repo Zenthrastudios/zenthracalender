@@ -439,9 +439,12 @@ function RazorpayConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const { data: settings } = usePaymentSettings();
   const updateSettings = useUpdatePaymentSettings();
 
+  const webhookUrl = 'https://zlhbzlxxdezlrtzljpni.supabase.co/functions/v1/razorpay-payment';
+
   const [formData, setFormData] = useState({
     razorpay_key_id: '',
     razorpay_key_secret: '',
+    razorpay_webhook_secret: '',
     is_razorpay_enabled: true
   });
 
@@ -450,6 +453,7 @@ function RazorpayConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
       setFormData({
         razorpay_key_id: settings.razorpay_key_id || '',
         razorpay_key_secret: settings.razorpay_key_secret || '',
+        razorpay_webhook_secret: settings.razorpay_webhook_secret || '',
         is_razorpay_enabled: settings.is_razorpay_enabled ?? true
       });
     }
@@ -506,6 +510,36 @@ function RazorpayConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="rzp_webhook_secret">Webhook Secret</Label>
+              <Input
+                id="rzp_webhook_secret"
+                type="password"
+                placeholder="Set this in your Razorpay dashboard"
+                value={formData.razorpay_webhook_secret}
+                onChange={e => setFormData(prev => ({ ...prev, razorpay_webhook_secret: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg space-y-2 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-blue-600 shrink-0" />
+              <Label className="text-sm font-semibold text-blue-700 dark:text-blue-400">Webhook URL</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">Add this URL in your Razorpay Dashboard → Webhooks. Enable <strong>payment.captured</strong> and <strong>payment.failed</strong> events.</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs bg-background rounded px-2 py-1.5 border border-border break-all">{webhookUrl}</code>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success('Webhook URL copied!'); }}
+              >
+                <Copy className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
@@ -535,6 +569,8 @@ function RazorpayConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
 function CashfreeConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { data: settings } = usePaymentSettings();
   const updateSettings = useUpdatePaymentSettings();
+
+  const webhookUrl = 'https://zlhbzlxxdezlrtzljpni.supabase.co/functions/v1/cashfree-payment';
 
   const [formData, setFormData] = useState({
     cashfree_app_id: '',
@@ -602,6 +638,26 @@ function CashfreeConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
                 onChange={e => setFormData(prev => ({ ...prev, cashfree_secret_key: e.target.value }))}
                 required
               />
+            </div>
+          </div>
+
+          <div className="p-4 bg-cyan-50 dark:bg-cyan-950/30 rounded-lg space-y-2 border border-cyan-200 dark:border-cyan-800">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-cyan-600 shrink-0" />
+              <Label className="text-sm font-semibold text-cyan-700 dark:text-cyan-400">Webhook URL</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">Add this URL in your Cashfree Dashboard → Webhooks. Enable <strong>PAYMENT_SUCCESS</strong> and <strong>PAYMENT_FAILED</strong> events.</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs bg-background rounded px-2 py-1.5 border border-border break-all">{webhookUrl}</code>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success('Webhook URL copied!'); }}
+              >
+                <Copy className="w-3 h-3" />
+              </Button>
             </div>
           </div>
 
