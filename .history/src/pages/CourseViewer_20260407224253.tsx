@@ -1254,10 +1254,11 @@ export default function CourseViewer() {
                                                 onLoadStart={() => setIsVideoLoading(true)}
                                                 onLoadedData={() => setIsVideoLoading(false)}
                                                 onWaiting={() => setIsVideoLoading(true)}
-                                                onCanPlay={() => setIsVideoLoading(false)}
+                                                onCanPlay={() => setIsVideoLoading(false)}}
                                                 controlsList="nodownload noremoteplayback"
                                                 disablePictureInPicture
                                                 preload="metadata"
+                                                playsInline
                                                 autoPlay={false}
                                                 muted={isMuted}
                                                 // Simplified iOS attributes to reduce lag

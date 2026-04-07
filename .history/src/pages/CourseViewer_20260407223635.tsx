@@ -828,25 +828,45 @@ export default function CourseViewer() {
         if (videoRef.current) {
             const vidDuration = videoRef.current.duration;
             
-            // Simple duration handling - no complex iOS retries to reduce lag
-            if (vidDuration && !isNaN(vidDuration) && vidDuration > 0) {
-                setDuration(vidDuration);
-                
-                // Update lesson duration if not set
-                if (currentLesson && (currentLesson.video_duration === 0 || !currentLesson.video_duration)) {
-                    setLessons(prev => prev.map(l =>
-                        l.id === currentLesson.id ? { ...l, video_duration: Math.floor(vidDuration) } : l
-                    ));
-                }
+            // iOS sometimes reports NaN or 0 initially, retry if needed
+            if (isIOS && (!vidDuration || isNaN(vidDuration) || vidDuration === 0)) {
+                console.log('iOS: Invalid duration, retrying metadata load');
+                setIsVideoLoading(false); // Clear loading even if duration unknown
+                setTimeout(() => {
+                    if (videoRef.current) {
+                        const retryDuration = videoRef.current.duration;
+                        if (retryDuration && !isNaN(retryDuration) && retryDuration > 0) {
+                            setDuration(retryDuration);
+                            console.log('iOS: Duration loaded on retry:', retryDuration);
+                        }
+                    }
+                }, 500);
+                return;
+            }
+            
+            setDuration(vidDuration);
+            setIsVideoLoading(false);
+            console.log('Video metadata loaded, duration:', vidDuration);
 
-                // Resume from progress - simple approach for all devices
-                const lessonProgress = progress.find((p) => p.lesson_id === currentLesson?.id);
-                if (lessonProgress && lessonProgress.progress_seconds > 0) {
+            if (currentLesson && (currentLesson.video_duration === 0 || !currentLesson.video_duration)) {
+                setLessons(prev => prev.map(l =>
+                    l.id === currentLesson.id ? { ...l, video_duration: Math.floor(vidDuration) } : l
+                ));
+            }
+
+            const lessonProgress = progress.find((p) => p.lesson_id === currentLesson?.id);
+            if (lessonProgress && lessonProgress.progress_seconds > 0) {
+                // iOS: Set currentTime after a brief delay to ensure video is ready
+                if (isIOS) {
+                    setTimeout(() => {
+                        if (videoRef.current) {
+                            videoRef.current.currentTime = lessonProgress.progress_seconds;
+                        }
+                    }, 100);
+                } else {
                     videoRef.current.currentTime = lessonProgress.progress_seconds;
                 }
             }
-            
-            setIsVideoLoading(false);
         }
     }, [currentLesson?.id, progress, setLessons, currentLesson]);
 
@@ -1210,10 +1230,15 @@ export default function CourseViewer() {
                                 "flex-shrink-0 bg-black relative w-full group",
                                 "aspect-video lg:w-full lg:max-h-[80vh] lg:aspect-video mx-auto"
                             )}
-                            // Show controls on any touch/mouse interaction with video area
+                            // Show controls on any touch/click of the video area
                             onMouseMove={showControlsTemporarily}
                             onTouchStart={showControlsTemporarily}
-                            onClick={showControlsTemporarily}
+                            onClick={(e) => {
+                                // Only show controls if clicking on container, not video
+                                if (e.target === e.currentTarget) {
+                                    showControlsTemporarily();
+                                }
+                            }}
                         >
                             {(currentLesson?.video_url) ? (
                                 <>
@@ -1258,21 +1283,22 @@ export default function CourseViewer() {
                                                 controlsList="nodownload noremoteplayback"
                                                 disablePictureInPicture
                                                 preload="metadata"
+                                                playsInline
                                                 autoPlay={false}
                                                 muted={isMuted}
-                                                // Simplified iOS attributes to reduce lag
-                                                playsInline
+                                                // Simplified iOS attributes
                                                 {...(isIOS ? {
-                                                    'webkit-playsinline': 'true'
+                                                    'webkit-playsinline': 'true',
+                                                    'playsinline': 'true'
                                                 } : {})}
-                                                // Single tap shows controls, double tap plays/pauses
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    showControlsTemporarily();
-                                                }}
+                                                // Double-click to play/pause, single click shows controls
                                                 onDoubleClick={(e) => {
                                                     e.stopPropagation();
                                                     togglePlay();
+                                                }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    showControlsTemporarily();
                                                 }}
                                             />
                                         ) : (
