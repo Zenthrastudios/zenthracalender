@@ -475,47 +475,27 @@ export default function CourseViewer() {
         }
     }, [currentLessonIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Clear canvas when switching lessons and handle thumbnail display
+    // When loading a new lesson: clear canvas then draw its thumbnail (or black)
     useEffect(() => {
+        if (!isVideoLoading) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Always clear to black first to remove any previous frame
+        // Always clear to black first so old frame is gone immediately
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
 
-        // If we have a thumbnail for the current lesson, draw it
         const thumbnailUrl = currentLesson?.id ? lessonThumbnails[currentLesson.id] : null;
-        if (thumbnailUrl && isVideoLoading) {
+        if (thumbnailUrl) {
             const img = new Image();
             img.onload = () => {
-                // Clear again and draw thumbnail
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
                 ctx.drawImage(img, 0, 0, canvas.width || 1280, canvas.height || 720);
-            };
-            img.onerror = () => {
-                // If thumbnail fails to load, keep it black
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
             };
             img.src = thumbnailUrl;
         }
-    }, [currentLesson?.id, isVideoLoading, lessonThumbnails]);
-
-    // Additional canvas clearing when lesson changes (immediate clear)
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        // Immediately clear canvas when lesson changes to prevent frame sticking
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
-    }, [currentLessonIndex]);
+    }, [isVideoLoading, currentLesson?.id, lessonThumbnails]);
 
     // Load course data
     useEffect(() => {
@@ -844,31 +824,6 @@ export default function CourseViewer() {
                 }
             }
 
-            // Immediately clear canvas to prevent frame sticking
-            const canvas = canvasRef.current;
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.fillStyle = '#000';
-                    ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
-                }
-            }
-
-            // Explicitly pause and clear video before switching
-            if (videoRef.current) {
-                videoRef.current.pause();
-                videoRef.current.currentTime = 0;
-                // Force a brief black screen
-                if (!isMobile) {
-                    videoRef.current.style.opacity = '0';
-                    setTimeout(() => {
-                        if (videoRef.current) {
-                            videoRef.current.style.opacity = '1';
-                        }
-                    }, 100);
-                }
-            }
-
             const nextLesson = lessons[index];
             if (nextLesson) {
                 setSearchParams(prev => {
@@ -877,16 +832,20 @@ export default function CourseViewer() {
                 });
             }
 
-            // Reset all video states immediately
+            // Explicitly pause before switching — on iOS the audio can continue
+            // briefly after src changes if pause() is not called imperatively
+            if (videoRef.current) {
+                videoRef.current.pause();
+            }
+
+            // Actually switch the lesson
+            setCurrentLessonIndex(index);
             setIsPlaying(false);
             setCurrentTime(0);
             setDuration(0);
             setIsVideoLoading(true);
-            
-            // Switch the lesson index last to trigger proper re-renders
-            setCurrentLessonIndex(index);
         }
-    }, [lessons, purchase, currentLesson, updateProgress, setSearchParams, isMobile]);
+    }, [lessons, purchase, currentLesson, updateProgress, setSearchParams]);
 
     const handleVideoEnd = useCallback(async () => {
         setIsPlaying(false);
