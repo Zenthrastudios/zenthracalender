@@ -1274,11 +1274,11 @@ export default function CourseViewer() {
                                                 onLoadedMetadata={handleLoadedMetadata}
                                                 onEnded={handleVideoEnd}
                                                 onPlay={() => {
-                                                    console.log('Video play event - setting isPlaying to true');
+                                                    console.log('Video play event');
                                                     setIsPlaying(true);
                                                 }}
                                                 onPause={() => {
-                                                    console.log('Video pause event - setting isPlaying to false');
+                                                    console.log('Video pause event');
                                                     setIsPlaying(false);
                                                 }}
                                                 onError={(e) => {
@@ -1295,23 +1295,23 @@ export default function CourseViewer() {
                                                     setIsVideoLoading(false);
                                                 }}
                                                 onLoadStart={() => {
-                                                    console.log('Video loadstart - setting loading true');
+                                                    console.log('Video loadstart');
                                                     setIsVideoLoading(true);
                                                 }}
                                                 onLoadedData={() => {
-                                                    console.log('Video loadeddata - setting loading false');
+                                                    console.log('Video loadeddata');
                                                     setIsVideoLoading(false);
                                                 }}
                                                 onWaiting={() => {
-                                                    console.log('Video waiting - setting loading true');
+                                                    console.log('Video waiting');
                                                     setIsVideoLoading(true);
                                                 }}
                                                 onCanPlay={() => {
-                                                    console.log('Video canplay - setting loading false');
+                                                    console.log('Video canplay');
                                                     setIsVideoLoading(false);
                                                 }}
                                                 onCanPlayThrough={() => {
-                                                    console.log('Video canplaythrough - setting loading false');
+                                                    console.log('Video canplaythrough');
                                                     setIsVideoLoading(false);
                                                 }}
                                                 controlsList="nodownload noremoteplayback"
@@ -1320,27 +1320,14 @@ export default function CourseViewer() {
                                                 playsInline
                                                 autoPlay={false}
                                                 muted={isMuted}
-                                                // iOS-specific attributes for better compatibility
+                                                // iOS-specific attributes
                                                 {...(isIOS ? {
                                                     'webkit-playsinline': 'true',
-                                                    'playsinline': 'true',
                                                     'x5-playsinline': 'true',
-                                                    'x5-video-player-type': 'h5-page',
-                                                    'x5-video-player-fullscreen': 'false'
+                                                    'x5-video-player-type': 'h5',
+                                                    'x5-video-player-fullscreen': 'true'
                                                 } : {})}
-                                                // Multiple event handlers for iOS compatibility
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    console.log('Video onClick event fired');
-                                                    togglePlay();
-                                                }}
-                                                onTouchEnd={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    console.log('Video onTouchEnd event fired');
-                                                    togglePlay();
-                                                }}
+                                                onClick={togglePlay}
                                             />
                                         ) : (
                                             /* ── DESKTOP: hidden video + canvas (DRM protection) ── */
