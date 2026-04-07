@@ -63,6 +63,9 @@ import Checkout from './pages/Checkout';
 import Onboarding from './pages/Onboarding';
 import Customers from './pages/Customers';
 import SupportTickets from './pages/SupportTickets';
+import ContactUs from './pages/ContactUs';
+import TermsAndConditions from './pages/TermsAndConditions';
+import RefundPolicy from './pages/RefundPolicy';
 
 const queryClient = new QueryClient();
 
@@ -227,6 +230,9 @@ function AppRoutes() {
       <Route path="/creators" element={<Creators />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/checkout" element={<Checkout />} />
+      <Route path="/contact-us" element={<ContactUs />} />
+      <Route path="/terms-conditions" element={<TermsAndConditions />} />
+      <Route path="/refund-policy" element={<RefundPolicy />} />
 
       <Route path="/enterprise/*" element={
         <SuperAdminRoute>
