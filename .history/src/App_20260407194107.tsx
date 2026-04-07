@@ -8,7 +8,6 @@ import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
-import { useCourseCustomer } from "@/hooks/useCourseCustomer";
 import { Capacitor } from "@capacitor/core";
 import { App as AppPlugin } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
@@ -74,9 +73,8 @@ const queryClient = new QueryClient();
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const { role, isLoading: roleLoading } = useRole();
-  const { hasPurchases, isLoading: purchaseLoading } = useCourseCustomer();
 
-  if (isLoading || roleLoading || purchaseLoading) {
+  if (isLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -88,12 +86,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Course customers (guests with purchases) get redirected to guest dashboard
-  if (role === 'guest' && hasPurchases && window.location.pathname !== '/onboarding') {
-    return <Navigate to="/guest" replace />;
-  }
-
-  // Regular guests get redirected to guest dashboard, UNLESS they are trying to access onboarding
+  // Guests get redirected to guest dashboard, UNLESS they are trying to access onboarding
   if (role === 'guest' && window.location.pathname !== '/onboarding') {
     return <Navigate to="/guest" replace />;
   }

@@ -306,11 +306,11 @@ export default function CourseViewer() {
         const preventScreenshotKeys = (e: KeyboardEvent) => {
             // Enhanced Game Bar Detection - Multiple patterns for Windows + G
             const isGameBarKey = 
-                (e.metaKey && (e.key === 'g' || e.key === 'G')) || // Win + G (primary detection)
-                (e.metaKey && e.code === 'KeyG') || // Win + G (code-based detection)
+                (e.metaKey && (e.key === 'g' || e.key === 'G')) || // Win + G
+                (e.key === 'Meta' && e.code === 'KeyG') || // Alternative detection
+                (e.keyCode === 91 && e.shiftKey && e.keyCode === 71) || // Legacy detection
                 (e.metaKey && e.altKey && (e.key === 'r' || e.key === 'R')) || // Win + Alt + R (Game Bar Record)
-                (e.metaKey && e.altKey && (e.key === 'g' || e.key === 'G')) || // Win + Alt + G (Game Bar Screenshot)
-                (e.keyCode === 71 && e.metaKey); // Legacy Win + G detection
+                (e.metaKey && e.altKey && (e.key === 'g' || e.key === 'G')); // Win + Alt + G (Game Bar Screenshot)
 
             const isRestrictedKey =
                 (e.key === 'PrintScreen' || e.code === 'PrintScreen' || e.keyCode === 44) ||

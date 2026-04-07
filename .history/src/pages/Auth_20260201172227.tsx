@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { checkEmailForCoursePurchases } from '@/hooks/useCourseCustomer';
 
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
@@ -55,23 +54,13 @@ export default function AuthPage() {
         toast.success(activeTab === 'login' ? 'Welcome back!' : 'Account created successfully!');
 
         // Handle post-auth navigation
-        if (activeTab === 'signup') {
-          // Check if this user has course purchases
-          const hasPurchases = await checkEmailForCoursePurchases(email);
-          
-          if (hasPurchases) {
-            // Course customers go directly to guest dashboard
-            navigate('/guest');
-          } else if (initialUsername || forceSignup) {
-            // New creators go to onboarding
-            navigate('/onboarding');
-          } else {
-            // Regular users let the AuthProvider/App.tsx handle redirection
-            // If we don't navigate here, the App.tsx 'user' state change will trigger a re-render
-            // and the ProtectedRoute/GuestRoute logic will take over.
-          }
+        if (activeTab === 'signup' && (initialUsername || forceSignup)) {
+          // New creators go to onboarding
+          navigate('/onboarding');
         } else {
-          // Login - let the system handle redirection based on role
+          // Others let the AuthProvider/App.tsx handle redirection or default behavior
+          // If we don't navigate here, the App.tsx 'user' state change will trigger a re-render
+          // and the ProtectedRoute/GuestRoute logic will take over.
         }
       }
     } catch (error: any) {
