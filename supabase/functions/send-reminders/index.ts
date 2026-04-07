@@ -101,7 +101,6 @@ const handler = async (req: Request): Promise<Response> => {
                         timezone: booking.attendee_timezone,
                         meetingLink: booking.meet_link,
                         notes: booking.notes,
-                        siteUrl: PUBLIC_SITE_URL,
                         hostId: booking.host_id,
                         branding: branding ? {
                             brandName: branding.brand_name,

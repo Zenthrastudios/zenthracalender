@@ -59,6 +59,10 @@ export default function Instructors() {
   const [specialization, setSpecialization] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [phone, setPhone] = useState('');
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [twitterUrl, setTwitterUrl] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [editIsActive, setEditIsActive] = useState(true);
   const [addAvatarFile, setAddAvatarFile] = useState<File | null>(null);
   const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null);
@@ -73,6 +77,10 @@ export default function Instructors() {
     setBio('');
     setSpecialization('');
     setPhone('');
+    setInstagramUrl('');
+    setLinkedinUrl('');
+    setTwitterUrl('');
+    setWebsiteUrl('');
     setAvatarUrl('');
     setEditIsActive(true);
     setAddAvatarFile(null);
@@ -109,6 +117,10 @@ export default function Instructors() {
     setSpecialization(instructor.specialization || '');
     setAvatarUrl(instructor.avatar_url || '');
     setPhone(instructor.phone || '');
+    setInstagramUrl(instructor.instagram_url || '');
+    setLinkedinUrl(instructor.linkedin_url || '');
+    setTwitterUrl(instructor.twitter_url || '');
+    setWebsiteUrl(instructor.website_url || '');
     setEditIsActive(instructor.is_active);
     setEditAvatarFile(null);
     setIsEditOpen(true);
@@ -135,6 +147,10 @@ export default function Instructors() {
         bio: bio || null,
         specialization: specialization || null,
         phone: phone || null,
+        instagram_url: instagramUrl || null,
+        linkedin_url: linkedinUrl || null,
+        twitter_url: twitterUrl || null,
+        website_url: websiteUrl || null,
         avatar_url: finalAvatarUrl,
         is_active: editIsActive,
       });
@@ -347,6 +363,24 @@ export default function Instructors() {
                     rows={3}
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="instagram">Instagram URL</Label>
+                    <Input id="instagram" placeholder="https://instagram.com/..." value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="linkedin">LinkedIn URL</Label>
+                    <Input id="linkedin" placeholder="https://linkedin.com/in/..." value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="twitter">Twitter URL</Label>
+                    <Input id="twitter" placeholder="https://twitter.com/..." value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Website</Label>
+                    <Input id="website" placeholder="https://..." value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => { resetForm(); setIsAddOpen(false); }}>
@@ -551,6 +585,25 @@ export default function Instructors() {
               <div className="space-y-2">
                 <Label htmlFor="edit-bio">Bio (Optional)</Label>
                 <Textarea id="edit-bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={3} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-instagram">Instagram URL</Label>
+                  <Input id="edit-instagram" value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-linkedin">LinkedIn URL</Label>
+                  <Input id="edit-linkedin" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-twitter">Twitter URL</Label>
+                  <Input id="edit-twitter" value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-website">Website</Label>
+                  <Input id="edit-website" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+                </div>
               </div>
 
               <div className="flex items-center justify-between">

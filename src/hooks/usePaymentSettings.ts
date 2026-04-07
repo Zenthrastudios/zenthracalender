@@ -10,6 +10,7 @@ export interface PaymentSettings {
     razorpay_webhook_secret: string | null;
     cashfree_app_id: string | null;
     cashfree_secret_key: string | null;
+    cashfree_mode: 'sandbox' | 'production' | null;
     is_razorpay_enabled: boolean;
     is_cashfree_enabled: boolean;
     created_at: string;

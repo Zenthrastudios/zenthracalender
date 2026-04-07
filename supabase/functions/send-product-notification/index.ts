@@ -1,9 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// @ts-ignore
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+// @ts-ignore
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+// @ts-ignore
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// @ts-ignore
 const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL") || "https://zenthracalendar.com";
 
 const corsHeaders = {
@@ -94,7 +98,7 @@ const wrapEmail = (opts: {
       </div>
 
       <div class="footer">
-        Powered by Zenthra Calendar
+        Powered by ${escapeHtml(brand)} • <a href="${opts.actionLink || '#'}" style="color: ${accent}; text-decoration: none;">${brand}</a>
       </div>
     </div>
   </body>
@@ -133,6 +137,34 @@ async function sendEmail(to: string, subject: string, html: string, fromName = "
     }
 }
 
+// --- Helper: Send WhatsApp via send-whatsapp-message edge function ---
+
+async function sendWhatsAppAlert(payload: {
+    type: string;
+    recipient_phone: string;
+    booking: any;
+    settings: any;
+}) {
+    try {
+        console.log(`Triggering WhatsApp (${payload.type}) for ${payload.recipient_phone}`);
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/send-whatsapp-message`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            const error = await res.text();
+            console.error("WhatsApp trigger failed:", error);
+        }
+    } catch (e) {
+        console.error("WhatsApp trigger error:", e);
+    }
+}
+
 // --- Main Handler ---
 
 interface NotificationRequest {
@@ -140,7 +172,8 @@ interface NotificationRequest {
     id: string;
 }
 
-serve(async (req) => {
+// @ts-ignore
+serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
     try {
@@ -158,11 +191,30 @@ serve(async (req) => {
 
             if (error || !purchase) throw new Error("Purchase not found");
             const product = purchase.digital_products;
-            const { data: seller } = await supabase.from('profiles').select('email, name').eq('user_id', product.user_id).single();
+            
+            // Get Branding Settings
+            const { data: branding } = await supabase
+                .from('branding_settings')
+                .select('site_url, brand_name, brand_logo_url, brand_color, is_enabled')
+                .eq('user_id', product.user_id)
+                .maybeSingle();
+
+            const baseUrl = branding?.site_url || PUBLIC_SITE_URL;
+            const { data: seller } = await supabase.from('profiles').select('email, name, phone').eq('user_id', product.user_id).single();
+            
+            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (seller?.name || "Zenthra Notifications");
+            const emailFromName = branding?.is_enabled ? branding.brand_name : "Zenthra Notifications";
+
+            // WhatsApp Settings
+            const { data: waSettings } = await supabase
+                .from('whatsapp_settings')
+                .select('*')
+                .eq('user_id', product.user_id)
+                .maybeSingle();
 
             const amount = purchase.amount;
             const currency = purchase.currency || 'USD';
-            const accessLink = purchase.access_link || `${PUBLIC_SITE_URL}/view/${purchase.access_token}`;
+            const accessLink = purchase.access_link || `${baseUrl}/view/${purchase.access_token}`;
 
             // Email to Customer
             await sendEmail(
@@ -172,7 +224,7 @@ serve(async (req) => {
                     title: "Order Confirmed!",
                     subtitle: `Thank you for purchasing <b>${escapeHtml(product.title)}</b>.`,
                     heroImage: product.thumbnail_url || product.cover_image_url,
-                    brandName: seller?.name,
+                    brandName: brandName,
                     actionLink: accessLink,
                     actionText: "Access Content",
                     bodyHtml: `
@@ -191,7 +243,7 @@ serve(async (req) => {
                         </div>
                     `
                 }),
-                seller?.name
+                emailFromName
             );
 
             // Email to Seller (simplified)
@@ -202,7 +254,7 @@ serve(async (req) => {
                     wrapEmail({
                         title: "New Sale! 🎉",
                         subtitle: `You just sold a copy of <b>${escapeHtml(product.title)}</b>.`,
-                        brandName: "Zenthra",
+                        brandName: brandName,
                         bodyHtml: `
                             <div class="divider"></div>
                              <div class="info-row">
@@ -214,8 +266,31 @@ serve(async (req) => {
                                 <span class="info-value">${amount} ${currency.toUpperCase()}</span>
                             </div>
                         `
-                    })
+                    }),
+                    emailFromName
                 );
+            }
+
+            // WhatsApp Notifications for Product
+            if (waSettings?.is_enabled && waSettings?.api_key) {
+                // To Customer
+                if (purchase.customer_phone) {
+                    await sendWhatsAppAlert({
+                        type: "product_purchase",
+                        recipient_phone: purchase.customer_phone,
+                        booking: { ...purchase, product, instructor_name: brandName },
+                        settings: waSettings
+                    });
+                }
+                // To Instructor/Seller
+                if (seller?.phone) {
+                    await sendWhatsAppAlert({
+                        type: "product_purchase_instructor",
+                        recipient_phone: seller.phone,
+                        booking: { ...purchase, product, instructor_name: brandName },
+                        settings: waSettings
+                    });
+                }
             }
 
         } else if (type === 'course_purchase') {
@@ -227,11 +302,30 @@ serve(async (req) => {
 
             if (error || !purchase) throw new Error("Course purchase not found");
             const course = purchase.courses;
-            const { data: instructor } = await supabase.from('profiles').select('email, name').eq('user_id', course.user_id).single();
+            
+            // Get Branding Settings
+            const { data: branding } = await supabase
+                .from('branding_settings')
+                .select('site_url, brand_name, brand_logo_url, brand_color, is_enabled')
+                .eq('user_id', course.user_id)
+                .maybeSingle();
+
+            const baseUrl = branding?.site_url || PUBLIC_SITE_URL;
+            const { data: instructor } = await supabase.from('profiles').select('email, name, phone').eq('user_id', course.user_id).single();
+
+            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (instructor?.name || "Zenthra Notifications");
+            const emailFromName = branding?.is_enabled ? branding.brand_name : "Zenthra Notifications";
+
+            // WhatsApp Settings
+            const { data: waSettings } = await supabase
+                .from('whatsapp_settings')
+                .select('*')
+                .eq('user_id', course.user_id)
+                .maybeSingle();
 
             const courseUrl = purchase.access_token
-                ? `${PUBLIC_SITE_URL}/course/${purchase.access_token}`
-                : `${PUBLIC_SITE_URL}/courses/${course.slug}`;
+                ? `${baseUrl}/course/${purchase.access_token}`
+                : `${baseUrl}/courses/${course.slug}`;
 
             // Email to Student
             await sendEmail(
@@ -241,14 +335,14 @@ serve(async (req) => {
                     title: "Welcome Aboard!",
                     subtitle: `You're now enrolled in <b>${escapeHtml(course.title)}</b>. We're excited to have you!`,
                     heroImage: course.thumbnail_url || course.cover_image_url,
-                    brandName: instructor?.name,
+                    brandName: brandName,
                     actionLink: courseUrl,
                     actionText: "Start Learning",
                     bodyHtml: `
                         <p style="color:#6b7280; line-height:1.6;">Access your course materials, lessons, and resources anytime from your dashboard.</p>
                     `
                 }),
-                instructor?.name
+                emailFromName
             );
 
             // Email to Instructor
@@ -258,12 +352,35 @@ serve(async (req) => {
                     `New Student: ${course.title}`,
                     wrapEmail({
                         title: "New Student Enrolled 🎓",
-                        brandName: "Zenthra",
+                        brandName: brandName,
                         bodyHtml: `
                            <p><b>${escapeHtml(purchase.customer_name)}</b> has joined your course.</p>
                         `
-                    })
+                    }),
+                    emailFromName
                 );
+            }
+
+            // WhatsApp Notifications for Course
+            if (waSettings?.is_enabled && waSettings?.api_key) {
+                // To Student
+                if (purchase.customer_phone) {
+                    await sendWhatsAppAlert({
+                        type: "course_purchase",
+                        recipient_phone: purchase.customer_phone,
+                        booking: { ...purchase, course, instructor_name: brandName },
+                        settings: waSettings
+                    });
+                }
+                // To Instructor
+                if (instructor?.phone) {
+                    await sendWhatsAppAlert({
+                        type: "course_purchase_instructor",
+                        recipient_phone: instructor.phone,
+                        booking: { ...purchase, course, instructor_name: brandName },
+                        settings: waSettings
+                    });
+                }
             }
 
         } else if (type === 'webinar_registration') {
@@ -275,10 +392,22 @@ serve(async (req) => {
 
             if (error || !reg) throw new Error("Registration not found");
             const webinar = reg.webinars;
+            
+            // Get Branding Settings
+            const { data: branding } = await supabase
+                .from('branding_settings')
+                .select('site_url, brand_name, brand_logo_url, brand_color, is_enabled')
+                .eq('user_id', webinar.user_id)
+                .maybeSingle();
+
+            const baseUrl = branding?.site_url || PUBLIC_SITE_URL;
             const { data: host } = await supabase.from('profiles').select('email, name').eq('user_id', webinar.user_id).single();
 
+            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (host?.name || "Zenthra Notifications");
+            const emailFromName = branding?.is_enabled ? branding.brand_name : "Zenthra Notifications";
+
             const formattedDate = formatDate(webinar.start_time);
-            const webinarUrl = `${PUBLIC_SITE_URL}/webinar/${webinar.id}`; // Fixed URL to public page
+            const webinarUrl = `${baseUrl}/webinar/${webinar.id}`; // Fixed URL to public page
 
             // Determine Mode Content
             const isInPerson = webinar.mode === 'in-person';
@@ -317,7 +446,7 @@ serve(async (req) => {
                     title: "You're Registered! ✅",
                     subtitle: `Your spot for <b>${escapeHtml(webinar.title)}</b> has been reserved.`,
                     heroImage: webinar.cover_image_url,
-                    brandName: host?.name,
+                    brandName: brandName,
                     actionLink: actionLink,
                     actionText: actionText,
                     bodyHtml: `
@@ -333,7 +462,7 @@ serve(async (req) => {
                         <p style="color:#6b7280; line-height:1.6;">Mark your calendar! We've sent the details to your email. ${isInPerson ? 'Please arrive 10 minutes early.' : 'Click the button below to join when it\'s time.'}</p>
                     `
                 }),
-                host?.name
+                emailFromName
             );
 
             // Email to Host
@@ -343,7 +472,7 @@ serve(async (req) => {
                     `New Attendee: ${webinar.title}`,
                     wrapEmail({
                         title: "New Registration 🎟️",
-                        brandName: "Zenthra",
+                        brandName: brandName,
                         bodyHtml: `
                            <p><b>${escapeHtml(reg.attendee_name)}</b> (${escapeHtml(reg.attendee_email)}) just registered for your ${isInPerson ? 'in-person workshop' : 'webinar'}.</p>
                            <div class="divider"></div>
@@ -352,8 +481,27 @@ serve(async (req) => {
                              <span class="info-value">${escapeHtml(webinar.title)}</span>
                            </div>
                         `
-                    })
+                    }),
+                    emailFromName
                 );
+            }
+            // WhatsApp Notifications for Webinar
+            const { data: waSettings } = await supabase
+                .from('whatsapp_settings')
+                .select('*')
+                .eq('user_id', webinar.user_id)
+                .maybeSingle();
+
+            if (waSettings?.is_enabled && waSettings?.api_key) {
+                // To Attendee
+                if (reg.attendee_phone) {
+                    await sendWhatsAppAlert({
+                        type: "webinar_registration",
+                        recipient_phone: reg.attendee_phone,
+                        booking: { ...reg, webinar, instructor_name: brandName },
+                        settings: waSettings
+                    });
+                }
             }
         }
 

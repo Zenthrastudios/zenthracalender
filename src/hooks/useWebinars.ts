@@ -141,6 +141,7 @@ export function useRegisterWebinar() {
             webinar_id: string;
             attendee_name: string;
             attendee_email: string;
+            attendee_phone?: string;
             payment_status?: string;
             payment_id?: string;
         }) => {

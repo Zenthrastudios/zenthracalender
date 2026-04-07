@@ -195,11 +195,11 @@ const handler = async (req: Request): Promise<Response> => {
 
       const { data: settings } = await supabase
         .from("payment_settings")
-        .select("is_razorpay_enabled, razorpay_key_id, is_cashfree_enabled, cashfree_app_id")
+        .select("is_razorpay_enabled, razorpay_key_id, is_cashfree_enabled, cashfree_app_id, cashfree_mode")
         .eq("user_id", hostId)
         .maybeSingle();
 
-      const cashfreeMode = CASHFREE_API_URL.includes("sandbox") ? "sandbox" : "production";
+      const cashfreeMode = settings?.cashfree_mode || (CASHFREE_API_URL.includes("sandbox") ? "sandbox" : "production");
       const razorpayEnabled = !!(settings?.is_razorpay_enabled && settings?.razorpay_key_id);
       const cashfreeEnabled = !!(settings?.is_cashfree_enabled && settings?.cashfree_app_id);
 
@@ -235,7 +235,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       const { data: settings, error: settingsError } = await supabase
         .from("payment_settings")
-        .select("cashfree_app_id, cashfree_secret_key, is_cashfree_enabled")
+        .select("cashfree_app_id, cashfree_secret_key, is_cashfree_enabled, cashfree_mode")
         .eq("user_id", hostId)
         .maybeSingle();
 
@@ -243,14 +243,28 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error("Cashfree is not enabled or configured for this host");
       }
 
-      const { cashfree_app_id: appId, cashfree_secret_key: secretKey } = settings;
+      const { cashfree_app_id: appIdRaw, cashfree_secret_key: secretKeyRaw } = settings;
+      const appId = appIdRaw?.trim();
+      const secretKey = secretKeyRaw?.trim();
+
       if (!appId || !secretKey) {
         throw new Error("Cashfree credentials not configured for this host");
       }
 
+      const mode = settings.cashfree_mode || "sandbox";
+      const apiUrl = mode === "production" 
+        ? "https://api.cashfree.com/pg" 
+        : "https://sandbox.cashfree.com/pg";
+
       const referenceId = bookingId || coursePurchaseId || `temp_${Date.now()}`;
       const orderId = `order_${referenceId}_${Date.now()}`;
       const webhookUrl = `${SUPABASE_URL}/functions/v1/cashfree-payment`;
+
+      // Cashfree production requires HTTPS return URLs
+      const safeReturnUrl = returnUrl.replace(/^http:\/\//i, "https://");
+      const fullReturnUrl = safeReturnUrl.includes("?")
+        ? `${safeReturnUrl}&order_id={order_id}`
+        : `${safeReturnUrl}?order_id={order_id}`;
 
       const orderPayload = {
         order_id: orderId,
@@ -263,15 +277,16 @@ const handler = async (req: Request): Promise<Response> => {
           customer_phone: customerPhone || "9999999999",
         },
         order_meta: {
-          return_url: `${returnUrl}?order_id={order_id}`,
+          return_url: fullReturnUrl,
           notify_url: webhookUrl,
         },
         order_note: `Payment for ${coursePurchaseId ? "course" : "booking"} ${referenceId}`,
       };
 
-      console.log("Creating Cashfree order:", orderId);
+      console.log(`Creating Cashfree order (${mode}):`, orderId, "at URL:", apiUrl);
+      console.log("Payload:", JSON.stringify(orderPayload));
 
-      const response = await fetch(`${CASHFREE_API_URL}/orders`, {
+      const response = await fetch(`${apiUrl}/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -282,11 +297,25 @@ const handler = async (req: Request): Promise<Response> => {
         body: JSON.stringify(orderPayload),
       });
 
-      const orderResult = await response.json();
-      console.log("Cashfree order response:", JSON.stringify(orderResult));
+      let orderResult: any;
+      try {
+        orderResult = await response.json();
+      } catch (e) {
+        const textError = await response.text();
+        console.error("Cashfree returned non-JSON response:", textError);
+        throw new Error(`Gateway returned non-JSON response: ${textError.slice(0, 100)}`);
+      }
+
+      console.log("Cashfree order response status:", response.status, JSON.stringify(orderResult));
 
       if (!response.ok) {
-        throw new Error(orderResult.message || "Failed to create Cashfree order");
+        const cfErrorMsg = orderResult.message || orderResult.error || "Failed to create Cashfree order";
+        console.error("Cashfree API error full response:", JSON.stringify(orderResult));
+        console.error("Cashfree HTTP status:", response.status);
+        console.error("App ID used (first 8):", appId.slice(0, 8));
+        console.error("Mode used:", mode);
+        console.error("API URL used:", apiUrl);
+        throw new Error(`${cfErrorMsg} [status:${response.status}]`);
       }
 
       await supabase.from("payments").insert({
@@ -341,7 +370,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       const { data: settings, error: settingsError } = await supabase
         .from("payment_settings")
-        .select("cashfree_app_id, cashfree_secret_key")
+        .select("cashfree_app_id, cashfree_secret_key, cashfree_mode")
         .eq("user_id", hostId)
         .maybeSingle();
 
@@ -349,7 +378,12 @@ const handler = async (req: Request): Promise<Response> => {
         throw new Error("Cashfree credentials not configured for this host");
       }
 
-      const response = await fetch(`${CASHFREE_API_URL}/orders/${orderId}`, {
+      const mode = settings.cashfree_mode || "sandbox";
+      const apiUrl = mode === "production" 
+        ? "https://api.cashfree.com/pg" 
+        : "https://sandbox.cashfree.com/pg";
+
+      const response = await fetch(`${apiUrl}/orders/${orderId}`, {
         method: "GET",
         headers: {
           "x-api-version": "2023-08-01",
@@ -364,7 +398,7 @@ const handler = async (req: Request): Promise<Response> => {
       const isPaid = orderResult.order_status === "PAID";
 
       if (isPaid) {
-        const paymentsResponse = await fetch(`${CASHFREE_API_URL}/orders/${orderId}/payments`, {
+        const paymentsResponse = await fetch(`${apiUrl}/orders/${orderId}/payments`, {
           method: "GET",
           headers: {
             "x-api-version": "2023-08-01",

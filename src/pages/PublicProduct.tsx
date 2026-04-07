@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useProductBySlug } from '@/hooks/useDigitalProducts';
 import { useCreateRazorpayOrder, useVerifyRazorpayPayment, usePublicPaymentInfo } from '@/hooks/usePayments';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Download, ShieldCheck, FileText, CheckCircle2 } from 'lucide-react';
+import { Loader2, Download, ShieldCheck, FileText, CheckCircle2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendWhatsAppNotification } from '@/utils/whatsapp';
 import SEO from '@/components/common/SEO';
@@ -23,6 +23,7 @@ declare global {
 
 export default function PublicProductPage() {
     const { username, slug } = useParams();
+    const navigate = useNavigate();
     const { data, isLoading } = useProductBySlug(username, slug);
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
@@ -30,6 +31,31 @@ export default function PublicProductPage() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [purchaseSuccess, setPurchaseSuccess] = useState(false);
     const [accessToken, setAccessToken] = useState<string | null>(null);
+    const [existingPurchase, setExistingPurchase] = useState<any>(null);
+
+    // Check for existing purchase if email is entered
+    useEffect(() => {
+        if (!customerEmail || !data?.product?.id) return;
+        
+        const checkExisting = async () => {
+            const { data: existing } = await supabase
+                .from('product_purchases')
+                .select('*')
+                .eq('product_id', data.product.id)
+                .eq('customer_email', customerEmail)
+                .eq('status', 'paid')
+                .maybeSingle();
+            
+            if (existing) {
+                setExistingPurchase(existing);
+            } else {
+                setExistingPurchase(null);
+            }
+        };
+        
+        const timer = setTimeout(checkExisting, 500); // Debounce
+        return () => clearTimeout(timer);
+    }, [customerEmail, data?.product?.id]);
 
     // Payment Hooks
     const createRazorpayOrder = useCreateRazorpayOrder();
@@ -126,6 +152,10 @@ export default function PublicProductPage() {
                 );
 
                 if (orderError || !orderData) throw new Error('Failed to create Cashfree order');
+
+                if (!window.Cashfree) {
+                    throw new Error('Cashfree SDK not loaded. Please refresh the page and try again.');
+                }
 
                 const cashfreeFactory = window.Cashfree as unknown as (opts: { mode: string }) => {
                     checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<{ error?: unknown }>;
@@ -313,70 +343,98 @@ export default function PublicProductPage() {
 
                 {/* Right: Checkout Form */}
                 <div className="p-8 bg-background flex flex-col justify-center">
-                    <div className="space-y-6">
-                        <div className="space-y-2">
-                            <h2 className="text-xl font-semibold">Complete Purchase</h2>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-3xl font-bold text-primary">₹{product.price}</span>
-                                <span className="text-muted-foreground">INR</span>
+                    {existingPurchase ? (
+                        <div className="space-y-6 text-center">
+                            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full mx-auto flex items-center justify-center">
+                                <CheckCircle2 className="w-10 h-10" />
                             </div>
+                            <div className="space-y-2">
+                                <h2 className="text-2xl font-bold">You Already Own This</h2>
+                                <p className="text-muted-foreground">You are already enrolled with {customerEmail}</p>
+                            </div>
+                            <Button 
+                                className="w-full h-12 text-lg font-semibold shadow-lg shadow-primary/20"
+                                onClick={() => navigate(`/view/${existingPurchase.access_token}`)}
+                            >
+                                <ExternalLink className="w-5 h-5 mr-2" />
+                                Access Content
+                            </Button>
+                            <button 
+                                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                                onClick={() => {
+                                    setCustomerEmail('');
+                                    setExistingPurchase(null);
+                                }}
+                            >
+                                Use a different email
+                            </button>
                         </div>
-
-                        <form onSubmit={handlePurchase} className="space-y-4">
+                    ) : (
+                        <div className="space-y-6">
                             <div className="space-y-2">
-                                <Label htmlFor="name">Full Name</Label>
-                                <Input
-                                    id="name"
-                                    placeholder="John Doe"
-                                    value={customerName}
-                                    onChange={(e) => setCustomerName(e.target.value)}
-                                    className="h-11"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email Address</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="john@example.com"
-                                    value={customerEmail}
-                                    onChange={(e) => setCustomerEmail(e.target.value)}
-                                    className="h-11"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="phone">Phone Number (WhatsApp)</Label>
-                                <Input
-                                    id="phone"
-                                    type="tel"
-                                    placeholder="+91 98765 43210"
-                                    value={customerPhone}
-                                    onChange={(e) => setCustomerPhone(e.target.value)}
-                                    className="h-11"
-                                    required
-                                />
+                                <h2 className="text-xl font-semibold">Complete Purchase</h2>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl font-bold text-primary">₹{product.price}</span>
+                                    <span className="text-muted-foreground">INR</span>
+                                </div>
                             </div>
 
-                            <div className="pt-4">
-                                <Button className="w-full h-12 text-lg font-semibold shadow-lg shadow-primary/20" type="submit" disabled={isProcessing}>
-                                    {isProcessing ? (
-                                        <>
-                                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                                            Processing...
-                                        </>
-                                    ) : (
-                                        `Pay ₹${product.price}`
-                                    )}
-                                </Button>
-                            </div>
+                            <form onSubmit={handlePurchase} className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Full Name</Label>
+                                    <Input
+                                        id="name"
+                                        placeholder="John Doe"
+                                        value={customerName}
+                                        onChange={(e) => setCustomerName(e.target.value)}
+                                        className="h-11"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">Email Address</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder="john@example.com"
+                                        value={customerEmail}
+                                        onChange={(e) => setCustomerEmail(e.target.value)}
+                                        className="h-11"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="phone">Phone Number (WhatsApp)</Label>
+                                    <Input
+                                        id="phone"
+                                        type="tel"
+                                        placeholder="+91 98765 43210"
+                                        value={customerPhone}
+                                        onChange={(e) => setCustomerPhone(e.target.value)}
+                                        className="h-11"
+                                        required
+                                    />
+                                </div>
 
-                            <div className="text-center text-xs text-muted-foreground pt-4">
-                                <p>Secured by Razorpay. By purchasing, you agree to our Terms.</p>
-                            </div>
-                        </form>
-                    </div>
+                                <div className="pt-4">
+                                    <Button className="w-full h-12 text-lg font-semibold shadow-lg shadow-primary/20" type="submit" disabled={isProcessing}>
+                                        {isProcessing ? (
+                                            <>
+                                                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                                Processing...
+                                            </>
+                                        ) : (
+                                            `Pay ₹${product.price}`
+                                        )}
+                                    </Button>
+                                </div>
+
+                                <div className="text-center text-xs text-muted-foreground pt-4">
+                                    <p>Secured by Razorpay. By purchasing, you agree to our Terms.</p>
+                                </div>
+                            </form>
+                        </div>
+                    )}
                 </div>
             </Card>
 

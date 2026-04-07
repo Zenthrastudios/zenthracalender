@@ -136,7 +136,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const booking of bookings) {
       try {
-        // Get host profile
         const { data: hostProfile } = await supabase
           .from("profiles")
           .select("name")
@@ -145,9 +144,16 @@ const handler = async (req: Request): Promise<Response> => {
 
         const hostEmail = await getHostEmail(supabase, booking.host_id);
 
+        // Get branding settings
+        const { data: branding } = await supabase
+          .from('branding_settings')
+          .select('brand_name, brand_logo_url, brand_color, site_url, is_enabled')
+          .eq('user_id', booking.host_id)
+          .maybeSingle();
+
         const startFormatted = formatDateTime(booking.start_time, booking.attendee_timezone);
 
-        const siteUrl = PUBLIC_SITE_URL?.trim() || "";
+        const siteUrl = (branding?.is_enabled && branding?.site_url) ? branding.site_url.trim() : (PUBLIC_SITE_URL?.trim() || "");
         const joinUrl = booking.meet_link || undefined;
         const myBookingsUrl = siteUrl ? `${siteUrl}/my-bookings` : undefined;
         const rescheduleUrl = siteUrl && booking.reschedule_token ? `${siteUrl}/reschedule/${booking.reschedule_token}` : undefined;

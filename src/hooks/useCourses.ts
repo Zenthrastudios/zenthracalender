@@ -6,13 +6,22 @@ import { useAuth } from '@/contexts/AuthContext';
 const db = supabase as any;
 
 // Types
+export interface FAQ {
+    question: string;
+    answer: string;
+}
+
 export interface Course {
     id: string;
     user_id: string;
     title: string;
     slug: string;
     description: string | null;
+    rich_description: string | null;
     thumbnail_url: string | null;
+    trailer_url: string | null;
+    instructor_id: string | null;
+    faq: FAQ[] | null;
     price: number;
     is_active: boolean;
     is_free: boolean;
@@ -113,9 +122,21 @@ export function useCourse(courseId: string | undefined) {
 
             if (lessonsError) throw lessonsError;
 
+            // If course has an instructor_id, fetch instructor details
+            let instructor = null;
+            if (course.instructor_id) {
+                const { data: instructorData } = await supabase
+                    .from('instructors')
+                    .select('*')
+                    .eq('id', course.instructor_id)
+                    .maybeSingle();
+                instructor = instructorData;
+            }
+
             return {
                 ...course,
                 lessons: lessons || [],
+                instructor_details: instructor,
             };
         },
         enabled: !!courseId,
@@ -158,6 +179,17 @@ export function useCourseBySlug(username: string | undefined, slug: string | und
 
             if (lessonsError) throw lessonsError;
 
+            // Fetch assigned instructor if exists
+            let assignedInstructor = null;
+            if (course.instructor_id) {
+                const { data: instructorData } = await db
+                    .from('instructors')
+                    .select('*')
+                    .eq('id', course.instructor_id)
+                    .maybeSingle();
+                assignedInstructor = instructorData;
+            }
+
             // Fetch branding
             const { data: branding } = await supabase
                 .from('branding_settings')
@@ -178,6 +210,7 @@ export function useCourseBySlug(username: string | undefined, slug: string | und
             return {
                 course: course as Course,
                 lessons: (lessons || []) as CourseLesson[],
+                assigned_instructor: assignedInstructor,
                 instructor: {
                     name: displayName,
                     username,
@@ -213,7 +246,11 @@ export function useCreateCourse() {
                     title: data.title || 'Untitled Course',
                     slug,
                     description: data.description,
+                    rich_description: data.rich_description,
                     thumbnail_url: data.thumbnail_url,
+                    trailer_url: data.trailer_url,
+                    instructor_id: data.instructor_id,
+                    faq: data.faq || [],
                     price: data.price || 0,
                     is_active: false,
                     is_free: data.is_free || false,
@@ -613,6 +650,86 @@ export function useDeleteLessonResource() {
             queryClient.invalidateQueries({
                 queryKey: ['lesson-resources', variables.lessonId],
             });
+        },
+    });
+}
+// ==================== SUPPORT TICKETS ====================
+
+export interface SupportTicket {
+    id: string;
+    user_id: string;
+    course_id: string | null;
+    product_id: string | null;
+    customer_name: string;
+    customer_email: string;
+    customer_phone: string | null;
+    subject: string;
+    message: string;
+    status: 'pending' | 'in-progress' | 'resolved' | 'closed';
+    created_at: string;
+    updated_at: string;
+}
+
+export function useSupportTickets() {
+    const { user } = useAuth();
+
+    return useQuery({
+        queryKey: ['support-tickets', user?.id],
+        queryFn: async (): Promise<(SupportTicket & { courses: { title: string } | null; digital_products: { title: string } | null })[]> => {
+            if (!user) return [];
+
+            const { data, error } = await supabase
+                .from('support_tickets')
+                .select('*, courses(title), digital_products(title)')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            return data as any;
+        },
+        enabled: !!user,
+    });
+}
+
+export function useCreateSupportTicket() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (data: Partial<SupportTicket>): Promise<SupportTicket> => {
+            const { data: ticket, error } = await supabase
+                .from('support_tickets')
+                .insert(data)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return ticket as SupportTicket;
+        },
+        onSuccess: (_, variables) => {
+            if (variables.user_id) {
+                queryClient.invalidateQueries({ queryKey: ['support-tickets', variables.user_id] });
+            }
+        },
+    });
+}
+
+export function useUpdateSupportTicket() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, ...updates }: Partial<SupportTicket> & { id: string }): Promise<SupportTicket> => {
+            const { data: ticket, error } = await supabase
+                .from('support_tickets')
+                .update(updates)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return ticket as SupportTicket;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['support-tickets', data.user_id] });
         },
     });
 }

@@ -149,7 +149,14 @@ export default function GuestDashboard() {
 
       if (productsError) throw productsError;
 
-      setProducts(productsData as unknown as ProductPurchase[] || []);
+      // Deduplicate products by product.id
+      const uniqueProducts = (productsData || []).reduce((acc: ProductPurchase[], curr: any) => {
+        if (curr.product && !acc.some(p => p.product?.id === curr.product?.id)) {
+          acc.push(curr);
+        }
+        return acc;
+      }, []);
+      setProducts(uniqueProducts);
 
       // Fetch Courses
       const { data: coursesData, error: coursesError } = await db
@@ -172,7 +179,14 @@ export default function GuestDashboard() {
 
       if (coursesError) throw coursesError;
 
-      setCourses(coursesData as unknown as CoursePurchase[] || []);
+      // Deduplicate courses by course.id
+      const uniqueCourses = (coursesData || []).reduce((acc: CoursePurchase[], curr: any) => {
+        if (curr.course && !acc.some(p => p.course?.id === curr.course?.id)) {
+          acc.push(curr);
+        }
+        return acc;
+      }, []);
+      setCourses(uniqueCourses);
 
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);

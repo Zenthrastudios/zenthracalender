@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useCourseBySlug } from '@/hooks/useCourses';
+import { useCourseBySlug, useCreateSupportTicket } from '@/hooks/useCourses';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePublicPaymentInfo } from '@/hooks/usePayments';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,19 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import {
-    Loader2,
-    GraduationCap,
-    ShieldCheck,
-    Lock,
-    Play,
-    PlayCircle,
-    CheckCircle2,
-    Clock,
-    Video,
-} from 'lucide-react';
 import { toast } from 'sonner';
 import SEO from '@/components/common/SEO';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    MessageSquare, Info, Mail, HelpCircle, ChevronRight,
+    Loader2, GraduationCap, CheckCircle2, Lock, Play, PlayCircle, Clock, Video, ShieldCheck,
+    Layout, Linkedin, Instagram, Twitter, Globe
+} from 'lucide-react';
 
 declare global {
     interface Window {
@@ -43,20 +40,70 @@ export default function PublicCoursePage() {
     const [purchaseSuccess, setPurchaseSuccess] = useState(false);
     const [accessToken, setAccessToken] = useState<string | null>(null);
 
+    // Support Ticket State
+    const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+    const [supportSubject, setSupportSubject] = useState('');
+    const [supportMessage, setSupportMessage] = useState('');
+    const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+    const { user: currentUser } = useAuth();
+    const createTicket = useCreateSupportTicket();
+
+    const [existingPurchase, setExistingPurchase] = useState<any>(null);
+
     const { data: paymentInfo } = usePublicPaymentInfo(data?.instructor?.id);
 
-    // Load the correct payment SDK based on host's active gateway
+    // Pre-fill user data if available
     useEffect(() => {
-        if (!data?.course || data.course.is_free || data.course.price === 0) return;
-        const src = paymentInfo?.activeGateway === 'cashfree'
-            ? 'https://sdk.cashfree.com/js/v3/cashfree.js'
-            : 'https://checkout.razorpay.com/v1/checkout.js';
-        const script = document.createElement('script');
-        script.src = src;
-        script.async = true;
-        document.body.appendChild(script);
-        return () => { document.body.removeChild(script); };
-    }, [data?.course, data?.instructor?.id, paymentInfo?.activeGateway]);
+        if (currentUser && !customerEmail) {
+            setCustomerEmail(currentUser.email || '');
+            setCustomerName(currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || '');
+        }
+    }, [currentUser, customerEmail]);
+
+    // Check for existing purchase if email is entered
+    useEffect(() => {
+        if (!customerEmail || !data?.course?.id) {
+            setExistingPurchase(null);
+            return;
+        }
+        
+        const checkExisting = async () => {
+            const { data: existing } = await db
+                .from('course_purchases')
+                .select('*')
+                .eq('course_id', data.course.id)
+                .eq('customer_email', customerEmail)
+                .eq('status', 'paid')
+                .maybeSingle();
+            
+            if (existing) {
+                setExistingPurchase(existing);
+            } else {
+                setExistingPurchase(null);
+            }
+        };
+        
+        const timer = setTimeout(checkExisting, 500); // Debounce
+        return () => clearTimeout(timer);
+    }, [customerEmail, data?.course?.id]);
+
+    // Load the correct payment SDK
+    useEffect(() => {
+        if (paymentInfo?.activeGateway === 'razorpay') {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.async = true;
+            document.body.appendChild(script);
+            return () => { document.body.removeChild(script); };
+        }
+        if (paymentInfo?.activeGateway === 'cashfree') {
+            const script = document.createElement('script');
+            script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+            script.async = true;
+            document.body.appendChild(script);
+            return () => { document.body.removeChild(script); };
+        }
+    }, [paymentInfo?.activeGateway]);
 
     const handlePurchase = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -67,9 +114,38 @@ export default function PublicCoursePage() {
             return;
         }
 
+        if (existingPurchase) {
+             toast.info('You already own this course!', { 
+                 description: 'Redirecting you to the course portal...',
+                 icon: '🚀'
+             });
+             setTimeout(() => {
+                 window.open(`/course/${existingPurchase.access_token}`, '_blank');
+             }, 1500);
+             return;
+        }
+
         setIsProcessing(true);
 
         try {
+            // Re-verify existing purchase immediately to handle race conditions
+            const { data: freshCheck } = await db
+                .from('course_purchases')
+                .select('*')
+                .eq('course_id', data.course.id)
+                .eq('customer_email', customerEmail)
+                .eq('status', 'paid')
+                .maybeSingle();
+
+            if (freshCheck) {
+                setExistingPurchase(freshCheck);
+                toast.info('Active enrollment already detected.', {
+                    description: 'Access has already been granted to this system.'
+                });
+                setIsProcessing(false);
+                return;
+            }
+
             // 1. Create pending purchase
             const { data: purchase, error } = await db
                 .from('course_purchases')
@@ -109,6 +185,15 @@ export default function PublicCoursePage() {
             const gateway = paymentInfo?.activeGateway || 'razorpay';
 
             if (gateway === 'cashfree') {
+                // Sanitize phone number (Cashfree expects digits only)
+                const sanitizedPhone = customerPhone.replace(/\D/g, '');
+                
+                // Ensure returnUrl doesn't have double ?
+                const currentUrl = window.location.href;
+                const returnUrl = currentUrl.includes('?') 
+                    ? `${currentUrl}&order_id={order_id}` 
+                    : `${currentUrl}?order_id={order_id}`;
+
                 // ── Cashfree flow ──────────────────────────────────────────────
                 const { data: orderData, error: orderError } = await supabase.functions.invoke(
                     'cashfree-payment',
@@ -120,14 +205,26 @@ export default function PublicCoursePage() {
                             currency: 'INR',
                             customerName,
                             customerEmail,
-                            customerPhone,
-                            returnUrl: window.location.href,
+                            customerPhone: sanitizedPhone,
+                            returnUrl: currentUrl, // The edge function handles the ?order_id append
                             hostId: data.instructor.id,
                         },
                     }
                 );
 
-                if (orderError || !orderData) throw new Error('Failed to create Cashfree order');
+                if (orderError) {
+                    console.error('Cashfree Order Initialization Failed:', orderError);
+                    const errorDetails = orderError.context?.error || orderError.message || 'Unknown error';
+                    throw new Error(`Payment Gateway Error: ${errorDetails}`);
+                }
+                
+                if (!orderData || !orderData.paymentSessionId) {
+                    throw new Error('Cashfree session initialization incomplete');
+                }
+
+                if (!window.Cashfree) {
+                    throw new Error('Cashfree SDK not loaded. Please refresh the page and try again.');
+                }
 
                 const cashfreeFactory = window.Cashfree as unknown as (opts: { mode: string }) => {
                     checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<{ error?: unknown }>;
@@ -231,56 +328,106 @@ export default function PublicCoursePage() {
         }
     };
 
+    const handleInviteInstructorContact = () => {
+        setIsContactDialogOpen(true);
+        setSupportSubject(`Inquiry about ${data?.course.title}`);
+    };
+
+    const handleSubmitTicket = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!data?.course || !supportMessage) return;
+
+        setIsSubmittingTicket(true);
+        try {
+            const ticket = await createTicket.mutateAsync({
+                user_id: data.course.user_id,
+                course_id: data.course.id,
+                customer_name: customerName || 'Anonymous Guest',
+                customer_email: customerEmail || 'guest@example.com',
+                customer_phone: customerPhone || null,
+                subject: supportSubject,
+                message: supportMessage,
+                status: 'pending'
+            });
+
+            // Trigger WhatsApp alert for the instructor
+            supabase.functions.invoke('send-whatsapp-message', {
+                body: {
+                    type: 'support_ticket_created',
+                    ticketId: ticket.id,
+                }
+            }).catch(err => console.error('WhatsApp notification failed', err));
+
+            // Trigger Email alert for the instructor/support
+            supabase.functions.invoke('send-support-ticket-email', {
+                body: {
+                    ticketId: ticket.id,
+                }
+            }).catch(err => console.error('Email notification failed', err));
+
+            toast.success('Support ticket created! We will get back to you soon.');
+            setIsContactDialogOpen(false);
+            setSupportMessage('');
+        } catch (error: any) {
+            toast.error('Failed to send message: ' + error.message);
+        } finally {
+            setIsSubmittingTicket(false);
+        }
+    };
+
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-muted/20">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center min-h-screen bg-zinc-950">
+                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
             </div>
         );
     }
 
     if (!data || !data.course) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-muted/20">
-                <div className="p-6 bg-background rounded-full shadow-sm mb-4">
-                    <GraduationCap className="w-12 h-12 text-muted-foreground/50" />
+            <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-zinc-950">
+                <div className="p-8 bg-zinc-900 rounded-full shadow-2xl mb-4 border border-zinc-800">
+                    <GraduationCap className="w-10 h-10 text-zinc-600" />
                 </div>
-                <h1 className="text-2xl font-bold mb-2">Course Not Found</h1>
-                <p className="text-muted-foreground">This course is no longer available.</p>
+                <h1 className="text-2xl font-bold text-white mb-2">Course Not Found</h1>
+                <p className="text-zinc-500 text-sm">This course is currently unavailable.</p>
             </div>
         );
     }
 
-    const { course, lessons, instructor } = data;
-    const totalDuration = lessons.reduce((sum, l) => sum + (l.video_duration || 0), 0);
+    const course = data.course;
+    const lessons = data.lessons;
+    const instructorData = (data as any).assigned_instructor || data.instructor;
+    const totalDuration = lessons.reduce((sum: number, l: any) => sum + (l.video_duration || 0), 0);
 
     // Success state
     if (purchaseSuccess && accessToken) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-muted/20 p-4">
-                <Card className="max-w-md w-full border-2 border-primary/20 shadow-xl">
-                    <CardHeader className="text-center pb-2">
-                        <div className="w-16 h-16 bg-primary/10 rounded-full mx-auto flex items-center justify-center mb-4">
-                            <CheckCircle2 className="w-8 h-8 text-primary" />
+            <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
+                <Card className="max-w-md w-full border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden rounded-3xl">
+                    <div className="h-1 bg-gradient-to-r from-orange-500 to-orange-600 w-full" />
+                    <CardHeader className="text-center pb-2 pt-8">
+                        <div className="w-16 h-16 bg-orange-500/10 rounded-full mx-auto flex items-center justify-center mb-4 border border-orange-500/20">
+                            <CheckCircle2 className="w-8 h-8 text-orange-500" />
                         </div>
-                        <h2 className="text-2xl font-bold">You're In! 🎉</h2>
-                        <p className="text-muted-foreground">You now have access to this course</p>
+                        <h2 className="text-2xl font-bold text-white">You're Enrolled!</h2>
+                        <p className="text-zinc-500 text-sm mt-1">Your access has been confirmed</p>
                     </CardHeader>
-                    <CardContent className="text-center space-y-4">
-                        <div className="p-4 bg-muted rounded-lg">
-                            <h3 className="font-semibold">{course.title}</h3>
-                            <p className="text-sm text-muted-foreground">{lessons.length} lessons</p>
+                    <CardContent className="text-center space-y-4 px-8">
+                        <div className="p-4 bg-zinc-800/50 rounded-2xl border border-zinc-700/50">
+                            <h3 className="font-semibold text-base text-white">{course.title}</h3>
+                            <p className="text-xs text-orange-500 mt-1">{lessons.length} lessons included</p>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                            A confirmation email has been sent to <strong>{customerEmail}</strong>
+                        <p className="text-sm text-zinc-400">
+                            Login details sent to <strong className="text-zinc-200">{customerEmail}</strong>
                         </p>
                     </CardContent>
-                    <CardFooter className="flex flex-col gap-2">
+                    <CardFooter className="flex flex-col gap-3 pt-2 pb-8 px-8">
                         <Button
-                            className="w-full h-12 text-lg"
+                            className="w-full h-12 text-base font-semibold bg-orange-500 hover:bg-orange-600 transition-all group"
                             onClick={() => window.open(`/course/${accessToken}`, '_blank')}
                         >
-                            <PlayCircle className="w-5 h-5 mr-2" />
+                            <PlayCircle className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
                             Start Learning
                         </Button>
                     </CardFooter>
@@ -290,203 +437,485 @@ export default function PublicCoursePage() {
     }
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-white">
+        <div className="min-h-screen bg-zinc-950 flex flex-col items-center">
             <SEO
                 title={course.title}
-                description={course.description || `Enroll in ${course.title} by ${instructor.name}`}
+                description={course.description || `Enroll in ${course.title} by ${instructorData.name}`}
                 image={course.thumbnail_url || undefined}
                 url={window.location.href}
                 type="article"
             />
-            {/* Hero Section */}
-            <div className="relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-zinc-900 to-zinc-950" />
 
-                <div className="relative max-w-7xl mx-auto px-4 py-12 lg:py-20">
-                    <div className="grid lg:grid-cols-2 gap-12 items-center">
-                        {/* Left: Course Info */}
-                        <div className="space-y-6">
-                            {/* Instructor */}
-                            <div className="flex items-center gap-3">
-                                <Avatar className="w-10 h-10 ring-2 ring-white/20">
-                                    <AvatarImage src={instructor.avatar_url || undefined} />
-                                    <AvatarFallback className="bg-primary text-primary-foreground">
-                                        {instructor.name?.charAt(0)}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <span className="text-zinc-300 font-medium">{instructor.name}</span>
-                            </div>
+            {/* Top Nav */}
+            <div className="w-full max-w-6xl px-4 pt-6 flex items-center justify-between">
+                <Button
+                    variant="ghost"
+                    className="rounded-full border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 text-xs font-medium gap-2 h-9 px-4"
+                    onClick={() => window.location.href = currentUser ? (currentUser.email?.includes('@admin') ? '/dashboard' : '/guest') : '/'}
+                >
+                    <Layout className="w-3.5 h-3.5 text-orange-500" />
+                    Home
+                </Button>
+            </div>
+            
+            <div className="w-full max-w-6xl px-4 py-10 sm:py-14 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {/* Main Card */}
+                <div className="grid md:grid-cols-5 gap-0 overflow-hidden rounded-3xl border border-zinc-800 shadow-2xl">
+                    {/* Left: Course Info (3 cols) */}
+                    <div className="md:col-span-3 bg-zinc-950 p-6 sm:p-10 flex flex-col gap-7 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(249,115,22,0.06),transparent_60%)] pointer-events-none" />
 
-                            {/* Title */}
-                            <h1 className="text-4xl lg:text-5xl font-bold leading-tight">
-                                {course.title}
-                            </h1>
+                        <div className="relative z-10 flex flex-col gap-7 flex-1">
 
-                            {/* Description */}
-                            <p className="text-lg text-zinc-400 leading-relaxed">
-                                {course.description || 'Master new skills with this comprehensive course.'}
-                            </p>
-
-                            {/* Stats */}
-                            <div className="flex flex-wrap gap-6 text-sm">
-                                <div className="flex items-center gap-2 text-zinc-400">
-                                    <Video className="w-4 h-4" />
-                                    <span>{lessons.length} lessons</span>
-                                </div>
-                                {totalDuration > 0 && (
-                                    <div className="flex items-center gap-2 text-zinc-400">
-                                        <Clock className="w-4 h-4" />
-                                        <span>{Math.round(totalDuration / 60)} min total</span>
+                            {/* Thumbnail / Trailer */}
+                            <div className="relative group overflow-hidden rounded-2xl aspect-video bg-zinc-900 border border-zinc-800 shadow-xl">
+                                {course.trailer_url ? (
+                                    <iframe
+                                        src={course.trailer_url.includes('youtube.com') || course.trailer_url.includes('youtu.be')
+                                            ? `https://www.youtube.com/embed/${course.trailer_url.split('v=')[1] || course.trailer_url.split('/').pop()}?autoplay=0&modestbranding=1&rel=0`
+                                            : course.trailer_url}
+                                        className="w-full h-full"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                    />
+                                ) : course.thumbnail_url ? (
+                                    <>
+                                        <img
+                                            src={course.thumbnail_url}
+                                            alt={course.title}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                            <div className="w-14 h-14 rounded-full bg-orange-500/90 flex items-center justify-center shadow-xl">
+                                                <Play className="w-6 h-6 text-white fill-current ml-1" />
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-zinc-900">
+                                        <Video className="w-8 h-8 text-zinc-700" />
+                                        <span className="text-xs text-zinc-600 font-medium">No preview available</span>
                                     </div>
                                 )}
-                                <div className="flex items-center gap-2 text-zinc-400">
-                                    <ShieldCheck className="w-4 h-4" />
-                                    <span>Lifetime access</span>
+                            </div>
+
+                            {/* Title & Description */}
+                            <div className="space-y-2">
+                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white leading-tight">
+                                    {course.title}
+                                </h1>
+                                <p className="text-zinc-400 text-sm sm:text-base leading-relaxed">
+                                    {course.description}
+                                </p>
+                            </div>
+
+                            {/* Rich description */}
+                            {course.rich_description && (
+                                <div className="pt-5 border-t border-zinc-800/60">
+                                    <div
+                                        className="prose prose-invert prose-sm max-w-none text-zinc-500 leading-relaxed"
+                                        dangerouslySetInnerHTML={{ __html: course.rich_description }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* About Instructor Section */}
+                            <div className="pt-10 border-t border-zinc-800/60 pb-4">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <Avatar className="w-16 h-16 ring-4 ring-orange-500/10 shadow-2xl">
+                                        <AvatarImage src={instructorData.avatar_url || undefined} />
+                                        <AvatarFallback className="bg-zinc-800 text-orange-500 font-bold text-xl">
+                                            {instructorData.name?.charAt(0)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">{instructorData.name}</h3>
+                                        <p className="text-orange-500 text-sm font-semibold">{instructorData.specialization || 'Lead Instructor'}</p>
+                                    </div>
+                                </div>
+                                <p className="text-zinc-400 text-sm leading-relaxed mb-6">
+                                    {instructorData.bio || 'Experienced educator focused on delivering high-quality learning experiences. Join thousands of students who have mastered these skills through our structured curriculum.'}
+                                </p>
+                                
+                                {/* Social Links */}
+                                <div className="flex flex-wrap gap-4">
+                                    {instructorData.linkedin_url && (
+                                        <a href={instructorData.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white hover:border-zinc-700 transition-all">
+                                            <Linkedin className="w-4 h-4 text-blue-400" />
+                                            LinkedIn
+                                        </a>
+                                    )}
+                                    {instructorData.instagram_url && (
+                                        <a href={instructorData.instagram_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white hover:border-zinc-700 transition-all">
+                                            <Instagram className="w-4 h-4 text-pink-400" />
+                                            Instagram
+                                        </a>
+                                    )}
+                                    {instructorData.twitter_url && (
+                                        <a href={instructorData.twitter_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white hover:border-zinc-700 transition-all">
+                                            <Twitter className="w-4 h-4 text-sky-400" />
+                                            Twitter
+                                        </a>
+                                    )}
+                                    {instructorData.website_url && (
+                                        <a href={instructorData.website_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white hover:border-zinc-700 transition-all">
+                                            <Globe className="w-4 h-4 text-emerald-400" />
+                                            Website
+                                        </a>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Price Badge */}
-                            <div className="pt-4">
-                                {course.is_free ? (
-                                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-lg px-4 py-2">
-                                        Free Course
+                            {/* Stats */}
+                            <div className="flex flex-wrap gap-4 sm:gap-8 mt-auto pt-8 border-t border-zinc-800/60">
+                                <div className="flex flex-col">
+                                    <p className="text-[10px] font-bold uppercase text-zinc-600 tracking-widest mb-1">Duration</p>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
+                                        <Clock className="w-4 h-4 text-orange-500" />
+                                        <span className="text-sm font-bold text-white">{Math.round(totalDuration / 60) || 120}+ min</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col">
+                                    <p className="text-[10px] font-bold uppercase text-zinc-600 tracking-widest mb-1">Lessons</p>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
+                                        <Video className="w-4 h-4 text-orange-500" />
+                                        <span className="text-sm font-bold text-white">{lessons.length} videos</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col">
+                                    <p className="text-[10px] font-bold uppercase text-zinc-600 tracking-widest mb-1">Access</p>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
+                                        <ShieldCheck className="w-4 h-4 text-orange-500" />
+                                        <span className="text-sm font-bold text-white">Lifetime</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right: Checkout (2 cols) */}
+                    <div className="md:col-span-2 p-6 sm:p-8 flex flex-col bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-800 relative">
+                        <Lock className="absolute top-5 right-5 w-4 h-4 text-zinc-700" />
+
+                        {existingPurchase ? (
+                            <div className="flex-1 flex flex-col items-center justify-center text-center gap-5 py-8">
+                                <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center border border-orange-500/20">
+                                    <ShieldCheck className="w-8 h-8 text-orange-500" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">Already Enrolled</h2>
+                                    <p className="text-zinc-500 text-sm mt-1">You have full access to this course.</p>
+                                </div>
+                                <Button
+                                    className="w-full h-11 text-base font-semibold bg-white text-black hover:bg-zinc-100 transition-all"
+                                    onClick={() => window.open(`/course/${existingPurchase.access_token}`, '_blank')}
+                                >
+                                    <PlayCircle className="w-5 h-5 mr-2" />
+                                    Continue Learning
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-5">
+                                {/* Price */}
+                                <div>
+                                    <Badge className="bg-orange-500 text-white border-none rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider mb-2 shadow-lg shadow-orange-500/20">
+                                        Instant Access
                                     </Badge>
+                                    <div className="flex items-baseline gap-3">
+                                        <span className="text-4xl font-black text-white">
+                                            {course.is_free ? 'Free' : `₹${course.price}`}
+                                        </span>
+                                        <div>
+                                            <p className="text-[10px] text-zinc-500 font-medium">One-time payment</p>
+                                            <p className="text-[10px] text-orange-500 font-semibold">Lifetime access</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handlePurchase} className="flex flex-col gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <Label className="text-xs font-semibold text-zinc-400">Full Name</Label>
+                                        <Input
+                                            placeholder="Enter your name"
+                                            value={customerName}
+                                            onChange={(e) => setCustomerName(e.target.value)}
+                                            className="h-10 bg-zinc-800 border-zinc-700 rounded-xl text-white text-sm placeholder:text-zinc-600 focus-visible:ring-orange-500"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <Label className="text-xs font-semibold text-zinc-400">Email Address</Label>
+                                        <Input
+                                            type="email"
+                                            placeholder="you@example.com"
+                                            value={customerEmail}
+                                            onChange={(e) => setCustomerEmail(e.target.value)}
+                                            className="h-10 bg-zinc-800 border-zinc-700 rounded-xl text-white text-sm placeholder:text-zinc-600 focus-visible:ring-orange-500"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <Label className="text-xs font-semibold text-zinc-400">Phone Number</Label>
+                                        <Input
+                                            type="tel"
+                                            placeholder="+91 98765 43210"
+                                            value={customerPhone}
+                                            onChange={(e) => setCustomerPhone(e.target.value)}
+                                            className="h-10 bg-zinc-800 border-zinc-700 rounded-xl text-white text-sm placeholder:text-zinc-600 focus-visible:ring-orange-500"
+                                            required
+                                        />
+                                    </div>
+
+                                    {/* Security badge */}
+                                    <div className="flex items-center gap-2.5 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
+                                        <ShieldCheck className="w-4 h-4 text-orange-500 shrink-0" />
+                                        <p className="text-xs text-zinc-400">256-bit encrypted &amp; secure</p>
+                                    </div>
+
+                                    <Button
+                                        className="w-full h-11 text-sm font-bold bg-orange-500 hover:bg-orange-600 text-white transition-all shadow-lg shadow-orange-500/20 group rounded-xl active:scale-[0.98]"
+                                        type="submit"
+                                        disabled={isProcessing}
+                                    >
+                                        {isProcessing ? (
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                        ) : (
+                                            <>
+                                                {course.is_free ? 'Start Learning — Free' : `Enroll Now — ₹${course.price}`}
+                                                <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                                            </>
+                                        )}
+                                    </Button>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Support */}
+                        <div className="mt-auto pt-6 border-t border-zinc-800">
+                            <p className="text-xs text-zinc-600 font-medium mb-2">Need help?</p>
+                            <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <button
+                                        onClick={handleInviteInstructorContact}
+                                        className="w-full p-3.5 rounded-xl border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40 transition-all duration-200 flex items-center gap-3 group text-left"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center group-hover:bg-orange-500/10 group-hover:border-orange-500/20 transition-all">
+                                            <Mail className="w-3.5 h-3.5 text-zinc-500 group-hover:text-orange-500 transition-colors" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-zinc-200">Contact Support</p>
+                                            <p className="text-xs text-zinc-500">Reach out to the instructor</p>
+                                        </div>
+                                    </button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[460px] p-0 overflow-hidden border border-zinc-800 rounded-2xl shadow-2xl bg-zinc-950">
+                                    <div className="p-5 border-b border-zinc-800 bg-zinc-900">
+                                        <DialogHeader>
+                                            <DialogTitle className="text-lg font-bold flex items-center gap-2.5 text-white">
+                                                <MessageSquare className="w-5 h-5 text-orange-500" />
+                                                Contact Support
+                                            </DialogTitle>
+                                        </DialogHeader>
+                                        <p className="text-zinc-500 text-xs mt-1">We'll get back to you as soon as possible</p>
+                                    </div>
+                                    <form onSubmit={handleSubmitTicket} className="p-5 space-y-3 bg-zinc-950">
+                                        {(!customerName || !customerEmail) && (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="flex flex-col gap-1">
+                                                    <Label className="text-xs font-semibold text-zinc-400">Your Name</Label>
+                                                    <Input
+                                                        value={customerName}
+                                                        onChange={(e) => setCustomerName(e.target.value)}
+                                                        placeholder="Full Name"
+                                                        className="h-10 bg-zinc-800 border-zinc-700 text-white text-sm rounded-xl"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <Label className="text-xs font-semibold text-zinc-400">Email</Label>
+                                                    <Input
+                                                        value={customerEmail}
+                                                        onChange={(e) => setCustomerEmail(e.target.value)}
+                                                        placeholder="you@example.com"
+                                                        type="email"
+                                                        className="h-10 bg-zinc-800 border-zinc-700 text-white text-sm rounded-xl"
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="flex flex-col gap-1">
+                                            <Label className="text-xs font-semibold text-zinc-400">Phone (optional)</Label>
+                                            <Input
+                                                value={customerPhone}
+                                                onChange={(e) => setCustomerPhone(e.target.value)}
+                                                placeholder="+91 98765 43210"
+                                                className="h-10 bg-zinc-800 border-zinc-700 text-white text-sm rounded-xl"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <Label className="text-xs font-semibold text-zinc-400">Subject</Label>
+                                            <Input
+                                                value={supportSubject}
+                                                onChange={(e) => setSupportSubject(e.target.value)}
+                                                placeholder="e.g. Course access, billing..."
+                                                className="h-10 bg-zinc-800 border-zinc-700 text-white text-sm rounded-xl"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <Label className="text-xs font-semibold text-zinc-400">Message</Label>
+                                            <Textarea
+                                                value={supportMessage}
+                                                onChange={(e) => setSupportMessage(e.target.value)}
+                                                placeholder="Describe your issue in detail..."
+                                                className="min-h-[110px] bg-zinc-800 border-zinc-700 text-white text-sm rounded-xl p-3"
+                                                required
+                                            />
+                                        </div>
+                                        <Button type="submit" className="w-full h-10 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl text-sm" disabled={isSubmittingTicket}>
+                                            {isSubmittingTicket ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Message"}
+                                        </Button>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Curriculum & FAQ */}
+                <div className="mt-14 grid lg:grid-cols-3 gap-10">
+                    {/* Curriculum */}
+                    <div className="lg:col-span-2 space-y-5">
+                        <div>
+                            <Badge className="bg-orange-500 text-white border-none rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider mb-2 shadow-lg shadow-orange-500/20">
+                                Curriculum
+                            </Badge>
+                            <h2 className="text-2xl font-bold text-white">Course Content</h2>
+                            <p className="text-zinc-500 text-sm mt-0.5">{lessons.length} lessons · {Math.round(totalDuration / 60) || 120}+ minutes</p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            {lessons.map((lesson: any, idx: number) => (
+                                <div key={lesson.id} className="group p-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all duration-200 flex items-center gap-3">
+                                    {/* Thumbnail */}
+                                    <div className="w-16 sm:w-20 aspect-video rounded-lg bg-zinc-800 overflow-hidden relative shrink-0 border border-zinc-700/50">
+                                        {lesson.video_url ? (
+                                            <>
+                                                <video
+                                                    src={`${lesson.video_url}#t=0.1`}
+                                                    className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300"
+                                                    preload="metadata"
+                                                    muted
+                                                    playsInline
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                                            </>
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <Video className="w-4 h-4 text-zinc-600" />
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <PlayCircle className="w-5 h-5 text-white drop-shadow-lg" />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                            <span className="text-[10px] font-bold text-orange-500 uppercase">
+                                                {String(idx + 1).padStart(2, '0')}
+                                            </span>
+                                            {lesson.video_duration > 0 && (
+                                                <span className="text-[10px] text-zinc-600">· {Math.round(lesson.video_duration / 60)}m</span>
+                                            )}
+                                        </div>
+                                        <h4 className="font-medium text-sm text-zinc-200 group-hover:text-white transition-colors truncate">
+                                            {lesson.title}
+                                        </h4>
+                                    </div>
+
+                                    <div className="shrink-0">
+                                        {lesson.is_preview ? (
+                                            <Badge className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2.5 py-0.5 text-[10px] font-semibold rounded-full">
+                                                Preview
+                                            </Badge>
+                                        ) : (
+                                            <Lock className="w-3.5 h-3.5 text-zinc-600" />
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* FAQ & Instructor */}
+                    <div className="flex flex-col gap-8">
+                        {/* FAQ */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <HelpCircle className="w-4 h-4 text-orange-500" />
+                                <h3 className="text-lg font-bold text-white">FAQ</h3>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                {course.faq && course.faq.length > 0 ? (
+                                    course.faq.map((item: any, idx: number) => (
+                                        <div key={idx} className="p-4 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-all duration-200">
+                                            <div className="flex items-start gap-2.5 mb-1.5">
+                                                <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-500 text-[10px] font-bold shrink-0 mt-0.5">?</div>
+                                                <p className="font-semibold text-sm text-zinc-100">{item.question}</p>
+                                            </div>
+                                            <p className="text-xs text-zinc-500 leading-relaxed pl-7">{item.answer}</p>
+                                        </div>
+                                    ))
                                 ) : (
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-4xl font-bold text-primary">₹{course.price}</span>
-                                        <span className="text-zinc-500">one-time payment</span>
+                                    <div className="p-6 border border-dashed border-zinc-800 rounded-xl text-center">
+                                        <Info className="w-7 h-7 text-zinc-700 mx-auto mb-2" />
+                                        <p className="text-xs text-zinc-600">No FAQs added yet</p>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* Right: Thumbnail + Purchase Form */}
-                        <div className="space-y-6">
-                            {/* Thumbnail */}
-                            <div className="aspect-video rounded-2xl overflow-hidden bg-zinc-800 shadow-2xl ring-1 ring-white/10">
-                                {course.thumbnail_url ? (
-                                    <img
-                                        src={course.thumbnail_url}
-                                        alt={course.title}
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                        <Play className="w-16 h-16 text-zinc-600" />
-                                    </div>
-                                )}
+                        {/* Instructor card */}
+                        <div className="p-5 bg-zinc-900 rounded-2xl border border-zinc-800 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 blur-2xl rounded-full pointer-events-none" />
+                            <div className="flex items-center gap-3 relative z-10">
+                                <Avatar className="w-12 h-12 ring-1 ring-zinc-700">
+                                    <AvatarImage src={instructorData.avatar_url || undefined} />
+                                    <AvatarFallback className="bg-zinc-800 text-white font-bold">{instructorData.name?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-bold text-white text-sm">{instructorData.name}</p>
+                                    <Badge className="mt-1 bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[10px] px-2 py-0.5 rounded-full font-semibold">
+                                        Instructor
+                                    </Badge>
+                                </div>
                             </div>
-
-                            {/* Purchase Card */}
-                            <Card className="bg-zinc-900 border-zinc-800">
-                                <CardHeader className="pb-4">
-                                    <h2 className="text-xl font-semibold">Enroll Now</h2>
-                                </CardHeader>
-                                <form onSubmit={handlePurchase}>
-                                    <CardContent className="space-y-4">
-                                        <div>
-                                            <Label htmlFor="name" className="text-zinc-400">Full Name</Label>
-                                            <Input
-                                                id="name"
-                                                value={customerName}
-                                                onChange={(e) => setCustomerName(e.target.value)}
-                                                placeholder="John Doe"
-                                                className="bg-zinc-800 border-zinc-700 mt-1"
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="email" className="text-zinc-400">Email Address</Label>
-                                            <Input
-                                                id="email"
-                                                type="email"
-                                                value={customerEmail}
-                                                onChange={(e) => setCustomerEmail(e.target.value)}
-                                                placeholder="john@example.com"
-                                                className="bg-zinc-800 border-zinc-700 mt-1"
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="phone" className="text-zinc-400">Phone (WhatsApp)</Label>
-                                            <Input
-                                                id="phone"
-                                                type="tel"
-                                                value={customerPhone}
-                                                onChange={(e) => setCustomerPhone(e.target.value)}
-                                                placeholder="+91 98765 43210"
-                                                className="bg-zinc-800 border-zinc-700 mt-1"
-                                                required
-                                            />
-                                        </div>
-                                    </CardContent>
-                                    <CardFooter className="flex-col gap-3">
-                                        <Button
-                                            type="submit"
-                                            className="w-full h-12 text-lg font-semibold"
-                                            disabled={isProcessing}
-                                        >
-                                            {isProcessing ? (
-                                                <>
-                                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                                                    Processing...
-                                                </>
-                                            ) : course.is_free ? (
-                                                'Get Free Access'
-                                            ) : (
-                                                `Pay ₹${course.price}`
-                                            )}
-                                        </Button>
-                                        <p className="text-xs text-zinc-500 text-center">
-                                            Secured by Razorpay. By enrolling, you agree to our Terms.
-                                        </p>
-                                    </CardFooter>
-                                </form>
-                            </Card>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Curriculum Section */}
-            <div className="max-w-7xl mx-auto px-4 py-16">
-                <h2 className="text-2xl font-bold mb-8">Course Curriculum</h2>
-                <div className="space-y-3">
-                    {lessons.map((lesson, index) => (
-                        <div
-                            key={lesson.id}
-                            className="flex items-center gap-4 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 transition-colors"
-                        >
-                            <span className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-sm font-medium">
-                                {index + 1}
-                            </span>
-                            <div className="flex-1">
-                                <h3 className="font-medium">{lesson.title}</h3>
-                                {lesson.description && (
-                                    <p className="text-sm text-zinc-500 mt-0.5">{lesson.description}</p>
-                                )}
-                            </div>
-                            {lesson.is_preview ? (
-                                <Badge variant="outline" className="border-primary/50 text-primary">
-                                    <Play className="w-3 h-3 mr-1" />
-                                    Preview
-                                </Badge>
-                            ) : (
-                                <Lock className="w-4 h-4 text-zinc-600" />
-                            )}
-                            {lesson.video_duration > 0 && (
-                                <span className="text-sm text-zinc-500">
-                                    {Math.round(lesson.video_duration / 60)}m
-                                </span>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
-
             {/* Footer */}
-            <div className="text-center py-8 text-zinc-600 text-sm">
-            </div>
+            <footer className="w-full border-t border-zinc-900 py-10 mt-6">
+                <div className="max-w-6xl mx-auto px-4 flex flex-col items-center gap-4">
+                    <div className="flex items-center gap-2 text-lg font-bold text-white">
+                        <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
+                            <span className="text-black text-xs font-bold">Z</span>
+                        </div>
+                        ZEN<span className="text-orange-500">THRA</span>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-5 text-xs text-zinc-600">
+                        <button className="hover:text-zinc-300 transition-colors" onClick={() => setIsContactDialogOpen(true)}>Support</button>
+                        <button className="hover:text-zinc-300 transition-colors">Help</button>
+                        <button className="hover:text-zinc-300 transition-colors">Privacy</button>
+                        <button className="hover:text-zinc-300 transition-colors">Terms</button>
+                    </div>
+                    <p className="text-xs text-zinc-700">
+                        © {new Date().getFullYear()} {instructorData.name} · Powered by Zenthra
+                    </p>
+                </div>
+            </footer>
         </div>
     );
 }

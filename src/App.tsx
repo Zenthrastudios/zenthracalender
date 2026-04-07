@@ -62,6 +62,7 @@ import Enterprise from './pages/Enterprise';
 import Checkout from './pages/Checkout';
 import Onboarding from './pages/Onboarding';
 import Customers from './pages/Customers';
+import SupportTickets from './pages/SupportTickets';
 
 const queryClient = new QueryClient();
 
@@ -318,6 +319,11 @@ function AppRoutes() {
       <Route path="/dashboard/customers" element={
         <AdminRoute>
           <Customers />
+        </AdminRoute>
+      } />
+      <Route path="/dashboard/support" element={
+        <AdminRoute>
+          <SupportTickets />
         </AdminRoute>
       } />
       <Route path="/dashboard/courses" element={

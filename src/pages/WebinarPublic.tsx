@@ -27,6 +27,7 @@ export default function WebinarPublic() {
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [isRegistered, setIsRegistered] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -86,6 +87,7 @@ export default function WebinarPublic() {
                 webinar_id: webinar.id,
                 attendee_name: name,
                 attendee_email: email,
+                attendee_phone: phone,
                 payment_status: 'pending'
             });
             registrationId = reg.id;
@@ -140,6 +142,7 @@ export default function WebinarPublic() {
             prefill: {
                 name: name,
                 email: email,
+                contact: phone,
             },
             theme: { color: themeColor },
             modal: {
@@ -160,6 +163,7 @@ export default function WebinarPublic() {
             webinar_id: webinar.id,
             attendee_name: name,
             attendee_email: email,
+            attendee_phone: phone,
             ...extraData
         });
 
@@ -380,6 +384,15 @@ export default function WebinarPublic() {
                                                 onChange={e => setEmail(e.target.value)}
                                                 placeholder="Enter your email"
                                                 required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="phone">WhatsApp Number (Optional)</Label>
+                                            <Input
+                                                id="phone"
+                                                value={phone}
+                                                onChange={e => setPhone(e.target.value)}
+                                                placeholder="+91 00000 00000"
                                             />
                                         </div>
                                         <Button

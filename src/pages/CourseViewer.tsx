@@ -25,6 +25,7 @@ import {
     Settings,
     Gauge,
     Monitor,
+    Home,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -43,9 +44,21 @@ import { cn } from '@/lib/utils';
 import ViewerResources from '@/components/course/ViewerResources';
 import LessonAdPopup from '@/components/course/LessonAdPopup';
 
-// Simple hook for media query
+// Detect iOS — all iOS browsers (Safari, Chrome, Firefox) use WebKit/WKWebView
+// and share the same video playback restrictions (CORS cache, canvas, autoplay policy).
+// iPadOS 13+ reports as MacIntel with touch support.
+const isIOS =
+    typeof navigator !== 'undefined' &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+// Simple hook for media query — initialised synchronously to avoid a false-`false`
+// on the first render, which would flash the desktop/canvas path on mobile devices.
 function useMediaQuery(query: string) {
-    const [matches, setMatches] = useState(false);
+    const [matches, setMatches] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return window.matchMedia(query).matches;
+    });
 
     useEffect(() => {
         const media = window.matchMedia(query);
@@ -243,8 +256,11 @@ export default function CourseViewer() {
     const [showFullDescription, setShowFullDescription] = useState(false);
     const [isVideoLoading, setIsVideoLoading] = useState(false);
 
-    // Mobile detection — on mobile we render <video> directly; canvas is desktop-only
-    const isMobile = useMediaQuery('(max-width: 1024px)');
+    // Use native <video> (not canvas) on mobile screens OR any iOS device.
+    // iOS must never hit the canvas path: WebKit blocks crossOrigin video→canvas drawing
+    // and the hidden crossOrigin video poisons the CORS cache for the same URLs.
+    const isMobileScreen = useMediaQuery('(max-width: 1024px)');
+    const isMobile = isMobileScreen || isIOS;
 
     // Video player state
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -574,7 +590,6 @@ export default function CourseViewer() {
 
             const vid = document.createElement('video');
             vid.preload = 'metadata';
-            vid.crossOrigin = 'anonymous';
             vid.muted = true;
             vid.src = lesson.video_url;
 
@@ -706,6 +721,12 @@ export default function CourseViewer() {
                 });
             }
 
+            // Explicitly pause before switching — on iOS the audio can continue
+            // briefly after src changes if pause() is not called imperatively
+            if (videoRef.current) {
+                videoRef.current.pause();
+            }
+
             // Actually switch the lesson
             setCurrentLessonIndex(index);
             setIsPlaying(false);
@@ -772,14 +793,30 @@ export default function CourseViewer() {
 
     // Playback controls
     const togglePlay = () => {
-        if (videoRef.current) {
-            if (isPlaying) {
-                videoRef.current.pause();
+        if (!videoRef.current) return;
+        if (isPlaying) {
+            videoRef.current.pause();
+            // onPause event handler will set isPlaying(false)
+        } else {
+            // iOS: play() returns a Promise that can reject (e.g. not enough data buffered,
+            // ATS block, or user-gesture timeout). Ignoring it causes state desync where
+            // the UI shows "playing" but nothing plays.
+            const playPromise = videoRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        setSecurityWarning(false);
+                        // onPlay event handler will set isPlaying(true)
+                    })
+                    .catch((err: Error) => {
+                        console.warn('Video play() rejected:', err.message);
+                        setIsPlaying(false); // Ensure UI stays in sync on failure
+                    });
             } else {
-                videoRef.current.play();
-                setSecurityWarning(false); // Clear warning on purposeful play
+                // Fallback for browsers that don't return a Promise
+                setIsPlaying(true);
+                setSecurityWarning(false);
             }
-            setIsPlaying(!isPlaying);
         }
     };
 
@@ -937,6 +974,16 @@ export default function CourseViewer() {
                 {/* Desktop Header - Global Full Width */}
                 <header className="hidden lg:flex h-16 items-center justify-between px-6 border-b border-white/5 bg-zinc-950 z-30 flex-shrink-0">
                     <div className="flex items-center gap-4">
+                        <div className="w-px h-6 bg-white/10" />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-zinc-400 hover:text-white"
+                            onClick={() => window.location.href = '/guest'}
+                        >
+                            <Home className="w-5 h-5" />
+                        </Button>
+                        <div className="w-px h-6 bg-white/10" />
                         <Button
                             variant="ghost"
                             size="icon"
@@ -1005,8 +1052,10 @@ export default function CourseViewer() {
                                         {isMobile ? (
                                             /* ── MOBILE: native <video> rendered directly ── */
                                             <video
+                                                key={currentLesson.id}
                                                 ref={videoRef}
                                                 src={currentLesson.video_url}
+                                                poster={purchase?.course.thumbnail_url || undefined}
                                                 className={cn(
                                                     "w-full h-full object-contain bg-black cursor-pointer",
                                                     securityWarning && "blur-2xl opacity-10"
@@ -1016,9 +1065,25 @@ export default function CourseViewer() {
                                                 onEnded={handleVideoEnd}
                                                 onPlay={() => setIsPlaying(true)}
                                                 onPause={() => setIsPlaying(false)}
+                                                // crossOrigin="anonymous" removed for iOS compatibility —
+                                                // Safari often blocks range-requests on cross-origin videos
+                                                // when this attribute is set but headers aren't a 100% match.
+                                                onError={(e) => {
+                                                    const vid = e.currentTarget;
+                                                    const err = vid.error;
+                                                    console.error('Video error:', err?.code, err?.message, vid.src);
+                                                    setIsPlaying(false);
+                                                    setIsVideoLoading(false);
+                                                }}
+                                                onWaiting={() => setIsVideoLoading(true)}
+                                                onCanPlay={() => setIsVideoLoading(false)}
                                                 controlsList="nodownload noremoteplayback"
                                                 disablePictureInPicture
+                                                preload="metadata"
                                                 playsInline
+                                                muted={isMuted}
+                                                // webkit-playsinline is required for older iOS WebViews
+                                                {...({ 'webkit-playsinline': 'true' } as any)}
                                                 onClick={togglePlay}
                                             />
                                         ) : (
@@ -1028,7 +1093,6 @@ export default function CourseViewer() {
                                                     ref={videoRef}
                                                     src={currentLesson.video_url}
                                                     className="hidden"
-                                                    crossOrigin="anonymous"
                                                     onTimeUpdate={handleTimeUpdate}
                                                     onLoadedMetadata={handleLoadedMetadata}
                                                     onEnded={handleVideoEnd}
@@ -1037,6 +1101,16 @@ export default function CourseViewer() {
                                                     controlsList="nodownload noremoteplayback"
                                                     disablePictureInPicture
                                                     playsInline
+                                                    preload="auto"
+                                                    onError={(e) => {
+                                                        const vid = e.currentTarget;
+                                                        const err = vid.error;
+                                                        console.error('Desktop video error:', err?.code, err?.message, vid.src);
+                                                        setIsPlaying(false);
+                                                        setIsVideoLoading(false);
+                                                    }}
+                                                    onWaiting={() => setIsVideoLoading(true)}
+                                                    onCanPlay={() => setIsVideoLoading(false)}
                                                 />
                                                 <canvas
                                                     ref={(ref) => {
@@ -1096,11 +1170,12 @@ export default function CourseViewer() {
                                         Protected Content • {purchase?.customer_email}
                                     </div>
 
-                                    {/* Clickable Overlay */}
-                                    <div
-                                        className="absolute inset-0 z-10 cursor-pointer text-transparent"
-                                        onClick={togglePlay}
-                                    />
+                                    {!isMobile && (
+                                        <div
+                                            className="absolute inset-0 z-10 cursor-pointer text-transparent"
+                                            onClick={togglePlay}
+                                        />
+                                    )}
 
                                     {/* Play/Pause Overlay */}
                                     <div className={cn(
@@ -1365,6 +1440,25 @@ export default function CourseViewer() {
 
                         {/* Mobile Content (Title, Actions, List) - Hidden on desktop */}
                         <div className="lg:hidden p-4 space-y-6 bg-zinc-950 pb-20">
+                            <div className="flex items-center justify-between">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-zinc-400 hover:text-white pl-0 h-auto"
+                                    onClick={() => window.location.href = '/guest'}
+                                >
+                                    <Home className="w-4 h-4 mr-2" /> Back to Profile
+                                </Button>
+                                <div className="flex items-center gap-3">
+                                    {currentLesson && (
+                                        <ViewerResources
+                                            lessonId={currentLesson.id}
+                                            lessonTitle={currentLesson.title}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+
                             {/* Title & Info Section */}
                             <div className="space-y-3">
                                 <div>
@@ -1456,8 +1550,9 @@ export default function CourseViewer() {
                                                         {lessonThumbnails[lesson.id] ? (
                                                             <img src={lessonThumbnails[lesson.id]} className="absolute inset-0 w-full h-full object-cover" alt="" draggable={false} />
                                                         ) : (
-                                                            <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
+                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-800">
                                                                 <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
+                                                                <div className="text-[9px] text-zinc-700 mt-0.5 line-clamp-1 px-1 text-center">{lesson.title}</div>
                                                             </div>
                                                         )}
                                                         {isCurrent && (
@@ -1532,14 +1627,15 @@ export default function CourseViewer() {
                                                 isCurrent && 'bg-white/5'
                                             )}
                                         >
-                                            <div className="relative w-32 aspect-video bg-zinc-900 rounded overflow-hidden flex-shrink-0 border border-white/5 group-hover:border-white/10 transition-colors">
-                                                {lessonThumbnails[lesson.id] ? (
-                                                    <img src={lessonThumbnails[lesson.id]} className="absolute inset-0 w-full h-full object-cover" alt="" draggable={false} />
-                                                ) : (
-                                                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-800">
-                                                        <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
-                                                    </div>
-                                                )}
+                                                    <div className="relative w-32 aspect-video bg-zinc-900 rounded overflow-hidden flex-shrink-0 border border-white/5 group-hover:border-white/10 transition-colors">
+                                                        {lessonThumbnails[lesson.id] ? (
+                                                            <img src={lessonThumbnails[lesson.id]} className="absolute inset-0 w-full h-full object-cover" alt="" draggable={false} />
+                                                        ) : (
+                                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-800">
+                                                                <div className="text-xs font-bold text-zinc-600">EP {index + 1}</div>
+                                                                <div className="text-[9px] text-zinc-700 mt-0.5 line-clamp-1 px-1 text-center">{lesson.title}</div>
+                                                            </div>
+                                                        )}
                                                 {lessonProgress && !isCompleted && lessonProgress.progress_seconds > 0 && (
                                                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-zinc-800">
                                                         <div

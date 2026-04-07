@@ -6,9 +6,12 @@ const config: CapacitorConfig = {
     webDir: 'dist',
     server: {
         androidScheme: 'https',
+        iosScheme: 'https',
         allowNavigation: [
             "*.supabase.co",
-            "zlhbzlxxdezlrtzljpni.supabase.co"
+            "zlhbzlxxdezlrtzljpni.supabase.co",
+            "*.r2.dev",
+            "*.cloudflarestorage.com"
         ]
     },
     plugins: {

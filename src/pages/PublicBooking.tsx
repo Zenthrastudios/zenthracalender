@@ -478,6 +478,10 @@ export default function PublicBookingPage() {
       });
 
       // Use Cashfree Drop-in checkout
+      if (!window.Cashfree) {
+        throw new Error('Cashfree SDK not loaded. Please refresh the page and try again.');
+      }
+
       const cashfreeFactory = window.Cashfree as unknown as (opts: { mode: string }) => {
         checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<{ error?: unknown }>;
       };

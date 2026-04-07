@@ -16,6 +16,14 @@ export interface WhatsappSettings {
     reminder_template_name: string;
     instructor_reminder_template_name: string;
     payment_failed_template_name: string;
+    course_purchase_template_name: string;
+    product_purchase_template_name: string;
+    instructor_course_purchase_template_name: string;
+    instructor_product_purchase_template_name: string;
+    webinar_registration_template_name: string;
+    webinar_reminder_template_name: string;
+    support_ticket_created_template_name: string;
+    support_ticket_resolved_template_name: string;
     template_language: string;
     site_url: string | null;
     is_enabled: boolean;

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import {
@@ -36,12 +37,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstructors } from '@/hooks/useInstructors';
 
 export default function CourseEditor() {
     const { id: courseId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
     const { data: course, isLoading } = useCourse(courseId);
+    const { data: instructors } = useInstructors();
     const updateCourse = useUpdateCourse();
     const createLesson = useCreateLesson();
     const updateLesson = useUpdateLesson();
@@ -55,6 +58,10 @@ export default function CourseEditor() {
     const [isFree, setIsFree] = useState(false);
     const [isActive, setIsActive] = useState(false);
     const [thumbnailUrl, setThumbnailUrl] = useState('');
+    const [trailerUrl, setTrailerUrl] = useState('');
+    const [richDescription, setRichDescription] = useState('');
+    const [instructorId, setInstructorId] = useState<string | null>(null);
+    const [faq, setFaq] = useState<any[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
 
@@ -81,6 +88,10 @@ export default function CourseEditor() {
             setIsFree(course.is_free);
             setIsActive(course.is_active);
             setThumbnailUrl(course.thumbnail_url || '');
+            setTrailerUrl(course.trailer_url || '');
+            setRichDescription(course.rich_description || '');
+            setInstructorId(course.instructor_id);
+            setFaq(course.faq || []);
         }
     }, [course]);
 
@@ -92,10 +103,14 @@ export default function CourseEditor() {
                 id: courseId,
                 title,
                 description,
+                rich_description: richDescription,
                 price: isFree ? 0 : price,
                 is_free: isFree,
                 is_active: isActive,
                 thumbnail_url: thumbnailUrl || null,
+                trailer_url: trailerUrl || null,
+                instructor_id: instructorId,
+                faq,
             });
             toast.success('Course saved!');
         } catch (error: any) {
@@ -342,14 +357,99 @@ export default function CourseEditor() {
                                         />
                                     </div>
                                     <div>
-                                        <Label htmlFor="description">Description</Label>
+                                        <Label htmlFor="description">Short Description</Label>
                                         <Textarea
                                             id="description"
                                             value={description}
                                             onChange={(e) => setDescription(e.target.value)}
-                                            placeholder="What will students learn?"
-                                            rows={4}
+                                            placeholder="What will students learn? (Short summary)"
+                                            rows={2}
                                         />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="rich-description">Rich HTML Content / Detailed Description</Label>
+                                        <Textarea
+                                            id="rich-description"
+                                            value={richDescription}
+                                            onChange={(e) => setRichDescription(e.target.value)}
+                                            placeholder="Detailed course content, curriculum overview, etc. (Supports some HTML)"
+                                            rows={8}
+                                            className="font-mono text-sm"
+                                        />
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Trailer & FAQ */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Course Enhancements</CardTitle>
+                                    <CardDescription>Add trailer and FAQs to build credibility</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div>
+                                        <Label htmlFor="trailer">Trailer Video URL</Label>
+                                        <Input
+                                            id="trailer"
+                                            value={trailerUrl}
+                                            onChange={(e) => setTrailerUrl(e.target.value)}
+                                            placeholder="YouTube, Vimeo, or direct video URL"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <Label>Frequently Asked Questions</Label>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setFaq([...faq, { question: '', answer: '' }])}
+                                            >
+                                                <Plus className="w-4 h-4 mr-2" />
+                                                Add FAQ
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {faq.map((item, index) => (
+                                                <div key={index} className="p-4 border rounded-lg bg-muted/30 relative">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="absolute top-2 right-2 h-8 w-8 text-destructive"
+                                                        onClick={() => setFaq(faq.filter((_, i) => i !== index))}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                    <div className="space-y-3 pr-8">
+                                                        <Input
+                                                            placeholder="Question"
+                                                            value={item.question}
+                                                            onChange={(e) => {
+                                                                const newFaq = [...faq];
+                                                                newFaq[index].question = e.target.value;
+                                                                setFaq(newFaq);
+                                                            }}
+                                                        />
+                                                        <Textarea
+                                                            placeholder="Answer"
+                                                            value={item.answer}
+                                                            onChange={(e) => {
+                                                                const newFaq = [...faq];
+                                                                newFaq[index].answer = e.target.value;
+                                                                setFaq(newFaq);
+                                                            }}
+                                                            rows={2}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {faq.length === 0 && (
+                                                <p className="text-sm text-center text-muted-foreground py-4 border-2 border-dashed rounded-lg">
+                                                    No FAQs added yet
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -465,6 +565,53 @@ export default function CourseEditor() {
                                             onChange={handleThumbnailUpload}
                                         />
                                     </label>
+                                </CardContent>
+                            </Card>
+
+                            {/* Instructor */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base">Instructor</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <Label htmlFor="instructor">Select Instructor</Label>
+                                    <select
+                                        id="instructor"
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={instructorId || ''}
+                                        onChange={(e) => setInstructorId(e.target.value || null)}
+                                    >
+                                        <option value="">Default (Profile Content)</option>
+                                        {instructors?.map((inst: any) => (
+                                            <option key={inst.id} value={inst.id}>
+                                                {inst.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                        Choose who is teaching this course. Default is you.
+                                    </p>
+
+                                    {instructorId && instructors?.find((i: any) => i.id === instructorId) && (
+                                        <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-border space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarImage src={instructors.find((i: any) => i.id === instructorId)?.avatar_url || ''} />
+                                                    <AvatarFallback>{instructors.find((i: any) => i.id === instructorId)?.name?.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <p className="text-sm font-semibold">{instructors.find((i: any) => i.id === instructorId)?.name}</p>
+                                                    <p className="text-[10px] text-primary font-medium">{instructors.find((i: any) => i.id === instructorId)?.specialization || 'No specialization'}</p>
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground line-clamp-2 italic">
+                                                "{instructors.find((i: any) => i.id === instructorId)?.bio || 'No bio provided'}"
+                                            </p>
+                                            <Button variant="ghost" size="sm" className="w-full h-7 text-[10px]" asChild>
+                                                <a href="/instructors">Manage Instructors</a>
+                                            </Button>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
 

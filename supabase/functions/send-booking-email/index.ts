@@ -121,7 +121,7 @@ const wrapEmail = (opts: {
       </div>
 
       <div class="footer">
-        Powered by CalSchedule
+        Powered by ${escapeHtml(brand)}
       </div>
     </div>
   </body>
@@ -380,7 +380,7 @@ const handler = async (req: Request): Promise<Response> => {
             isEnabled: brandData.is_enabled,
           };
         }
-        if (!data.siteUrl && brandData.site_url) {
+        if (brandData.site_url) {
           data.siteUrl = brandData.site_url;
         }
       }

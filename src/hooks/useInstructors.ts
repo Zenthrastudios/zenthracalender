@@ -11,6 +11,10 @@ export interface Instructor {
   bio: string | null;
   specialization: string | null;
   phone: string | null;
+  instagram_url: string | null;
+  linkedin_url: string | null;
+  twitter_url: string | null;
+  website_url: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

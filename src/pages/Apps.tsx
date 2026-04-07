@@ -19,6 +19,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from 'sonner';
 import {
   Calendar,
@@ -68,6 +75,14 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
     reminder_template_name: 'booking_reminder',
     instructor_reminder_template_name: 'booking_reminder_instructor',
     payment_failed_template_name: 'payment_failed',
+    course_purchase_template_name: 'course_purchase_confirmation',
+    product_purchase_template_name: 'product_purchase_confirmation',
+    instructor_course_purchase_template_name: 'new_course_purchase_instructor',
+    instructor_product_purchase_template_name: 'new_product_purchase_instructor',
+    webinar_registration_template_name: 'webinar_registration_confirmation',
+    webinar_reminder_template_name: 'webinar_reminder',
+    support_ticket_created_template_name: 'support_ticket_received',
+    support_ticket_resolved_template_name: 'support_ticket_resolved',
     template_language: 'en',
     site_url: '',
     is_enabled: true
@@ -87,6 +102,14 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
         reminder_template_name: settings.reminder_template_name || 'booking_reminder',
         instructor_reminder_template_name: settings.instructor_reminder_template_name || 'booking_reminder_instructor',
         payment_failed_template_name: settings.payment_failed_template_name || 'payment_failed',
+        course_purchase_template_name: settings.course_purchase_template_name || 'course_purchase_confirmation',
+        product_purchase_template_name: settings.product_purchase_template_name || 'product_purchase_confirmation',
+        instructor_course_purchase_template_name: settings.instructor_course_purchase_template_name || 'new_course_purchase_instructor',
+        instructor_product_purchase_template_name: settings.instructor_product_purchase_template_name || 'new_product_purchase_instructor',
+        webinar_registration_template_name: settings.webinar_registration_template_name || 'webinar_registration_confirmation',
+        webinar_reminder_template_name: settings.webinar_reminder_template_name || 'webinar_reminder',
+        support_ticket_created_template_name: settings.support_ticket_created_template_name || 'support_ticket_received',
+        support_ticket_resolved_template_name: settings.support_ticket_resolved_template_name || 'support_ticket_resolved',
         template_language: settings.template_language || 'en',
         site_url: settings.site_url || '',
         is_enabled: settings.is_enabled ?? true
@@ -163,6 +186,62 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
       refName: 'payment_failed',
       content: 'Important: Payment Failed. Hello {{1}}, we were unable to process the payment for your booking for {{2}} on {{3}}. To secure your spot, please retry the payment using this link: {{4}}. If the issue persists, please contact your bank or reach out to us for support.',
       params: ['Attendee Name', 'Event Title', 'Date/Time', 'Retry Link']
+    },
+    {
+      id: 'course_purchase',
+      name: 'Course Purchase (Customer)',
+      refName: 'course_purchase_confirmation',
+      content: 'Congratulations {{1}}! You have successfully enrolled in the course: {{2}}. You can access your course materials and start learning here: {{3}}. Happy learning!',
+      params: ['Customer Name', 'Course Title', 'Access Link']
+    },
+    {
+      id: 'product_purchase',
+      name: 'Product Purchase (Customer)',
+      refName: 'product_purchase_confirmation',
+      content: 'Thank you for your purchase, {{1}}! Your order for {{2}} is confirmed. You can download/access your digital product here: {{3}}. We hope you enjoy it!',
+      params: ['Customer Name', 'Product Title', 'Access Link']
+    },
+    {
+      id: 'course_purchase_instructor',
+      name: 'New Course Enrollment (Instructor)',
+      refName: 'new_course_purchase_instructor',
+      content: 'New Enrollment Alert! Hello {{1}}, a new student {{2}} has just purchased your course: {{3}}. Keep up the great work!',
+      params: ['Instructor Name', 'Customer Name', 'Course Title']
+    },
+    {
+      id: 'product_purchase_instructor',
+      name: 'New Product Sale (Instructor)',
+      refName: 'new_product_purchase_instructor',
+      content: 'New Sale Alert! Hello {{1}}, your digital product {{2}} was just purchased by {{3}}. Great job!',
+      params: ['Instructor Name', 'Product Title', 'Customer Name']
+    },
+    {
+      id: 'webinar_registration',
+      name: 'Webinar Registration (Customer)',
+      refName: 'webinar_registration_confirmation',
+      content: 'Registration Successful! Hi {{1}}, you are successfully registered for the webinar: {{2}}. Date: {{3}}. You can join using this link: {{4}}. We look forward to seeing you!',
+      params: ['Customer Name', 'Webinar Title', 'Date/Time', 'Join Link']
+    },
+    {
+      id: 'webinar_reminder',
+      name: 'Webinar Reminder (Customer)',
+      refName: 'webinar_reminder',
+      content: 'Reminder: Hi {{1}}, the webinar {{2}} is starting in {{3}}. Don\'t miss out! Join here: {{4}}.',
+      params: ['Customer Name', 'Webinar Title', 'Time Remaining', 'Join Link']
+    },
+    {
+      id: 'support_ticket_created',
+      name: 'Support Ticket Received',
+      refName: 'support_ticket_received',
+      content: 'Hello {{1}}, we have received your support ticket regarding {{2}}. Our team is looking into it and will get back to you soon. Ticket ID: {{3}}.',
+      params: ['Customer Name', 'Subject', 'Ticket ID']
+    },
+    {
+      id: 'support_ticket_resolved',
+      name: 'Support Ticket Resolved',
+      refName: 'support_ticket_resolved',
+      content: 'Good news {{1}}! Your support ticket regarding {{2}} has been marked as resolved. If you have any further questions, feel free to reach out. Thank you!',
+      params: ['Customer Name', 'Subject']
     }
   ];
 
@@ -343,6 +422,91 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
                       />
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="course_purchase_template">Course Purchase (Customer)</Label>
+                      <Input
+                        id="course_purchase_template"
+                        placeholder="course_purchase_confirmation"
+                        value={formData.course_purchase_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, course_purchase_template_name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="product_purchase_template">Product Purchase (Customer)</Label>
+                      <Input
+                        id="product_purchase_template"
+                        placeholder="product_purchase_confirmation"
+                        value={formData.product_purchase_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, product_purchase_template_name: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="instructor_course_purchase_template">New Course Sale (Instructor)</Label>
+                      <Input
+                        id="instructor_course_purchase_template"
+                        placeholder="new_course_purchase_instructor"
+                        value={formData.instructor_course_purchase_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, instructor_course_purchase_template_name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="instructor_product_purchase_template">New Product Sale (Instructor)</Label>
+                      <Input
+                        id="instructor_product_purchase_template"
+                        placeholder="new_product_purchase_instructor"
+                        value={formData.instructor_product_purchase_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, instructor_product_purchase_template_name: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="webinar_registration_template">Webinar Registration</Label>
+                      <Input
+                        id="webinar_registration_template"
+                        placeholder="webinar_registration_confirmation"
+                        value={formData.webinar_registration_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, webinar_registration_template_name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="webinar_reminder_template">Webinar Reminder</Label>
+                      <Input
+                        id="webinar_reminder_template"
+                        placeholder="webinar_reminder"
+                        value={formData.webinar_reminder_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, webinar_reminder_template_name: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="support_ticket_created_template">Ticket Created</Label>
+                      <Input
+                        id="support_ticket_created_template"
+                        placeholder="support_ticket_received"
+                        value={formData.support_ticket_created_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, support_ticket_created_template_name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="support_ticket_resolved_template">Ticket Resolved</Label>
+                      <Input
+                        id="support_ticket_resolved_template"
+                        placeholder="support_ticket_resolved"
+                        value={formData.support_ticket_resolved_template_name}
+                        onChange={e => setFormData(prev => ({ ...prev, support_ticket_resolved_template_name: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="language">Language Code</Label>
@@ -575,6 +739,7 @@ function CashfreeConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const [formData, setFormData] = useState({
     cashfree_app_id: '',
     cashfree_secret_key: '',
+    cashfree_mode: 'sandbox' as 'sandbox' | 'production',
     is_cashfree_enabled: true
   });
 
@@ -583,6 +748,7 @@ function CashfreeConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
       setFormData({
         cashfree_app_id: settings.cashfree_app_id || '',
         cashfree_secret_key: settings.cashfree_secret_key || '',
+        cashfree_mode: (settings.cashfree_mode as 'sandbox' | 'production') || 'sandbox',
         is_cashfree_enabled: settings.is_cashfree_enabled ?? true
       });
     }
@@ -638,6 +804,26 @@ function CashfreeConfigDialog({ isOpen, onClose }: { isOpen: boolean; onClose: (
                 onChange={e => setFormData(prev => ({ ...prev, cashfree_secret_key: e.target.value }))}
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cf_mode">Environment</Label>
+              <Select
+                value={formData.cashfree_mode}
+                onValueChange={(value: 'sandbox' | 'production') =>
+                  setFormData(prev => ({ ...prev, cashfree_mode: value }))
+                }
+              >
+                <SelectTrigger id="cf_mode">
+                  <SelectValue placeholder="Select mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
+                  <SelectItem value="production">Production (Live)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                Ensure your credentials match the selected environment.
+              </p>
             </div>
           </div>
 

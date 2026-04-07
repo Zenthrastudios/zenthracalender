@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface WhatsAppRequest {
-    type: "customer" | "instructor" | "cancellation" | "reschedule" | "reschedule_instructor" | "payment_failed" | "reminder" | "reminder_instructor";
+    type: "customer" | "instructor" | "cancellation" | "reschedule" | "reschedule_instructor" | "payment_failed" | "reminder" | "reminder_instructor" | "course_purchase" | "product_purchase" | "course_purchase_instructor" | "product_purchase_instructor" | "webinar_registration" | "webinar_reminder" | "support_ticket_created" | "support_ticket_resolved";
     recipient_phone: string;
     booking: any;
     settings: {
@@ -20,6 +20,14 @@ interface WhatsAppRequest {
         payment_failed_template_name?: string;
         reminder_template_name?: string;
         instructor_reminder_template_name?: string;
+        course_purchase_template_name?: string;
+        product_purchase_template_name?: string;
+        instructor_course_purchase_template_name?: string;
+        instructor_product_purchase_template_name?: string;
+        webinar_registration_template_name?: string;
+        webinar_reminder_template_name?: string;
+        support_ticket_created_template_name?: string;
+        support_ticket_resolved_template_name?: string;
         template_language?: string;
         site_url?: string;
     };
@@ -39,7 +47,8 @@ const formatDateTime = (dateStr: string, timezone: string) => {
     });
 };
 
-serve(async (req) => {
+// @ts-ignore
+serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response(null, { headers: corsHeaders });
     }
@@ -78,11 +87,36 @@ serve(async (req) => {
             case "reminder_instructor":
                 templateName = settings.instructor_reminder_template_name || "booking_reminder_instructor";
                 break;
+            case "course_purchase":
+                templateName = settings.course_purchase_template_name || "course_purchase_confirmation";
+                break;
+            case "product_purchase":
+                templateName = settings.product_purchase_template_name || "product_purchase_confirmation";
+                break;
+            case "course_purchase_instructor":
+                templateName = settings.instructor_course_purchase_template_name || "new_course_purchase_instructor";
+                break;
+            case "product_purchase_instructor":
+                templateName = settings.instructor_product_purchase_template_name || "new_product_purchase_instructor";
+                break;
+            case "webinar_registration":
+                templateName = settings.webinar_registration_template_name || "webinar_registration_confirmation";
+                break;
+            case "webinar_reminder":
+                templateName = settings.webinar_reminder_template_name || "webinar_reminder";
+                break;
+            case "support_ticket_created":
+                templateName = settings.support_ticket_created_template_name || "support_ticket_received";
+                break;
+            case "support_ticket_resolved":
+                templateName = settings.support_ticket_resolved_template_name || "support_ticket_resolved";
+                break;
             default:
                 templateName = settings.customer_template_name || "booking_confirmation";
         }
 
         const templateLanguage = settings.template_language || "en";
+        // @ts-ignore
         const siteUrl = (settings.site_url || Deno.env.get("PUBLIC_SITE_URL") || "https://cal.zenthrashop.in").replace(/\/$/, '');
         const formattedDate = formatDateTime(booking.start_time, booking.attendee_timezone || "UTC");
 
@@ -157,6 +191,63 @@ serve(async (req) => {
                 { type: "text", text: booking.attendee_name },
                 { type: "text", text: booking.meet_link || `${siteUrl}/dashboard/bookings` }
             ];
+        } else if (type === "course_purchase") {
+            // Course Purchase (Customer) (1. Name, 2. Course Title, 3. Link)
+            parameters = [
+                { type: "text", text: booking.customer_name },
+                { type: "text", text: booking.course?.title || "Course" },
+                { type: "text", text: `${siteUrl}/course/${booking.course?.slug || booking.course_id}/access/${booking.access_token}` }
+            ];
+        } else if (type === "product_purchase") {
+            // Product Purchase (Customer) (1. Name, 2. Product Title, 3. Link)
+            parameters = [
+                { type: "text", text: booking.customer_name },
+                { type: "text", text: booking.product?.title || "Digital Product" },
+                { type: "text", text: `${siteUrl}/product/${booking.product?.slug || booking.product_id}/access/${booking.access_token}` }
+            ];
+        } else if (type === "course_purchase_instructor") {
+            // Course Purchase (Instructor) (1. Instructor, 2. Customer Name, 3. Course Title)
+            parameters = [
+                { type: "text", text: booking.instructor_name || "Instructor" },
+                { type: "text", text: booking.customer_name },
+                { type: "text", text: booking.course?.title || "Course" }
+            ];
+        } else if (type === "product_purchase_instructor") {
+            // Product Purchase (Instructor) (1. Instructor, 2. Product Title, 3. Customer Name)
+            parameters = [
+                { type: "text", text: booking.instructor_name || "Instructor" },
+                { type: "text", text: booking.product?.title || "Digital Product" },
+                { type: "text", text: booking.customer_name }
+            ];
+        } else if (type === "webinar_registration") {
+            // Webinar Registration (Customer) (1. Name, 2. Webinar Title, 3. Date, 4. Link)
+            parameters = [
+                { type: "text", text: booking.attendee_name },
+                { type: "text", text: booking.webinar?.title || "Webinar" },
+                { type: "text", text: formatDateTime(booking.webinar?.start_time, "UTC") },
+                { type: "text", text: booking.webinar?.meet_link || `${siteUrl}/webinar/${booking.webinar_id}` }
+            ];
+        } else if (type === "webinar_reminder") {
+            // Webinar Reminder (Customer) (1. Name, 2. Webinar Title, 3. Time, 4. Link)
+            parameters = [
+                { type: "text", text: booking.attendee_name },
+                { type: "text", text: booking.webinar?.title || "Webinar" },
+                { type: "text", text: booking.time_remaining || "soon" },
+                { type: "text", text: booking.webinar?.meet_link || `${siteUrl}/webinar/${booking.webinar_id}` }
+            ];
+        } else if (type === "support_ticket_created") {
+            // Support Ticket Created (1. Name, 2. Subject, 3. Ticket ID)
+            parameters = [
+                { type: "text", text: booking.customer_name },
+                { type: "text", text: booking.subject },
+                { type: "text", text: booking.id.substring(0, 8) }
+            ];
+        } else if (type === "support_ticket_resolved") {
+            // Support Ticket Resolved (1. Name, 2. Subject)
+            parameters = [
+                { type: "text", text: booking.customer_name },
+                { type: "text", text: booking.subject }
+            ];
         }
 
 
@@ -203,7 +294,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, result }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Function Error:", error);
         return new Response(JSON.stringify({ error: error.message }), {
             status: 500,
