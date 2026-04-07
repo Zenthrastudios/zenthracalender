@@ -414,7 +414,6 @@ export default function CourseViewer() {
             document.removeEventListener('keydown', preventScreenshotKeys, { capture: true });
             document.removeEventListener('keyup', handleKeyUp, { capture: true });
             window.removeEventListener('blur', handleBlur);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
             document.removeEventListener('contextmenu', preventDefault);
             document.removeEventListener('dragstart', preventDefault);
             clearInterval(focusCheckInterval);
