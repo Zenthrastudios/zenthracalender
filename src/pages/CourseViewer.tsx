@@ -2059,7 +2059,7 @@ export default function CourseViewer() {
                                                     </div>
                                                     <div className="flex-1 min-w-0 py-1">
                                                         <h4 className={cn("text-xs font-bold leading-snug line-clamp-2", isCurrent ? "text-primary" : "text-zinc-200")}>
-                                                            {lesson.title}
+                                                            Ep {index + 1}: {lesson.title}
                                                         </h4>
                                                         <p className="text-[10px] text-zinc-500 mt-1 line-clamp-1">
                                                             {lesson.description || 'No description'}
@@ -2146,7 +2146,7 @@ export default function CourseViewer() {
 
                                             <div className="flex-1 min-w-0 py-0.5">
                                                 <h4 className={cn("text-sm font-medium line-clamp-2 leading-snug group-hover:text-primary transition-colors", isCurrent ? "text-primary" : "text-zinc-200")}>
-                                                    {lesson.title}
+                                                    Ep {index + 1}: {lesson.title}
                                                 </h4>
                                                 <p className="text-xs text-zinc-500 mt-1 line-clamp-1">
                                                     {lesson.description || 'No description'}
