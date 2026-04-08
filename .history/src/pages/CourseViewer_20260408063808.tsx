@@ -479,31 +479,52 @@ export default function CourseViewer() {
         document.addEventListener('MSFullscreenChange', handleFullscreenChange);
         return () => {
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
-        };
-    }, []);
 
-    // iOS / mobile: explicitly call load() when lesson changes so Safari picks up the new source
-    useEffect(() => {
-        if (!videoRef.current) return;
+// Fullscreen state sync
+useEffect(() => {
+    const handleFullscreenChange = () => {
+        const isFs = !!(
+            document.fullscreenElement ||
+            (document as any).webkitFullscreenElement ||
+            (document as any).msFullscreenElement
+        );
+        setIsFullscreen(isFs);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    return () => {
+        document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+}, []);
+
+// iOS / mobile: explicitly call load() when lesson changes so Safari picks up the new source
+useEffect(() => {
+    if (videoRef.current && currentLesson) {
+        const video = videoRef.current;
         
-        // Reset loading state
-        setIsVideoLoading(true);
+        console.log('🎬 Loading lesson video:', {
+            lessonId: currentLesson.id,
+            lessonTitle: currentLesson.title,
+            videoUrl: currentLesson.video_url,
+            streamUrl: videoStreamUrl,
+            accessToken: accessToken ? 'present' : 'missing'
+        });
+        
+        // Clear previous states
         setCurrentTime(0);
         setDuration(0);
+        setIsVideoLoading(true);
+        setError(null);
         
-        // iOS requires explicit load() call for new sources
-        videoRef.current.load();
-        
-        // iOS-specific: Force metadata preloading
-        if (isIOS) {
-            const video = videoRef.current;
-            video.preload = 'metadata';
-            
-            // Add one-time loadstart listener for iOS
-            const handleLoadStart = () => {
-                console.log('iOS video loadstart');
+        // Ensure video has a source
+        if (!videoStreamUrl && !currentLesson.video_url) {
+            console.error('❌ No video source available');
+            setError('No video source available for this lesson');
+            setIsVideoLoading(false);
+            return;
                 video.removeEventListener('loadstart', handleLoadStart);
             };
             video.addEventListener('loadstart', handleLoadStart);
@@ -835,11 +856,10 @@ export default function CourseViewer() {
                 networkState: video.networkState,
                 videoWidth: video.videoWidth,
                 videoHeight: video.videoHeight,
-                src: video.src,
-                currentSrc: video.currentSrc
+                src: video.src
             });
             
-            // Enhanced duration validation to fix 0:00/0:00 issue
+            // Handle duration - with better error checking
             if (vidDuration && !isNaN(vidDuration) && vidDuration > 0 && isFinite(vidDuration)) {
                 setDuration(vidDuration);
                 console.log('✅ Duration set successfully:', vidDuration);
@@ -851,29 +871,28 @@ export default function CourseViewer() {
                     ));
                 }
 
-                // Resume from progress
+                // Resume from progress - simple approach for all devices
                 const lessonProgress = progress.find((p) => p.lesson_id === currentLesson?.id);
                 if (lessonProgress && lessonProgress.progress_seconds > 0) {
                     video.currentTime = lessonProgress.progress_seconds;
                     console.log('▶️ Resumed from progress:', lessonProgress.progress_seconds);
                 }
             } else {
-                console.error('❌ Invalid video duration detected:', {
+                console.error('❌ Invalid video duration:', {
                     duration: vidDuration,
                     isNaN: isNaN(vidDuration),
                     isFinite: isFinite(vidDuration),
                     readyState: video.readyState,
-                    networkState: video.networkState,
-                    error: video.error
+                    networkState: video.networkState
                 });
                 
                 // Retry metadata loading if duration is invalid
                 setTimeout(() => {
-                    if (videoRef.current && videoRef.current.readyState < 2) {
-                        console.log('🔄 Retrying video load due to invalid duration...');
+                    if (videoRef.current) {
+                        console.log('🔄 Retrying metadata load...');
                         videoRef.current.load();
                     }
-                }, 2000);
+                }, 1000);
             }
             
             setIsVideoLoading(false);
@@ -1278,26 +1297,40 @@ export default function CourseViewer() {
                                                         networkState: vid.networkState,
                                                         readyState: vid.readyState,
                                                         lessonId: currentLesson?.id,
-                                                        accessToken: accessToken ? 'present' : 'missing',
-                                                        streamUrl: videoStreamUrl
+                                                        accessToken: accessToken ? 'present' : 'missing'
                                                     });
                                                     
-                                                    // Try fallback to direct video URL if streaming endpoint fails
+                                                    // Try fallback to direct video URL if stream URL fails
                                                     if (vid.src.includes('video-access') && currentLesson?.video_url) {
-                                                        console.log('🔄 Streaming endpoint failed, trying direct video URL...');
+                                                        console.log('🔄 Trying fallback to direct video URL...');
                                                         vid.src = currentLesson.video_url;
-                                                        vid.load();
                                                         return;
                                                     }
                                                     
                                                     setIsPlaying(false);
                                                     setIsVideoLoading(false);
-                                                    setError(`Video failed to load (Error ${err?.code}). Please refresh the page.`);
+                                                    setError('Video failed to load. Please refresh the page.');
                                                 }}
-                                                onLoadStart={() => setIsVideoLoading(true)}
-                                                onLoadedData={() => setIsVideoLoading(false)}
-                                                onWaiting={() => setIsVideoLoading(true)}
-                                                onCanPlay={() => setIsVideoLoading(false)}
+                                                onLoadStart={() => {
+                                                    console.log('📥 Video load start');
+                                                    setIsVideoLoading(true);
+                                                }}
+                                                onLoadedData={() => {
+                                                    console.log('✅ Video data loaded');
+                                                    setIsVideoLoading(false);
+                                                }}
+                                                onWaiting={() => {
+                                                    console.log('⏳ Video waiting for data');
+                                                    setIsVideoLoading(true);
+                                                }}
+                                                onCanPlay={() => {
+                                                    console.log('▶️ Video can play');
+                                                    setIsVideoLoading(false);
+                                                }}
+                                                onCanPlayThrough={() => {
+                                                    console.log('🎯 Video can play through');
+                                                    setIsVideoLoading(false);
+                                                }}
                                                 controlsList="nodownload noremoteplayback"
                                                 disablePictureInPicture
                                                 preload="metadata"

@@ -826,23 +826,11 @@ export default function CourseViewer() {
 
     const handleLoadedMetadata = useCallback(() => {
         if (videoRef.current) {
-            const video = videoRef.current;
-            const vidDuration = video.duration;
+            const vidDuration = videoRef.current.duration;
             
-            console.log('🎥 Video metadata loaded:', {
-                duration: vidDuration,
-                readyState: video.readyState,
-                networkState: video.networkState,
-                videoWidth: video.videoWidth,
-                videoHeight: video.videoHeight,
-                src: video.src,
-                currentSrc: video.currentSrc
-            });
-            
-            // Enhanced duration validation to fix 0:00/0:00 issue
-            if (vidDuration && !isNaN(vidDuration) && vidDuration > 0 && isFinite(vidDuration)) {
+            // Simple duration handling - no complex iOS retries to reduce lag
+            if (vidDuration && !isNaN(vidDuration) && vidDuration > 0) {
                 setDuration(vidDuration);
-                console.log('✅ Duration set successfully:', vidDuration);
                 
                 // Update lesson duration if not set
                 if (currentLesson && (currentLesson.video_duration === 0 || !currentLesson.video_duration)) {
@@ -851,29 +839,11 @@ export default function CourseViewer() {
                     ));
                 }
 
-                // Resume from progress
+                // Resume from progress - simple approach for all devices
                 const lessonProgress = progress.find((p) => p.lesson_id === currentLesson?.id);
                 if (lessonProgress && lessonProgress.progress_seconds > 0) {
-                    video.currentTime = lessonProgress.progress_seconds;
-                    console.log('▶️ Resumed from progress:', lessonProgress.progress_seconds);
+                    videoRef.current.currentTime = lessonProgress.progress_seconds;
                 }
-            } else {
-                console.error('❌ Invalid video duration detected:', {
-                    duration: vidDuration,
-                    isNaN: isNaN(vidDuration),
-                    isFinite: isFinite(vidDuration),
-                    readyState: video.readyState,
-                    networkState: video.networkState,
-                    error: video.error
-                });
-                
-                // Retry metadata loading if duration is invalid
-                setTimeout(() => {
-                    if (videoRef.current && videoRef.current.readyState < 2) {
-                        console.log('🔄 Retrying video load due to invalid duration...');
-                        videoRef.current.load();
-                    }
-                }, 2000);
             }
             
             setIsVideoLoading(false);
