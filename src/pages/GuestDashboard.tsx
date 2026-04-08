@@ -89,6 +89,7 @@ export default function GuestDashboard() {
   const [ticketMessage, setTicketMessage] = useState('');
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
   const createTicket = useCreateSupportTicket();
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     if (user?.email) {
@@ -374,7 +375,7 @@ export default function GuestDashboard() {
           <p className="text-muted-foreground">Access your bookings, purchases, and resources.</p>
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
@@ -384,34 +385,39 @@ export default function GuestDashboard() {
 
           <TabsContent value="overview" className="space-y-8">
             {/* Quick Overview Section */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Upcoming Sessions</CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{upcomingBookings.length}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Enrolled Courses</CardTitle>
-                  <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{courses.length}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Digital Products</CardTitle>
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{products.length}</div>
-                </CardContent>
-              </Card>
+            <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 hide-scrollbar">
+              <button 
+                onClick={() => setActiveTab('bookings')}
+                className="flex-1 min-w-[130px] text-left bg-card border border-border rounded-xl p-3 sm:p-4 hover:border-primary/50 transition-colors group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                  <span className="text-xs sm:text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors line-clamp-1">Upcoming Sessions</span>
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                </div>
+                <div className="text-xl sm:text-2xl font-bold">{upcomingBookings.length}</div>
+              </button>
+
+              <button 
+                onClick={() => setActiveTab('courses')}
+                className="flex-1 min-w-[130px] text-left bg-card border border-border rounded-xl p-3 sm:p-4 hover:border-primary/50 transition-colors group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                  <span className="text-xs sm:text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors line-clamp-1">Enrolled Courses</span>
+                  <GraduationCap className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                </div>
+                <div className="text-xl sm:text-2xl font-bold">{courses.length}</div>
+              </button>
+
+              <button 
+                onClick={() => setActiveTab('products')}
+                className="flex-1 min-w-[130px] text-left bg-card border border-border rounded-xl p-3 sm:p-4 hover:border-primary/50 transition-colors group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                  <span className="text-xs sm:text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors line-clamp-1">Digital Products</span>
+                  <Package className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                </div>
+                <div className="text-xl sm:text-2xl font-bold">{products.length}</div>
+              </button>
             </div>
 
             {upcomingBookings.length > 0 && (
@@ -446,7 +452,7 @@ export default function GuestDashboard() {
                 <Card className="overflow-hidden">
                   <CardContent className="p-0">
                     <div className="flex flex-col md:flex-row">
-                      <div className="w-full md:w-48 h-32 bg-muted relative">
+                      <div className="w-full md:w-64 aspect-video bg-muted relative shrink-0">
                         {courses[0].course?.thumbnail_url ? (
                           <img
                             src={courses[0].course?.thumbnail_url}
@@ -459,14 +465,14 @@ export default function GuestDashboard() {
                           </div>
                         )}
                       </div>
-                      <div className="p-6 flex-1 flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div>
-                          <h4 className="font-semibold text-lg">{courses[0].course?.title}</h4>
-                          <p className="text-sm text-muted-foreground line-clamp-1">{courses[0].course?.description}</p>
+                      <div className="p-5 sm:p-6 flex-1 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div className="space-y-1">
+                          <h4 className="font-semibold text-lg leading-tight">{courses[0].course?.title}</h4>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{courses[0].course?.description}</p>
                         </div>
-                        <Button asChild>
+                        <Button className="w-full md:w-auto shrink-0" asChild>
                           <Link to={`/course/${courses[0].access_token}`}>
-                            <Play className="w-4 h-4 mr-2" /> Continue Learning
+                            <Play className="w-4 h-4 mr-2" fill="currentColor" /> Continue Learning
                           </Link>
                         </Button>
                       </div>

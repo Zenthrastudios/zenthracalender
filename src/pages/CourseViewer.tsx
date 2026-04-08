@@ -28,6 +28,7 @@ import {
     Gauge,
     Monitor,
     Home,
+    User,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -82,6 +83,10 @@ interface CourseData {
     slug: string; // Added slug from usage
     thumbnail_url: string | null;
     user_id: string;
+    instructor?: {
+        name: string;
+        avatar_url: string | null;
+    } | null;
 }
 
 interface LessonData {
@@ -592,6 +597,17 @@ export default function CourseViewer() {
                     .order('order_index', { ascending: true });
 
                 if (lessonsError) throw lessonsError;
+
+                // Fetch instructor info if exists
+                const { data: instructorData } = await db
+                    .from('courses')
+                    .select('instructor:instructors(name, avatar_url)')
+                    .eq('id', courseData.id)
+                    .single();
+                
+                if (instructorData?.instructor) {
+                    courseData.instructor = instructorData.instructor;
+                }
                 setLessons(lessonsData as LessonData[]);
 
                 // Get progress
@@ -1432,11 +1448,29 @@ export default function CourseViewer() {
                             <Menu className="w-5 h-5" />
                         </Button>
                         <div className="w-px h-6 bg-white/10" />
-                        <div>
-                            <h1 className="font-semibold text-zinc-100 line-clamp-1 max-w-md">{currentLesson?.title || 'Course Viewer'}</h1>
-                            <p className="text-xs text-zinc-500">
-                                {purchase?.course.title} • Lesson {currentLessonIndex + 1} of {lessons.length}
-                            </p>
+                        <div className="flex items-center gap-3">
+                            {purchase?.course.instructor && (
+                                <div className="flex-shrink-0">
+                                    {purchase.course.instructor.avatar_url ? (
+                                        <img 
+                                            src={purchase.course.instructor.avatar_url} 
+                                            className="w-8 h-8 rounded-full border border-white/10 object-cover"
+                                            alt=""
+                                        />
+                                    ) : (
+                                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center border border-white/10">
+                                            <User className="w-4 h-4 text-zinc-500" />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <div>
+                                <h1 className="font-semibold text-zinc-100 line-clamp-1 max-w-md">{currentLesson?.title || 'Course Viewer'}</h1>
+                                <p className="text-xs text-zinc-500">
+                                    {purchase?.course.instructor && <span className="text-primary font-medium">{purchase.course.instructor.name} • </span>}
+                                    {purchase?.course.title} • Lesson {currentLessonIndex + 1} of {lessons.length}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
@@ -1958,6 +1992,25 @@ export default function CourseViewer() {
 
                                 {/* Mobile Nav */}
                                 <div className="flex items-center gap-2 pb-2">
+                                    {purchase?.course.instructor && (
+                                        <div className="flex items-center gap-2 bg-white/5 pl-1.5 pr-3 py-1 rounded-full border border-white/5">
+                                            {purchase.course.instructor.avatar_url ? (
+                                                <img 
+                                                    src={purchase.course.instructor.avatar_url} 
+                                                    alt={purchase.course.instructor.name}
+                                                    className="w-6 h-6 rounded-full object-cover ring-1 ring-white/20"
+                                                />
+                                            ) : (
+                                                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                                                    <User className="w-3.5 h-3.5 text-primary" />
+                                                </div>
+                                            )}
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] text-zinc-500 font-medium leading-none uppercase tracking-wider">Instructor</span>
+                                                <span className="text-[11px] text-white font-bold leading-tight">{purchase.course.instructor.name}</span>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex-1" />
                                     <Button
                                         variant="secondary"
@@ -2041,6 +2094,9 @@ export default function CourseViewer() {
                                                                 <div className="text-[9px] text-zinc-700 mt-0.5 line-clamp-1 px-1 text-center">{lesson.title}</div>
                                                             </div>
                                                         )}
+                                                        <div className="absolute top-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white backdrop-blur-sm shadow-sm ring-1 ring-white/10 z-10">
+                                                            EP {index + 1}
+                                                        </div>
                                                         {isCurrent && (
                                                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                                                                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
@@ -2059,7 +2115,7 @@ export default function CourseViewer() {
                                                     </div>
                                                     <div className="flex-1 min-w-0 py-1">
                                                         <h4 className={cn("text-xs font-bold leading-snug line-clamp-2", isCurrent ? "text-primary" : "text-zinc-200")}>
-                                                            Ep {index + 1}: {lesson.title}
+                                                            {lesson.title}
                                                         </h4>
                                                         <p className="text-[10px] text-zinc-500 mt-1 line-clamp-1">
                                                             {lesson.description || 'No description'}
@@ -2123,6 +2179,9 @@ export default function CourseViewer() {
                                                                 <div className="text-sm font-bold text-zinc-600">{index + 1}</div>
                                                             </div>
                                                         )}
+                                                        <div className="absolute top-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white backdrop-blur-sm shadow-sm ring-1 ring-white/10 z-10">
+                                                            EP {index + 1}
+                                                        </div>
                                                 {lessonProgress && !isCompleted && lessonProgress.progress_seconds > 0 && (
                                                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-zinc-800">
                                                         <div
@@ -2146,7 +2205,7 @@ export default function CourseViewer() {
 
                                             <div className="flex-1 min-w-0 py-0.5">
                                                 <h4 className={cn("text-sm font-medium line-clamp-2 leading-snug group-hover:text-primary transition-colors", isCurrent ? "text-primary" : "text-zinc-200")}>
-                                                    Ep {index + 1}: {lesson.title}
+                                                    {lesson.title}
                                                 </h4>
                                                 <p className="text-xs text-zinc-500 mt-1 line-clamp-1">
                                                     {lesson.description || 'No description'}
