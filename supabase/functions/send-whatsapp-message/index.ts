@@ -196,7 +196,7 @@ serve(async (req: Request) => {
             parameters = [
                 { type: "text", text: booking.customer_name },
                 { type: "text", text: booking.course?.title || "Course" },
-                { type: "text", text: `${siteUrl}/course/${booking.course?.slug || booking.course_id}/access/${booking.access_token}` }
+                { type: "text", text: `${siteUrl}/course/${booking.access_token}` }
             ];
         } else if (type === "product_purchase") {
             // Product Purchase (Customer) (1. Name, 2. Product Title, 3. Link)

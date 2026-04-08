@@ -304,6 +304,16 @@ export default function Customers() {
         return { totalRevenue, activeCount, revokedCount, totalCustomers: customers.length };
     }, [purchases, customers]);
 
+    // ─── Sync selectedCustomer when purchases refresh ─────────────────────────
+
+    useEffect(() => {
+        if (!selectedCustomer) return;
+        const updated = customers.find(c => c.email === selectedCustomer.email);
+        if (updated) setSelectedCustomer({ ...updated });
+        else { setIsDetailOpen(false); setSelectedCustomer(null); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [customers]);
+
     // ─── Open customer detail ─────────────────────────────────────────────────
 
     const openDetail = async (customer: CustomerGroup) => {
@@ -369,11 +379,6 @@ export default function Customers() {
             await db.from('course_purchases').update({ status: 'revoked' }).eq('id', purchaseId);
             toast.success('Access revoked');
             await fetchData();
-            // Refresh selected customer
-            if (selectedCustomer) {
-                const updated = customers.find(c => c.email === selectedCustomer.email);
-                if (updated) setSelectedCustomer({ ...updated });
-            }
         } catch { toast.error('Failed to revoke access'); }
         finally { setAction(purchaseId, false); }
     };
@@ -412,11 +417,6 @@ export default function Customers() {
             await db.from('course_purchases').delete().eq('id', purchaseId);
             toast.success('Purchase deleted');
             await fetchData();
-            // If no more purchases, close detail
-            if (selectedCustomer && selectedCustomer.purchases.length === 1) {
-                setIsDetailOpen(false);
-                setSelectedCustomer(null);
-            }
         } catch { toast.error('Failed to delete purchase'); }
         finally { setAction(`del-${purchaseId}`, false); }
     };
@@ -598,22 +598,22 @@ export default function Customers() {
                                     </div>
 
                                     {/* Courses */}
-                                    <div className="flex flex-wrap gap-1">
-                                        {customer.purchases.slice(0, 2).map(p => (
-                                            <Badge
-                                                key={p.id}
-                                                variant="outline"
-                                                className={cn('text-[10px] px-1.5 py-0 border', statusColor(p.status))}
-                                            >
-                                                {statusLabel(p.status)}
-                                            </Badge>
-                                        ))}
-                                        {customer.purchases.length > 2 && (
-                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                                                +{customer.purchases.length - 2}
-                                            </Badge>
-                                        )}
-                                        <span className="text-xs text-muted-foreground ml-1 self-center">
+                                    <div className="flex items-center gap-2">
+                                        <Badge
+                                            variant="outline"
+                                            className={cn('text-[10px] px-1.5 py-0 border', statusColor(
+                                                customer.activeCourses > 0 ? 'paid'
+                                                    : customer.purchases.every(p => p.status === 'revoked') ? 'revoked'
+                                                    : 'pending'
+                                            ))}
+                                        >
+                                            {statusLabel(
+                                                customer.activeCourses > 0 ? 'paid'
+                                                    : customer.purchases.every(p => p.status === 'revoked') ? 'revoked'
+                                                    : 'pending'
+                                            )}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
                                             {customer.purchases.length} course{customer.purchases.length !== 1 ? 's' : ''}
                                         </span>
                                     </div>

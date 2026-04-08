@@ -16,12 +16,14 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const { brandName } = useBrand();
   const initialUsername = searchParams.get('username') || '';
+  const initialEmail = searchParams.get('email') || '';
+  const redirectAfterLogin = searchParams.get('redirect') || '';
   // Convert 'signup' param to boolean, default to false unless explicitly 'true'
   const forceSignup = searchParams.get('signup') === 'true';
 
   // State management
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(forceSignup || initialUsername ? 'signup' : 'login');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -71,11 +73,13 @@ export default function AuthPage() {
             navigate('/onboarding');
           } else {
             // Regular users let the AuthProvider/App.tsx handle redirection
-            // If we don't navigate here, the App.tsx 'user' state change will trigger a re-render
-            // and the ProtectedRoute/GuestRoute logic will take over.
           }
         } else {
-          // Login - let the system handle redirection based on role
+          // Login - check for redirect param first
+          if (redirectAfterLogin) {
+            navigate(redirectAfterLogin, { replace: true });
+          }
+          // else let the system handle redirection based on role
         }
       }
     } catch (error: any) {
@@ -102,8 +106,17 @@ export default function AuthPage() {
               {activeTab === 'login' ? 'Welcome Back' : 'Create Account'}
             </h1>
             <p className="text-muted-foreground font-medium">
-              {activeTab === 'login' ? 'Manage your calendar and bookings.' : 'Start your creator journey today.'}
+              {activeTab === 'login'
+                ? (redirectAfterLogin ? 'Log in to access your purchased courses.' : 'Manage your calendar and bookings.')
+                : 'Start your creator journey today.'}
             </p>
+            {initialEmail && activeTab === 'login' && (
+              <div className="mt-3 px-4 py-2 bg-primary/10 border border-primary/20 rounded-xl inline-block">
+                <p className="text-sm text-primary font-medium">
+                  📧 Email pre-filled from your purchase
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="bg-card/60 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-8">

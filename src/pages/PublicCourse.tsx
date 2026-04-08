@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useCourseBySlug, useCreateSupportTicket } from '@/hooks/useCourses';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePublicPaymentInfo } from '@/hooks/usePayments';
@@ -32,6 +32,7 @@ const db = supabase as any;
 
 export default function PublicCoursePage() {
     const { username, slug } = useParams();
+    const [searchParams] = useSearchParams();
     const { data, isLoading } = useCourseBySlug(username, slug);
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
@@ -86,6 +87,56 @@ export default function PublicCoursePage() {
         const timer = setTimeout(checkExisting, 500); // Debounce
         return () => clearTimeout(timer);
     }, [customerEmail, data?.course?.id]);
+
+    // Handle Cashfree redirect: ?order_id=xxx after payment completion
+    useEffect(() => {
+        const orderId = searchParams.get('order_id');
+        if (!orderId || purchaseSuccess) return;
+
+        const verifyCashfreeReturn = async () => {
+            setIsProcessing(true);
+            try {
+                const { data: verifyData } = await supabase.functions.invoke('cashfree-payment', {
+                    body: { action: 'verify-payment', orderId },
+                });
+
+                if (verifyData?.isPaid) {
+                    // Find the purchase record linked to this order
+                    const { data: paymentRecord } = await db
+                        .from('payments')
+                        .select('course_purchase_id')
+                        .eq('order_id', orderId)
+                        .maybeSingle();
+
+                    if (paymentRecord?.course_purchase_id) {
+                        const { data: purchaseRecord } = await db
+                            .from('course_purchases')
+                            .select('access_token, customer_email, customer_name')
+                            .eq('id', paymentRecord.course_purchase_id)
+                            .maybeSingle();
+
+                        if (purchaseRecord?.access_token) {
+                            if (purchaseRecord.customer_email) setCustomerEmail(purchaseRecord.customer_email);
+                            if (purchaseRecord.customer_name) setCustomerName(purchaseRecord.customer_name);
+                            setAccessToken(purchaseRecord.access_token);
+                            setPurchaseSuccess(true);
+
+                            // Trigger WhatsApp/Email notification for the successful purchase
+                            supabase.functions.invoke('send-product-notification', {
+                                body: { type: 'course_purchase', id: paymentRecord.course_purchase_id }
+                            }).catch(err => console.error('Notification failed', err));
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Cashfree return verification failed:', err);
+            } finally {
+                setIsProcessing(false);
+            }
+        };
+
+        verifyCashfreeReturn();
+    }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Load the correct payment SDK
     useEffect(() => {
@@ -402,36 +453,54 @@ export default function PublicCoursePage() {
 
     // Success state
     if (purchaseSuccess && accessToken) {
+        const loginUrl = `/auth?email=${encodeURIComponent(customerEmail)}`;
         return (
             <div className="min-h-screen flex items-center justify-center bg-background p-4">
-                <Card className="max-w-md w-full border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden rounded-3xl">
-                    <div className="h-1 bg-gradient-to-r from-primary to-primary w-full" />
-                    <CardHeader className="text-center pb-2 pt-8">
-                        <div className="w-16 h-16 bg-orange-500/10 rounded-full mx-auto flex items-center justify-center mb-4 border border-orange-500/20">
-                            <CheckCircle2 className="w-8 h-8 text-primary" />
+                <div className="max-w-md w-full space-y-4">
+                    <div className="border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden rounded-3xl">
+                        <div className="h-1 bg-gradient-to-r from-primary to-primary w-full" />
+                        <div className="text-center pb-2 pt-8 px-8">
+                            <div className="w-16 h-16 bg-orange-500/10 rounded-full mx-auto flex items-center justify-center mb-4 border border-orange-500/20">
+                                <CheckCircle2 className="w-8 h-8 text-primary" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-white">You're Enrolled!</h2>
+                            <p className="text-zinc-500 text-sm mt-1">Your access has been confirmed</p>
                         </div>
-                        <h2 className="text-2xl font-bold text-white">You're Enrolled!</h2>
-                        <p className="text-zinc-500 text-sm mt-1">Your access has been confirmed</p>
-                    </CardHeader>
-                    <CardContent className="text-center space-y-4 px-8">
-                        <div className="p-4 bg-zinc-800/50 rounded-2xl border border-zinc-700/50">
-                            <h3 className="font-semibold text-base text-white">{course.title}</h3>
-                            <p className="text-xs text-orange-500 mt-1">{lessons.length} lessons included</p>
+                        <div className="text-center space-y-4 px-8 pb-2">
+                            <div className="p-4 bg-zinc-800/50 rounded-2xl border border-zinc-700/50">
+                                <h3 className="font-semibold text-base text-white">{course.title}</h3>
+                                <p className="text-xs text-orange-500 mt-1">{lessons.length} lessons included</p>
+                            </div>
+                            <p className="text-sm text-zinc-400">
+                                Access link sent to <strong className="text-zinc-200">{customerEmail}</strong>
+                            </p>
                         </div>
-                        <p className="text-sm text-zinc-400">
-                            Login details sent to <strong className="text-zinc-200">{customerEmail}</strong>
-                        </p>
-                    </CardContent>
-                    <CardFooter className="flex flex-col gap-3 pt-2 pb-8 px-8">
-                        <Button
-                            className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary transition-all group"
-                            onClick={() => window.open(`/course/${accessToken}`, '_blank')}
-                        >
-                            <PlayCircle className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                            Start Learning
-                        </Button>
-                    </CardFooter>
-                </Card>
+                        <div className="flex flex-col gap-3 pt-2 pb-8 px-8">
+                            <Button
+                                className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary transition-all group"
+                                onClick={() => window.open(`/course/${accessToken}`, '_blank')}
+                            >
+                                <PlayCircle className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                                Start Learning
+                            </Button>
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1 h-px bg-zinc-800" />
+                                <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">or</span>
+                                <div className="flex-1 h-px bg-zinc-800" />
+                            </div>
+                            <Button
+                                variant="outline"
+                                className="w-full h-11 text-sm font-semibold border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+                                onClick={() => window.location.href = `/auth?email=${encodeURIComponent(customerEmail)}&redirect=/course/${accessToken}`}
+                            >
+                                Login to Access Your Account
+                            </Button>
+                            <p className="text-xs text-zinc-600 text-center">
+                                Save your progress &amp; access all purchased courses
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
