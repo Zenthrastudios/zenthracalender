@@ -288,583 +288,113 @@ export default function CourseViewer() {
 
     // Video stream URL — points to our edge function which:
     //  1. Verifies the purchase (only paid users)
-    //  2. Fetches from R2 with proper SigV4 auth (bypasses public access 403)
-    //  3. Adds CORS headers (fixes iOS Safari cross-origin video loading)
-    //  4. Forwards Range requests for video seeking
-    const SUPABASE_FN_URL = 'https://zlhbzlxxdezlrtzljpni.supabase.co/functions/v1/video-access';
-    // Use streaming endpoint for ALL platforms - it handles CORS properly for iOS too
-    const videoStreamUrl = currentLesson?.id && accessToken
-        ? `${SUPABASE_FN_URL}?lessonId=${currentLesson.id}&token=${accessToken}`
-        : currentLesson?.video_url || null;
+            
+            // Use video stream URL for better thumbnail extraction
+            const streamUrl = accessToken 
+                ? `${SUPABASE_FN_URL}?lessonId=${lesson.id}&token=${accessToken}`
+                : lesson.video_url;
+            vid.src = streamUrl;
 
-    // ==================== SECURITY PROTECTIONS ====================
-
-
-
-    // ==================== ULTRA SECURITY PROTECTION ====================
-    useEffect(() => {
-        // 1. Aggressive Key Interception - Enhanced Game Bar Protection
-        const preventScreenshotKeys = (e: KeyboardEvent) => {
-            // Enhanced Game Bar Detection - Multiple patterns for Windows + G
-            const isGameBarKey = 
-                (e.metaKey && (e.key === 'g' || e.key === 'G')) || // Win + G (primary detection)
-                (e.metaKey && e.code === 'KeyG') || // Win + G (code-based detection)
-                (e.metaKey && e.altKey && (e.key === 'r' || e.key === 'R')) || // Win + Alt + R (Game Bar Record)
-                (e.metaKey && e.altKey && (e.key === 'g' || e.key === 'G')) || // Win + Alt + G (Game Bar Screenshot)
-                (e.keyCode === 71 && e.metaKey); // Legacy Win + G detection
-
-            const isRestrictedKey =
-                (e.key === 'PrintScreen' || e.code === 'PrintScreen' || e.keyCode === 44) ||
-                (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) || // Mac Cmd+Shift+3/4/5
-                (e.metaKey && e.shiftKey && (e.key === 's' || e.key === 'S')) || // Win+Shift+S (if meta mapped)
-                (e.ctrlKey && e.shiftKey && (e.key === 's' || e.key === 'S')) || // Common save/record shortcuts
-                (e.key === 'F12') ||
-                (e.ctrlKey && e.shiftKey && e.key === 'I') ||
-                (e.ctrlKey && e.shiftKey && e.key === 'C') || // DevTools
-                isGameBarKey; // Enhanced Game Bar detection
-
-            // IMMEDIATE GAME BAR PROTECTION: Hide content instantly on any Game Bar attempt
-            if (isGameBarKey) {
-                console.warn('Game Bar activation detected - content protected');
-                if (contentRef.current) {
-                    contentRef.current.style.opacity = '0';
+            vid.onloadedmetadata = () => {
+                // Fill in missing duration
+                const dur = Math.floor(vid.duration);
+                if (dur > 0) {
+                    setLessons(prev => prev.map(l => l.id === lesson.id ? { ...l, video_duration: dur } : l));
                 }
-                if (videoRef.current && isPlaying) {
-                    videoRef.current.pause();
-                    setIsPlaying(false);
-                }
-                // Restore content after delay to prevent recording
-                setTimeout(() => {
-                    if (contentRef.current) {
-                        contentRef.current.style.opacity = '1';
-                    }
-                }, 2000);
-            }
 
-            if (isRestrictedKey) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                setSecurityWarning(true);
-                return false;
-            }
-
-            // PRE-EMPTIVE BLACKOUT: If Windows/Meta key is pressed, hide content immediately
-            // This protects against ANY Win+Shortcut before it happens
-            if (e.key === 'Meta' || e.key === 'OS') {
-                if (contentRef.current) {
-                    contentRef.current.style.opacity = '0';
-                }
-            }
-        };
-
-        const handleKeyUp = (e: KeyboardEvent) => {
-            // Restore content when Windows key is released
-            if (e.key === 'Meta' || e.key === 'OS') {
-                if (contentRef.current) {
-                    contentRef.current.style.opacity = '1';
-                }
-            }
-        };
-
-        // Attach to window and document with CAPTURE phase (runs first!)
-        window.addEventListener('keydown', preventScreenshotKeys, { capture: true });
-        window.addEventListener('keyup', handleKeyUp, { capture: true }); // Separate handler for restore
-        document.addEventListener('keydown', preventScreenshotKeys, { capture: true });
-        document.addEventListener('keyup', handleKeyUp, { capture: true });
-
-        // Override onkeydown as a backup
-        const originalOnKeyDown = window.onkeydown;
-        window.onkeydown = (e) => {
-            // @ts-ignore
-            if (preventScreenshotKeys(e) === false) return false;
-            // @ts-ignore
-            if (originalOnKeyDown) return originalOnKeyDown(e);
-        };
-
-        // 2. High-Frequency Focus Monitor (Anti-Snipping Tool / OS Record)
-        // OS tools often steal focus for 10-50ms when activated.
-        // Increased frequency to 16ms (approx 1 frame) to catch even faster focus switches
-        let lastFocusTime = Date.now();
-        const focusCheckInterval = setInterval(() => {
-            const now = Date.now();
-            const isFocused = document.hasFocus();
-
-            // If we lost focus and it's been less than 100ms since we last checked/had focus
-            if (!isFocused && (now - lastFocusTime) < 100) {
-                // Suspicious focus loss - likely a tool activation like Game Bar
-                if (isPlaying) {
-                    // Pause and warn immediately
-                    if (videoRef.current) videoRef.current.pause();
-                    setIsPlaying(false);
-                    setSecurityWarning(true);
-                }
-            }
-            if (isFocused) {
-                lastFocusTime = now;
-            }
-        }, 16);
-
-        // 3. Blur & Visibility Prevention
-        // On mobile: only pause on visibility change (tab hidden), NOT on blur.
-        // iOS fires blur for notifications, control-center, etc. which is not recording.
-        const handleBlur = () => {
-            if (isMobile) return; // Skip blur on mobile — too many false positives
-            if (isPlaying) {
-                if (videoRef.current) videoRef.current.pause();
-                setIsPlaying(false);
-                setSecurityWarning(true);
-            }
-        };
-
-        const handleVisibilityChange = () => {
-            if (document.hidden && isPlaying) {
-                if (videoRef.current) videoRef.current.pause();
-                setIsPlaying(false);
-                // On mobile: just pause, don't show scary security warning
-                if (!isMobile) setSecurityWarning(true);
-            }
-        };
-
-        window.addEventListener('blur', handleBlur);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        // 4. Context Menu & Drag
-        const preventDefault = (e: Event) => e.preventDefault();
-        document.addEventListener('contextmenu', preventDefault);
-        document.addEventListener('dragstart', preventDefault);
-
-        return () => {
-            window.removeEventListener('keydown', preventScreenshotKeys, { capture: true });
-            window.removeEventListener('keyup', handleKeyUp, { capture: true });
-            document.removeEventListener('keydown', preventScreenshotKeys, { capture: true });
-            document.removeEventListener('keyup', handleKeyUp, { capture: true });
-            window.removeEventListener('blur', handleBlur);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            document.removeEventListener('contextmenu', preventDefault);
-            document.removeEventListener('dragstart', preventDefault);
-            clearInterval(focusCheckInterval);
-            window.onkeydown = originalOnKeyDown;
-        };
-    }, [isPlaying]);
-
-    // 5. DevTools Detector (Resize-based)
-    useEffect(() => {
-        const checkDevTools = () => {
-            const threshold = 160;
-            if (
-                (window.outerWidth - window.innerWidth > threshold) ||
-                (window.outerHeight - window.innerHeight > threshold)
-            ) {
-                setSecurityWarning(true);
-            }
-        };
-        window.addEventListener('resize', checkDevTools);
-        return () => window.removeEventListener('resize', checkDevTools);
-    }, []);
-
-    // ==================== END SECURITY ====================
-
-    // Fullscreen state sync
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            const isFs = !!(
-                document.fullscreenElement ||
-                (document as any).webkitFullscreenElement ||
-                (document as any).msFullscreenElement
-            );
-            setIsFullscreen(isFs);
-        };
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-        return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
-        };
-    }, []);
-
-    // Safer lesson switching - especially important for iOS Safari
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video || !videoStreamUrl) return;
-
-        console.log('🎬 Loading lesson:', currentLesson?.title);
-        
-        setIsVideoLoading(true);
-        setCurrentTime(0);
-        setDuration(0);
-        setIsPlaying(false);
-
-        // Safer approach for iOS: explicit source reset
-        video.pause();
-        video.removeAttribute('src');
-        video.load();
-
-        video.src = videoStreamUrl;
-        video.load();
-    }, [currentLessonIndex, videoStreamUrl, currentLesson?.title]);
-
-    // Clear canvas when switching lessons and handle thumbnail display
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        // Always clear to black first to remove any previous frame
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
-
-        // If we have a thumbnail for the current lesson, draw it
-        const thumbnailUrl = currentLesson?.id ? lessonThumbnails[currentLesson.id] : null;
-        if (thumbnailUrl && isVideoLoading) {
-            const img = new Image();
-            img.onload = () => {
-                // Clear again and draw thumbnail
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
-                ctx.drawImage(img, 0, 0, canvas.width || 1280, canvas.height || 720);
+                // Attempt to capture first frame
+                vid.currentTime = 0.5; // Slightly later to avoid black frame
             };
-            img.onerror = () => {
-                // If thumbnail fails to load, keep it black
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
-            };
-            img.src = thumbnailUrl;
-        }
-    }, [currentLesson?.id, isVideoLoading, lessonThumbnails]);
 
-    // Additional canvas clearing when lesson changes (immediate clear)
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        // Immediately clear canvas when lesson changes to prevent frame sticking
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width || 1280, canvas.height || 720);
-    }, [currentLessonIndex]);
-
-    // Load course data
-    useEffect(() => {
-        async function loadCourse() {
-            if (!accessToken) {
-                setError('Invalid access link');
-                setLoading(false);
-                return;
-            }
-
-            try {
-                // Get purchase with course
-                const { data: purchaseData, error: purchaseError } = await db
-                    .from('course_purchases')
-                    .select(`
-            id,
-            customer_email,
-            course:courses(id, title, thumbnail_url, user_id, slug)
-          `)
-                    .eq('access_token', accessToken)
-                    .eq('status', 'paid')
-                    .single();
-
-                if (purchaseError || !purchaseData) {
-                    throw new Error('Invalid or expired access link');
-                }
-
-                const courseData = purchaseData.course as CourseData;
-                setPurchase({
-                    id: purchaseData.id,
-                    customer_email: purchaseData.customer_email,
-                    course: courseData,
-                });
-
-                // Get lessons
-                const { data: lessonsData, error: lessonsError } = await db
-                    .from('course_lessons')
-                    .select('*')
-                    .eq('course_id', courseData.id)
-                    .order('order_index', { ascending: true });
-
-                if (lessonsError) throw lessonsError;
-                setLessons(lessonsData as LessonData[]);
-
-                // Get progress
-                const { data: progressData } = await db
-                    .from('course_progress')
-                    .select('*')
-                    .eq('purchase_id', purchaseData.id);
-
-                if (progressData) {
-                    setProgress(progressData as ProgressData[]);
-
-                    // Find last watched lesson
-                    const lastWatched = progressData
-                        .filter((p: ProgressData) => !p.is_completed)
-                        .sort(
-                            (a: ProgressData, b: ProgressData) =>
-                                new Date(b.last_watched_at).getTime() -
-                                new Date(a.last_watched_at).getTime()
-                        )[0];
-
-                    if (lastWatched) {
-                        const lessonIndex = lessonsData.findIndex(
-                            (l: LessonData) => l.id === lastWatched.lesson_id
-                        );
-                        if (lessonIndex !== -1) {
-                            setCurrentLessonIndex(lessonIndex);
+            vid.onseeked = () => {
+                try {
+                    const tc = document.createElement('canvas');
+                    tc.width = 320;
+                    tc.height = 180;
+                    const ctx = tc.getContext('2d');
+                    if (ctx && vid.videoWidth > 0 && vid.videoHeight > 0) {
+                        ctx.drawImage(vid, 0, 0, 320, 180);
+                        const dataUrl = tc.toDataURL('image/jpeg', 0.8);
+                        if (dataUrl && dataUrl !== 'data:,' && !dataUrl.includes('data:,') && !dataUrl.includes('data:,')) {
+                            setLessonThumbnails(prev => ({ ...prev, [lesson.id]: dataUrl }));
+                            console.log(`Generated thumbnail for lesson ${lesson.id}`);
                         }
                     }
+                } catch (error) {
+                    console.warn(`Failed to generate thumbnail for lesson ${lesson.id}:`, error);
+                    // Simplify video error fallback logic
+                    // Fallback: try without CORS
+                    fallbackThumbnail();
                 }
+                vid.src = '';
+            };
 
-                // Get branding
-                if (courseData.user_id) {
-                    const { data: branding } = await supabase
-                        .from('branding_settings')
-                        .select('brand_name, is_enabled')
-                        .eq('user_id', courseData.user_id)
-                        .single();
+            vid.onerror = () => {
+                console.warn(`Video error for lesson ${lesson.id}, trying fallback`);
+                fallbackThumbnail();
+            };
 
-                    if (branding?.is_enabled && branding?.brand_name) {
-                        setBrandName(branding.brand_name);
+            const fallbackThumbnail = () => {
+                // Try again without CORS and with original URL
+                const fallbackVid = document.createElement('video');
+                fallbackVid.preload = 'metadata';
+                fallbackVid.muted = true;
+                // No crossOrigin for fallback
+                fallbackVid.src = lesson.video_url;
+
+                fallbackVid.onloadedmetadata = () => {
+                    if (!isIOS) {
+                        fallbackVid.currentTime = 0.5;
                     } else {
-                        const { data: profile } = await supabase
-                            .from('profiles')
-                            .select('name')
-                            .eq('user_id', courseData.user_id)
-                            .single();
-                        setBrandName(profile?.name || 'Course');
+                        fallbackVid.src = '';
                     }
-                }
-
-            } catch (err: any) {
-                console.error(err);
-                setError(err.message || 'Failed to load course');
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        loadCourse();
-    }, [accessToken]);
-
-    // Sync currentLessonIndex from URL on initial deep-link load
-    useEffect(() => {
-        if (lessons.length === 0) return;
-        const lessonId = searchParams.get('lessonId');
-        if (!lessonId) return;
-        const index = lessons.findIndex(l => l.id === lessonId);
-        if (index !== -1 && index !== currentLessonIndex) {
-            setCurrentLessonIndex(index);
-            setCurrentTime(0);
-            setDuration(0);
-        }
-    }, [lessons.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Preload duration + first-frame thumbnail for every lesson
-    useEffect(() => {
-        if (lessons.length === 0) return;
-        
-        // iOS Safari is sensitive to multiple hidden video loads - skip entirely
-        if (isIOS) return;
-        
-        lessons.forEach(lesson => {
-            if (!lesson.video_url || durationLoadedRef.current.has(lesson.id)) return;
-            durationLoadedRef.current.add(lesson.id);
-
-            const generateThumbnail = () => {
-                const vid = document.createElement('video');
-                vid.preload = 'metadata';
-                vid.muted = true;
-                vid.crossOrigin = 'anonymous'; // Try with CORS first
-                
-                // Use video stream URL for better thumbnail extraction
-                const streamUrl = accessToken 
-                    ? `${SUPABASE_FN_URL}?lessonId=${lesson.id}&token=${accessToken}`
-                    : lesson.video_url;
-                vid.src = streamUrl;
-
-                vid.onloadedmetadata = () => {
-                    // Fill in missing duration
-                    const dur = Math.floor(vid.duration);
-                    if (dur > 0) {
-                        setLessons(prev => prev.map(l => l.id === lesson.id ? { ...l, video_duration: dur } : l));
-                    }
-
-                    // Attempt to capture first frame
-                    vid.currentTime = 0.5; // Slightly later to avoid black frame
                 };
 
-                vid.onseeked = () => {
+                fallbackVid.onseeked = () => {
                     try {
                         const tc = document.createElement('canvas');
                         tc.width = 320;
                         tc.height = 180;
                         const ctx = tc.getContext('2d');
-                        if (ctx && vid.videoWidth > 0 && vid.videoHeight > 0) {
-                            ctx.drawImage(vid, 0, 0, 320, 180);
+                        if (ctx && fallbackVid.videoWidth > 0) {
+                            ctx.drawImage(fallbackVid, 0, 0, 320, 180);
                             const dataUrl = tc.toDataURL('image/jpeg', 0.8);
-                            if (dataUrl && dataUrl !== 'data:,' && !dataUrl.includes('data:,')) {
+                            if (dataUrl && dataUrl !== 'data:,') {
                                 setLessonThumbnails(prev => ({ ...prev, [lesson.id]: dataUrl }));
-                                console.log(`Generated thumbnail for lesson ${lesson.id}`);
                             }
                         }
-                    } catch (error) {
-                        console.warn(`Failed to generate thumbnail for lesson ${lesson.id}:`, error);
-                        // Fallback: try without CORS
-                        fallbackThumbnail();
+                    } catch (_e) {
+                        // Final fallback: no thumbnail
+                        console.warn(`Final thumbnail generation failed for lesson ${lesson.id}`);
                     }
-                    vid.src = '';
+                    fallbackVid.src = '';
                 };
 
-                vid.onerror = () => {
-                    console.warn(`Video error for lesson ${lesson.id}, trying fallback`);
-                    fallbackThumbnail();
-                };
-
-                const fallbackThumbnail = () => {
-                    // Try again without CORS and with original URL
-                    const fallbackVid = document.createElement('video');
-                    fallbackVid.preload = 'metadata';
-                    fallbackVid.muted = true;
-                    // No crossOrigin for fallback
-                    fallbackVid.src = lesson.video_url;
-
-                    fallbackVid.onloadedmetadata = () => {
-                        if (!isIOS) {
-                            fallbackVid.currentTime = 0.5;
-                        } else {
-                            fallbackVid.src = '';
-                        }
-                    };
-
-                    fallbackVid.onseeked = () => {
-                        try {
-                            const tc = document.createElement('canvas');
-                            tc.width = 320;
-                            tc.height = 180;
-                            const ctx = tc.getContext('2d');
-                            if (ctx && fallbackVid.videoWidth > 0) {
-                                ctx.drawImage(fallbackVid, 0, 0, 320, 180);
-                                const dataUrl = tc.toDataURL('image/jpeg', 0.8);
-                                if (dataUrl && dataUrl !== 'data:,') {
-                                    setLessonThumbnails(prev => ({ ...prev, [lesson.id]: dataUrl }));
-                                }
-                            }
-                        } catch (_e) {
-                            // Final fallback: no thumbnail
-                            console.warn(`Final thumbnail generation failed for lesson ${lesson.id}`);
-                        }
-                        fallbackVid.src = '';
-                    };
-
-                    fallbackVid.onerror = () => { fallbackVid.src = ''; };
-                };
+                fallbackVid.onerror = () => { fallbackVid.src = ''; };
             };
-
-            generateThumbnail();
-        });
-    }, [lessons.length, accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Log lesson view analytics
-    useEffect(() => {
-        if (purchase && currentLesson) {
-            db.from('course_analytics').insert({
-                purchase_id: purchase.id,
-                lesson_id: currentLesson.id,
-                device_info: navigator.userAgent,
-            }).then(({ error }) => {
-                if (error) console.error('Failed to log course analytics:', error);
-            });
-        }
-    }, [currentLesson?.id]);
-
-    const updateProgress = useCallback(async (lessonId: string, seconds: number, isCompleted: boolean) => {
-        if (!purchase || !currentLesson) return;
-
-        const progressData = {
-            purchase_id: purchase.id,
-            lesson_id: lessonId,
-            progress_seconds: Math.floor(seconds),
-            is_completed: isCompleted,
-            last_watched_at: new Date().toISOString(),
         };
 
-        await db.from('course_progress').upsert(progressData, { onConflict: 'purchase_id,lesson_id' });
+        generateThumbnail();
+    });
+}, [lessons.length, accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        setProgress(prev => {
-            const existing = prev.find(p => p.lesson_id === lessonId);
-            if (existing) {
-                return prev.map(p =>
-                    p.lesson_id === lessonId ? { ...p, ...progressData } : p
-                );
-            }
-            return [...prev, { id: 'temp', ...progressData }]; // 'temp' id for new local entries
-        });
-    }, [purchase, currentLesson]);
+// ... (rest of the code remains the same)
 
-    // Video event handlers
-    const handleTimeUpdate = useCallback(() => {
-        if (videoRef.current && !isScrubbing) {
-            const time = videoRef.current.currentTime;
-            const videoDuration = videoRef.current.duration;
-            setCurrentTime(time);
-
-            // If user reaches 95% of the video, consider it midway completed/mostly finished
-            // This handles cases where they might close the window just before the absolute end
-            if (time > videoDuration * 0.95 && videoDuration > 0) {
-                const lp = progress.find(p => p.lesson_id === currentLesson?.id);
-                if (lp && !lp.is_completed && purchase) {
-                    // Mark as complete in DB when threshold reached
-                    updateProgress(currentLesson.id, videoDuration, true);
-                }
-            }
-        }
-    }, [currentLesson?.id, progress, purchase, currentLesson, updateProgress, isScrubbing]);
-
-    const handleLoadedMetadata = useCallback(() => {
-        if (videoRef.current) {
-            const video = videoRef.current;
-            const vidDuration = video.duration;
+const handleLoadedMetadata = useCallback(() => {
+    if (videoRef.current) {
+        const vidDuration = videoRef.current.duration;
+        
+        console.log('🎥 Video metadata loaded, duration:', vidDuration);
+        
+        // Simple validation for all platforms
+        if (vidDuration && !isNaN(vidDuration) && vidDuration > 0) {
+            setDuration(vidDuration);
             
-            console.log('🎥 Video metadata loaded:', {
-                duration: vidDuration,
-                readyState: video.readyState,
-                networkState: video.networkState,
-                videoWidth: video.videoWidth,
-                videoHeight: video.videoHeight,
-                src: video.src,
-                currentSrc: video.currentSrc
-            });
-            
-            // Enhanced duration validation to fix 0:00/0:00 issue
-            if (vidDuration && !isNaN(vidDuration) && vidDuration > 0 && isFinite(vidDuration)) {
-                setDuration(vidDuration);
-                console.log('✅ Duration set successfully:', vidDuration);
-                
-                // Update lesson duration if not set
-                if (currentLesson && (currentLesson.video_duration === 0 || !currentLesson.video_duration)) {
-                    setLessons(prev => prev.map(l =>
-                        l.id === currentLesson.id ? { ...l, video_duration: Math.floor(vidDuration) } : l
-                    ));
-                }
-
-                // Resume from progress
-                const lessonProgress = progress.find((p) => p.lesson_id === currentLesson?.id);
-                if (lessonProgress && lessonProgress.progress_seconds > 0) {
-                    video.currentTime = lessonProgress.progress_seconds;
-                    console.log('▶️ Resumed from progress:', lessonProgress.progress_seconds);
-                }
-            } else {
-                console.error('❌ Invalid video duration detected:', {
-                    duration: vidDuration,
-                    isNaN: isNaN(vidDuration),
-                    isFinite: isFinite(vidDuration),
-                    readyState: video.readyState,
-                    networkState: video.networkState,
-                    error: video.error
+            // Update lesson duration if not set
+            if (currentLesson && (currentLesson.video_duration === 0 || !currentLesson.video_duration)) {
+                setLessons(prev => prev.map(l =>
+                    l.id === currentLesson.id ? { ...l, video_duration: Math.floor(vidDuration) } : l
+                ));
                 });
                 
                 // iOS-specific retry logic for invalid duration
@@ -1300,40 +830,87 @@ export default function CourseViewer() {
                                                     console.error('🚨 Video loading error:', {
                                                         code: err?.code,
                                                         message: err?.message,
-                                                        src: vid.currentSrc || vid.src,
+                                                        src: vid.src,
                                                         networkState: vid.networkState,
                                                         readyState: vid.readyState,
-                                                        lessonId: currentLesson?.id
+                                                        lessonId: currentLesson?.id,
+                                                        accessToken: accessToken ? 'present' : 'missing',
+                                                        streamUrl: videoStreamUrl
                                                     });
                                                     
-                                                    // Fallback to direct URL only once on actual error
-                                                    if (
-                                                        currentLesson?.video_url &&
-                                                        vid.currentSrc !== currentLesson.video_url &&
-                                                        !vid.dataset.fallbackTried
-                                                    ) {
-                                                        vid.dataset.fallbackTried = 'true';
-                                                        console.log('🔄 Video error - trying direct URL fallback...');
-                                                        vid.src = currentLesson.video_url;
-                                                        vid.load();
-                                                        return;
+                                                    // iOS-specific fallback handling
+                                                    if (isIOS) {
+                                                        console.log('🍎 iOS video error - trying direct URL fallback');
+                                                        if (currentLesson?.video_url && vid.src !== currentLesson.video_url) {
+                                                            vid.src = currentLesson.video_url;
+                                                            vid.load();
+                                                            return;
+                                                        }
+                                                    } else {
+                                                        // Try fallback to direct video URL if streaming endpoint fails
+                                                        if (vid.src.includes('video-access') && currentLesson?.video_url) {
+                                                            console.log('🔄 Streaming endpoint failed, trying direct video URL...');
+                                                            vid.src = currentLesson.video_url;
+                                                            vid.load();
+                                                            return;
+                                                        }
                                                     }
                                                     
                                                     setIsPlaying(false);
                                                     setIsVideoLoading(false);
                                                     setError(`Video failed to load (Error ${err?.code}). Please refresh the page.`);
                                                 }}
-                                                onLoadStart={() => setIsVideoLoading(true)}
-                                                onLoadedData={() => setIsVideoLoading(false)}
-                                                onWaiting={() => setIsVideoLoading(true)}
-                                                onCanPlay={() => setIsVideoLoading(false)}
+                                                onLoadStart={() => {
+                                                    console.log('📥 Video load start (iOS:', isIOS, ')');
+                                                    setIsVideoLoading(true);
+                                                }}
+                                                onLoadedData={() => {
+                                                    console.log('✅ Video data loaded (iOS:', isIOS, '), readyState:', videoRef.current?.readyState);
+                                                    if (isIOS) {
+                                                        // iOS may need extra time to process video data
+                                                        setTimeout(() => setIsVideoLoading(false), 100);
+                                                    } else {
+                                                        setIsVideoLoading(false);
+                                                    }
+                                                }}
+                                                onWaiting={() => {
+                                                    console.log('⏳ Video buffering (iOS:', isIOS, ')');
+                                                    setIsVideoLoading(true);
+                                                }}
+                                                onCanPlay={() => {
+                                                    console.log('▶️ Video can play (iOS:', isIOS, '), readyState:', videoRef.current?.readyState);
+                                                    setIsVideoLoading(false);
+                                                }}
+                                                onCanPlayThrough={() => {
+                                                    console.log('🎯 Video can play through (iOS:', isIOS, ')');
+                                                    setIsVideoLoading(false);
+                                                }}
+                                                onSuspend={() => {
+                                                    if (isIOS) console.log('⏸️ iOS video loading suspended');
+                                                }}
+                                                onStalled={() => {
+                                                    if (isIOS) {
+                                                        console.warn('🚫 iOS video loading stalled - trying reload...');
+                                                        setTimeout(() => {
+                                                            if (videoRef.current && videoRef.current.readyState < 2) {
+                                                                videoRef.current.load();
+                                                            }
+                                                        }, 3000);
+                                                    }
+                                                }}
                                                 controlsList="nodownload noremoteplayback"
                                                 disablePictureInPicture
                                                 preload="metadata"
                                                 autoPlay={false}
                                                 muted={isMuted}
-                                                // Simple video attributes for all platforms
+                                                // Enhanced iOS attributes for better compatibility
                                                 playsInline
+                                                {...(isIOS ? {
+                                                    'webkit-playsinline': 'true',
+                                                    'playsinline': 'true',
+                                                    'x5-playsinline': 'true',
+                                                    'preload': 'metadata'
+                                                } : {})}
                                                 // Single tap shows controls, double tap plays/pauses
                                                 onClick={(e) => {
                                                     e.stopPropagation();

@@ -292,10 +292,10 @@ export default function CourseViewer() {
     //  3. Adds CORS headers (fixes iOS Safari cross-origin video loading)
     //  4. Forwards Range requests for video seeking
     const SUPABASE_FN_URL = 'https://zlhbzlxxdezlrtzljpni.supabase.co/functions/v1/video-access';
-    // Use streaming endpoint for ALL platforms - it handles CORS properly for iOS too
+    // Use streaming endpoint for all platforms - it handles CORS properly
     const videoStreamUrl = currentLesson?.id && accessToken
         ? `${SUPABASE_FN_URL}?lessonId=${currentLesson.id}&token=${accessToken}`
-        : currentLesson?.video_url || null;
+        : currentLesson?.video_url || null; // Fallback only if no token
 
     // ==================== SECURITY PROTECTIONS ====================
 
@@ -485,26 +485,31 @@ export default function CourseViewer() {
         };
     }, []);
 
-    // Safer lesson switching - especially important for iOS Safari
+    // iOS / mobile: explicitly call load() when lesson changes so Safari picks up the new source
     useEffect(() => {
-        const video = videoRef.current;
-        if (!video || !videoStreamUrl) return;
-
-        console.log('🎬 Loading lesson:', currentLesson?.title);
+        if (!videoRef.current) return;
         
+        // Reset loading state
         setIsVideoLoading(true);
         setCurrentTime(0);
         setDuration(0);
-        setIsPlaying(false);
-
-        // Safer approach for iOS: explicit source reset
-        video.pause();
-        video.removeAttribute('src');
-        video.load();
-
-        video.src = videoStreamUrl;
-        video.load();
-    }, [currentLessonIndex, videoStreamUrl, currentLesson?.title]);
+        
+        // iOS requires explicit load() call for new sources
+        videoRef.current.load();
+        
+        // iOS-specific: Force metadata preloading
+        if (isIOS) {
+            const video = videoRef.current;
+            video.preload = 'metadata';
+            
+            // Add one-time loadstart listener for iOS
+            const handleLoadStart = () => {
+                console.log('iOS video loadstart');
+                video.removeEventListener('loadstart', handleLoadStart);
+            };
+            video.addEventListener('loadstart', handleLoadStart);
+        }
+    }, [currentLessonIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Clear canvas when switching lessons and handle thumbnail display
     useEffect(() => {
@@ -667,7 +672,7 @@ export default function CourseViewer() {
     useEffect(() => {
         if (lessons.length === 0) return;
         
-        // iOS Safari is sensitive to multiple hidden video loads - skip entirely
+        // iOS Safari is sensitive to multiple hidden video loads - skip thumbnail generation
         if (isIOS) return;
         
         lessons.forEach(lesson => {
@@ -867,39 +872,13 @@ export default function CourseViewer() {
                     error: video.error
                 });
                 
-                // iOS-specific retry logic for invalid duration
-                if (isIOS) {
-                    console.log('🍎 iOS detected - using enhanced retry logic');
-                    let retryCount = 0;
-                    const retryMetadata = () => {
-                        if (videoRef.current && retryCount < 3) {
-                            retryCount++;
-                            console.log(`🔄 iOS metadata retry ${retryCount}/3`);
-                            
-                            setTimeout(() => {
-                                if (videoRef.current) {
-                                    const newDuration = videoRef.current.duration;
-                                    if (newDuration && !isNaN(newDuration) && newDuration > 0) {
-                                        setDuration(newDuration);
-                                        console.log('✅ iOS retry successful:', newDuration);
-                                    } else {
-                                        videoRef.current.load();
-                                        setTimeout(retryMetadata, 1000);
-                                    }
-                                }
-                            }, 500 * retryCount); // Increasing delay
-                        }
-                    };
-                    retryMetadata();
-                } else {
-                    // Standard retry for other platforms
-                    setTimeout(() => {
-                        if (videoRef.current && videoRef.current.readyState < 2) {
-                            console.log('🔄 Retrying video load due to invalid duration...');
-                            videoRef.current.load();
-                        }
-                    }, 2000);
-                }
+                // Simple retry for invalid duration - don't overcomplicate for iOS
+                setTimeout(() => {
+                    if (videoRef.current && videoRef.current.readyState < 2) {
+                        console.log('🔄 Retrying video load due to invalid duration...');
+                        videoRef.current.load();
+                    }
+                }, 1000);
             }
             
             setIsVideoLoading(false);
@@ -1300,10 +1279,12 @@ export default function CourseViewer() {
                                                     console.error('🚨 Video loading error:', {
                                                         code: err?.code,
                                                         message: err?.message,
-                                                        src: vid.currentSrc || vid.src,
+                                                        src: vid.src,
                                                         networkState: vid.networkState,
                                                         readyState: vid.readyState,
-                                                        lessonId: currentLesson?.id
+                                                        lessonId: currentLesson?.id,
+                                                        accessToken: accessToken ? 'present' : 'missing',
+                                                        streamUrl: videoStreamUrl
                                                     });
                                                     
                                                     // Fallback to direct URL only once on actual error
@@ -1334,6 +1315,7 @@ export default function CourseViewer() {
                                                 muted={isMuted}
                                                 // Simple video attributes for all platforms
                                                 playsInline
+                                                preload="metadata"
                                                 // Single tap shows controls, double tap plays/pauses
                                                 onClick={(e) => {
                                                     e.stopPropagation();
