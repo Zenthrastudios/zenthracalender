@@ -63,8 +63,9 @@ export default function AuthPage() {
           const hasPurchases = await checkEmailForCoursePurchases(email);
           
           if (hasPurchases) {
-            // Course customers go directly to guest dashboard
-            navigate('/guest');
+            // Course customers should remain on the login page and be allowed to log in
+            // Instead of navigating away, we'll let the app's routing handle it
+            toast.success('Welcome! Please log in to access your courses.');
           } else if (initialUsername || forceSignup) {
             // New creators go to onboarding
             navigate('/onboarding');

@@ -26,6 +26,7 @@ interface ProfileData {
   onboarding_completed: boolean;
   trial_ends_at: string | null;
   plan_id: string | null;
+  theme: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,49 +37,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
+   const fetchProfile = async (userId: string) => {
+     const { data, error } = await supabase
+       .from('profiles')
+       .select('*')
+       .eq('user_id', userId)
+       .maybeSingle();
 
-    if (data && !error) {
-      setProfile(data as ProfileData);
-    }
-  };
+     if (data && !error) {
+       const profileData = data as ProfileData;
+       setProfile(profileData);
+       
+       // Apply theme from profile if available
+       if (profileData.theme) {
+         // Apply theme via global setter (set by ThemeProvider)
+         const themeSetter = window['__THEME_SETTER__'];
+         if (themeSetter && typeof themeSetter === 'function') {
+           themeSetter(profileData.theme);
+         }
+         // Also apply immediately to prevent flash
+         document.documentElement.classList.toggle('dark', profileData.theme === 'dark');
+       }
+     }
+   };
 
-  useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+   useEffect(() => {
+     // Set up auth state listener FIRST
+     const { data: { subscription } } = supabase.auth.onAuthStateChange(
+       (event, session) => {
+         setSession(session);
+         setUser(session?.user ?? null);
 
-        if (session?.user) {
-          // Defer profile fetch to avoid deadlock
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-        }
-        setIsLoading(false);
-      }
-    );
+         if (session?.user) {
+           // Defer profile fetch to avoid deadlock
+           setTimeout(() => {
+             fetchProfile(session.user.id);
+           }, 0);
+         } else {
+           setProfile(null);
+           // Reset theme to system when user logs out
+           // Note: We can't directly set theme here without importing useTheme
+           // The theme will be reapplied on next login
+         }
+         setIsLoading(false);
+       }
+     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setIsLoading(false);
-    });
+     // THEN check for existing session
+     supabase.auth.getSession().then(({ data: { session } }) => {
+       setSession(session);
+       setUser(session?.user ?? null);
+       if (session?.user) {
+         fetchProfile(session.user.id);
+       }
+       setIsLoading(false);
+     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+     return () => subscription.unsubscribe();
+   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
     const redirectUrl = `${window.location.origin}/dashboard`;
@@ -155,11 +171,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const refreshProfile = async () => {
-    if (user) {
-      await fetchProfile(user.id);
-    }
-  };
+   const refreshProfile = async () => {
+     if (user) {
+       await fetchProfile(user.id);
+     }
+   };
+
+
 
   return (
     <AuthContext.Provider value={{
