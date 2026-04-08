@@ -122,15 +122,15 @@ function StatCard({ icon: Icon, label, value, sub, color }: {
     icon: any; label: string; value: string | number; sub?: string; color: string;
 }) {
     return (
-        <Card className="bg-zinc-900/60 border-white/5">
+        <Card className="bg-card border-border hover:border-primary/50 transition-all duration-300">
             <CardContent className="p-5 flex items-center gap-4">
-                <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0', color)}>
-                    <Icon className="w-5 h-5 text-white" />
+                <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg', color)}>
+                    <Icon className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                    <p className="text-xs text-zinc-500 font-medium">{label}</p>
-                    <p className="text-xl font-bold text-white">{value}</p>
-                    {sub && <p className="text-xs text-zinc-500 mt-0.5">{sub}</p>}
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">{label}</p>
+                    <p className="text-2xl font-bold text-foreground mt-0.5">{value}</p>
+                    {sub && <p className="text-[11px] text-muted-foreground/70 font-medium leading-none mt-1">{sub}</p>}
                 </div>
             </CardContent>
         </Card>
@@ -153,14 +153,20 @@ function PurchaseProgressCard({
         .sort((a, b) => new Date(b.last_watched_at).getTime() - new Date(a.last_watched_at).getTime())[0];
 
     return (
-        <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-                <span>{completed}/{lessons.length} lessons complete</span>
-                <span className="font-semibold text-white">{pct}%</span>
+        <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="font-medium">{completed}/{lessons.length} lessons complete</span>
+                <span className="font-bold text-primary">{pct}%</span>
             </div>
-            <Progress value={pct} className="h-1.5 bg-zinc-800" />
+            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                <div 
+                    className="h-full bg-primary bg-gradient-to-r from-primary to-pink-400 transition-all duration-500" 
+                    style={{ width: `${pct}%` }} 
+                />
+            </div>
             {lastWatched && (
-                <p className="text-[11px] text-zinc-600">
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
                     Last watched {formatDistanceToNow(new Date(lastWatched.last_watched_at), { addSuffix: true })}
                 </p>
             )}
@@ -489,10 +495,10 @@ export default function Customers() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StatCard icon={Users} label="Total Customers" value={stats.totalCustomers} color="bg-blue-600" />
-                    <StatCard icon={UserCheck} label="Active" value={stats.activeCount} sub="with active access" color="bg-emerald-600" />
-                    <StatCard icon={IndianRupee} label="Total Revenue" value={formatCurrency(stats.totalRevenue)} color="bg-violet-600" />
-                    <StatCard icon={UserX} label="Revoked" value={stats.revokedCount} sub="access revoked" color="bg-red-600" />
+                    <StatCard icon={Users} label="Total Customers" value={stats.totalCustomers} color="bg-indigo-600" />
+                    <StatCard icon={UserCheck} label="Active Users" value={stats.activeCount} sub="verified access" color="bg-primary shadow-primary/20" />
+                    <StatCard icon={IndianRupee} label="Total Revenue" value={formatCurrency(stats.totalRevenue)} color="bg-emerald-600" />
+                    <StatCard icon={UserX} label="Revoked" value={stats.revokedCount} sub="access restricted" color="bg-zinc-700" />
                 </div>
 
                 {/* Filters */}
@@ -647,7 +653,7 @@ export default function Customers() {
 
             {/* ─── Customer Detail Sheet ─────────────────────────────────────── */}
             <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-                <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col bg-background border-white/5" side="right">
+                <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col bg-background border-border text-foreground" side="right">
                     {selectedCustomer && (
                         <>
                             <SheetHeader className="p-6 border-b border-white/5 flex-shrink-0">
@@ -659,17 +665,17 @@ export default function Customers() {
                                         {avatarLetters(selectedCustomer.name, selectedCustomer.email)}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <SheetTitle className="text-white text-lg font-bold">
+                                        <SheetTitle className="text-foreground text-lg font-bold">
                                             {selectedCustomer.name || 'Unknown Name'}
                                         </SheetTitle>
-                                        <SheetDescription className="text-zinc-400 text-sm mt-0.5">
+                                        <SheetDescription className="text-muted-foreground text-sm mt-0.5">
                                             {selectedCustomer.email}
                                         </SheetDescription>
                                     </div>
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        className="border-white/10 text-zinc-300 hover:bg-white/5 flex-shrink-0"
+                                        className="border-border text-foreground hover:bg-muted flex-shrink-0"
                                         onClick={() => openAddDialog(selectedCustomer)}
                                     >
                                         <Plus className="w-3.5 h-3.5 mr-1" /> Add Course
@@ -678,24 +684,24 @@ export default function Customers() {
 
                                 {/* Customer meta */}
                                 <div className="mt-4 grid grid-cols-3 gap-3">
-                                    <div className="bg-zinc-900 rounded-xl p-3 text-center">
-                                        <p className="text-lg font-bold text-white">{selectedCustomer.purchases.length}</p>
-                                        <p className="text-[11px] text-zinc-500">Courses</p>
+                                    <div className="bg-muted/50 border border-border rounded-xl p-3 text-center shadow-sm">
+                                        <p className="text-xl font-bold text-foreground">{selectedCustomer.purchases.length}</p>
+                                        <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Courses</p>
                                     </div>
-                                    <div className="bg-zinc-900 rounded-xl p-3 text-center">
-                                        <p className="text-lg font-bold text-white">{selectedCustomer.activeCourses}</p>
-                                        <p className="text-[11px] text-zinc-500">Active</p>
+                                    <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 text-center shadow-sm">
+                                        <p className="text-xl font-bold text-primary">{selectedCustomer.activeCourses}</p>
+                                        <p className="text-[11px] text-primary/60 font-semibold uppercase tracking-wider">Active</p>
                                     </div>
-                                    <div className="bg-zinc-900 rounded-xl p-3 text-center">
-                                        <p className="text-lg font-bold text-white">
+                                    <div className="bg-muted/50 border border-border rounded-xl p-3 text-center shadow-sm">
+                                        <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
                                             {formatCurrency(selectedCustomer.totalSpent)}
                                         </p>
-                                        <p className="text-[11px] text-zinc-500">Spent</p>
+                                        <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Spent</p>
                                     </div>
                                 </div>
 
                                 {/* Contact info */}
-                                <div className="mt-3 flex flex-wrap gap-3 text-xs text-zinc-400">
+                                <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                                     <span className="flex items-center gap-1.5">
                                         <Mail className="w-3.5 h-3.5" /> {selectedCustomer.email}
                                     </span>
@@ -729,7 +735,7 @@ export default function Customers() {
                                             const isActing = actionLoading[purchase.id];
 
                                             return (
-                                                <Card key={purchase.id} className="bg-zinc-900/60 border-white/5 overflow-hidden">
+                                                <Card key={purchase.id} className="bg-card border-border overflow-hidden shadow-sm">
                                                     <CardContent className="p-0">
                                                         {/* Course header */}
                                                         <div className="flex items-start gap-3 p-4">
@@ -746,7 +752,7 @@ export default function Customers() {
                                                             )}
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="flex items-center justify-between gap-2">
-                                                                    <p className="font-semibold text-white text-sm line-clamp-1">
+                                                                    <p className="font-semibold text-foreground text-sm line-clamp-1">
                                                                         {purchase.course?.title || 'Unknown Course'}
                                                                     </p>
                                                                     <Badge className={cn('text-[10px] px-1.5 flex-shrink-0', statusColor(purchase.status))}>
@@ -792,7 +798,7 @@ export default function Customers() {
                                                                 <Button
                                                                     size="icon"
                                                                     variant="ghost"
-                                                                    className="w-7 h-7 text-zinc-400 hover:text-white flex-shrink-0"
+                                                                    className="w-7 h-7 text-muted-foreground hover:text-foreground flex-shrink-0"
                                                                     onClick={() => handleCopyLink(purchase.access_token)}
                                                                 >
                                                                     <Copy className="w-3.5 h-3.5" />
@@ -800,7 +806,7 @@ export default function Customers() {
                                                                 <Button
                                                                     size="icon"
                                                                     variant="ghost"
-                                                                    className="w-7 h-7 text-zinc-400 hover:text-white flex-shrink-0"
+                                                                    className="w-7 h-7 text-muted-foreground hover:text-foreground flex-shrink-0"
                                                                     disabled={actionLoading[`regen-${purchase.id}`]}
                                                                     onClick={() => handleRegenerateToken(purchase.id)}
                                                                     title="Generate new access link"
@@ -813,7 +819,7 @@ export default function Customers() {
                                                         )}
 
                                                         {/* Action row */}
-                                                        <div className="flex items-center gap-2 px-4 py-3 border-t border-white/5 bg-zinc-900/40">
+                                                        <div className="flex items-center gap-2 px-4 py-3 border-t border-border bg-muted/30">
                                                             {purchase.status === 'paid' ? (
                                                                 <Button
                                                                     size="sm"
