@@ -16,7 +16,6 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 import { Loader2 } from "lucide-react";
 
 // Pages
-import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import GuestDashboard from "./pages/GuestDashboard";
@@ -154,7 +153,7 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/dashboard" replace />;
   }
   if (role === 'superadmin') {
-    return <Navigate to="/enterprise" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -200,7 +199,7 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   if (user) {
     // Redirect based on role
     if (role === 'superadmin') {
-      return <Navigate to="/enterprise" replace />;
+      return <Navigate to="/dashboard" replace />;
     }
     if (role === 'admin') {
       return <Navigate to="/dashboard" replace />;
@@ -215,9 +214,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={
-        Capacitor.isNativePlatform() ? <Navigate to="/auth" replace /> : <Landing />
-      } />
+      <Route path="/" element={<Navigate to="/auth" replace />} />
       <Route path="/auth" element={
         <AuthRoute>
           <Auth />

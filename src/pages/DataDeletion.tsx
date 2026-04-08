@@ -19,26 +19,26 @@ export default function DataDeletion() {
 
                     <div className="prose prose-invert max-w-none space-y-8 text-muted-foreground">
                         <p>
-                            At Zenthra, we value your privacy and provide you with full control over your data.
+                            At Intimatecare.in, we value your privacy and provide you with full control over your data.
                             If you wish to delete your data or disconnect your Instagram integration, please follow the steps below.
                         </p>
 
                         <section>
                             <h2 className="text-2xl font-semibold text-foreground mb-4">1. Disconnecting Instagram</h2>
                             <p>
-                                You can remove our application's access to your Instagram account at any time through your Zenthra dashboard:
+                                You can remove our application's access to your Instagram account at any time through your Intimatecare.in dashboard:
                             </p>
                             <ul className="list-disc pl-6 mt-4 space-y-2">
-                                <li>Log in to your Zenthra account.</li>
+                                <li>Log in to your Intimatecare.in account.</li>
                                 <li>Navigate to <strong>Dashboard &gt; Apps &gt; Instagram Automation</strong>.</li>
                                 <li>Click the <strong>Disconnect</strong> button.</li>
                             </ul>
                         </section>
 
                         <section>
-                            <h2 className="text-2xl font-semibold text-foreground mb-4">2. Deleting Your Zenthra Account</h2>
+                            <h2 className="text-2xl font-semibold text-foreground mb-4">2. Deleting Your Intimatecare.in Account</h2>
                             <p>
-                                To permanently delete your Zenthra account and all associated data (including calendar links and automation rules):
+                                To permanently delete your Intimatecare.in account and all associated data (including calendar links and automation rules):
                             </p>
                             <ul className="list-disc pl-6 mt-4 space-y-2">
                                 <li>Go to <strong>Settings &gt; Account</strong>.</li>
@@ -51,7 +51,7 @@ export default function DataDeletion() {
                             <h2 className="text-2xl font-semibold text-foreground mb-4">3. Requesting Manual Deletion</h2>
                             <p>
                                 If you are unable to access your account or wish to request manual deletion of your data from our servers,
-                                please email us at <strong>support@zenthracalendar.com</strong> with the subject line "Data Deletion Request".
+                                please email us at <strong>support@intimatecare.in</strong> with the subject line "Data Deletion Request".
                             </p>
                             <p className="mt-4">
                                 Once we receive your request, we will delete all your personal data within 30 days and send you a confirmation email.
@@ -66,7 +66,7 @@ export default function DataDeletion() {
                             <ol className="list-decimal pl-6 mt-4 space-y-2">
                                 <li>Go to your Facebook Profile's <strong>Settings &amp; Privacy &gt; Settings</strong>.</li>
                                 <li>Look for <strong>Apps and Websites</strong> and you will see all of the apps and websites you linked with your Facebook.</li>
-                                <li>Search and tap <strong>Zenthra</strong> in the search bar.</li>
+                                <li>Search and tap <strong>Intimatecare.in</strong> in the search bar.</li>
                                 <li>Scroll and tap <strong>Remove</strong>.</li>
                             </ol>
                         </section>

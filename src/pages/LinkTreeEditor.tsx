@@ -102,7 +102,7 @@ const PhonePreview = ({ page, theme, links }: { page: any, theme: LinkPageTheme,
                     {/* Branding */}
                     <div className="mt-auto pt-8 pb-4">
                         <span className="text-[10px] font-semibold opacity-50 px-2 py-1 bg-black/10 rounded-full" style={{ color: theme.textColor }}>
-                            Zenthra Link
+                            Intimatecare.in Link
                         </span>
                     </div>
                 </div>

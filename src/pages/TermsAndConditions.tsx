@@ -53,9 +53,9 @@ const PRODUCTS_AND_SERVICES = [
 
 export default function TermsAndConditions() {
     return (
-        <div className="min-h-screen bg-zinc-950 text-white">
+        <div className="min-h-screen bg-background text-white">
             {/* Header */}
-            <div className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-50">
+            <div className="border-b border-zinc-800 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="max-w-4xl mx-auto px-4 h-14 flex items-center gap-4">
                     <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2" asChild>
                         <Link to="/">

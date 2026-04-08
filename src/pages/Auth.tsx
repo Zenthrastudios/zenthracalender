@@ -3,13 +3,13 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { checkEmailForCoursePurchases } from '@/hooks/useCourseCustomer';
+import { Footer } from '@/components/Footer';
 
 export default function AuthPage() {
   const [searchParams] = useSearchParams();
@@ -94,29 +94,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Background Gradients */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] opacity-50 animate-glow" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-secondary/20 rounded-full blur-[100px] opacity-50 animate-glow" style={{ animationDelay: '2s' }} />
-      </div>
-
-      {/* Header */}
-      <header className="w-full px-6 py-4 flex items-center justify-between relative z-10">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center shadow-lg shadow-primary/25">
-            <Calendar className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-bold text-xl tracking-tight">{brandName}</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <nav className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground font-medium">
-            <Link to="/features" className="hover:text-primary transition-colors">Features</Link>
-            <Link to="/pricing" className="hover:text-primary transition-colors">Pricing</Link>
-          </nav>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
         <div className="w-full max-w-md animate-fade-in">
@@ -219,7 +196,7 @@ export default function AuthPage() {
 
               <Button
                 type="submit"
-                className="w-full h-14 rounded-xl text-lg shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all font-bold tracking-tight bg-gradient-to-r from-primary to-orange-600 hover:brightness-110 active:scale-[0.98]"
+                className="w-full h-14 rounded-xl text-lg shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 transition-all font-bold tracking-tight bg-gradient-to-r from-primary to-pink-500 hover:brightness-110 active:scale-[0.98]"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -242,6 +219,7 @@ export default function AuthPage() {
           </p>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

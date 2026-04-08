@@ -6,9 +6,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, User, LogOut, Video, MapPin, FileText, ExternalLink, Package, GraduationCap, Play } from 'lucide-react';
+import { Calendar, Clock, User, LogOut, Video, MapPin, FileText, ExternalLink, Package, GraduationCap, Play, MessageSquare } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 import { toast } from 'sonner';
+import { useCreateSupportTicket } from '@/hooks/useCourses';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label as UILabel } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Input as UIInput } from "@/components/ui/input";
 
 interface Booking {
   id: string;
@@ -71,6 +84,11 @@ export default function GuestDashboard() {
   const [products, setProducts] = useState<ProductPurchase[]>([]);
   const [courses, setCourses] = useState<CoursePurchase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isContactOpen, setIsContactOpen] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState('');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+  const createTicket = useCreateSupportTicket();
 
   useEffect(() => {
     if (user?.email) {
@@ -201,6 +219,41 @@ export default function GuestDashboard() {
     navigate('/');
   };
 
+  const handleSupportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ticketSubject.trim() || !ticketMessage.trim()) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    setIsSubmittingTicket(true);
+    try {
+      // For guest support, we can associate with the first host found or leave generic
+      // If we leave user_id null it might be for system admin
+      const firstHostId = bookings[0]?.host_id || products[0]?.product?.id || null; 
+
+      await createTicket.mutateAsync({
+        customer_name: profile?.name || 'Guest',
+        customer_email: user?.email || '',
+        subject: ticketSubject,
+        message: ticketMessage,
+        status: 'pending',
+        // user_id is the recipient (creator)
+        user_id: bookings[0]?.host_id || undefined 
+      });
+
+      toast.success('Support ticket created! We will get back to you soon.');
+      setTicketSubject('');
+      setTicketMessage('');
+      setIsContactOpen(false);
+    } catch (error: any) {
+      console.error('Error creating ticket:', error);
+      toast.error('Failed to send message: ' + error.message);
+    } finally {
+      setIsSubmittingTicket(false);
+    }
+  };
+
   // ... helpers ...
   const upcomingBookings = bookings.filter(
     b => b.status === 'confirmed' && !isPast(parseISO(b.end_time))
@@ -257,20 +310,60 @@ export default function GuestDashboard() {
         </div>
       </header>
 
-      {/* Creator Nudge */}
-      <div className="bg-orange-600/5 border-b border-orange-600/10 px-4 py-3">
+      {/* Support Nudge */}
+      <div className="bg-primary/5 border-b border-primary/10 px-4 py-3">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm font-medium text-orange-900 dark:text-orange-200 text-center sm:text-left">
-            Looking to create your own booking page and sell products?
+          <p className="text-sm font-medium text-primary/80 text-center sm:text-left">
+            Need help with your bookings or courses? Our support team is here for you.
           </p>
-          <Button
-            size="sm"
-            variant="default"
-            className="bg-orange-600 hover:bg-orange-700 text-white border-none shadow-sm whitespace-nowrap"
-            onClick={() => navigate('/onboarding')}
-          >
-            Become a Creator <ExternalLink className="w-3 h-3 ml-2" />
-          </Button>
+          <Dialog open={isContactOpen} onOpenChange={setIsContactOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="default"
+                className="bg-primary hover:bg-primary/90 text-white border-none shadow-sm whitespace-nowrap"
+              >
+                Contact Support <MessageSquare className="w-3 h-3 ml-2" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px] bg-background border-border">
+              <DialogHeader>
+                <DialogTitle className="text-foreground">Contact Support</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Send a message to the coordinator. We'll reply to your email.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSupportSubmit} className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <UILabel htmlFor="subject" className="text-foreground">Subject</UILabel>
+                  <UIInput
+                    id="subject"
+                    placeholder="What do you need help with?"
+                    value={ticketSubject}
+                    onChange={(e) => setTicketSubject(e.target.value)}
+                    className="bg-muted border-border text-foreground"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <UILabel htmlFor="message" className="text-foreground">Message</UILabel>
+                  <Textarea
+                    id="message"
+                    placeholder="Describe your issue in detail..."
+                    value={ticketMessage}
+                    onChange={(e) => setTicketMessage(e.target.value)}
+                    className="bg-muted border-border text-foreground min-h-[120px]"
+                    required
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={isSubmittingTicket} className="w-full bg-primary text-white hover:bg-primary/90">
+                    {isSubmittingTicket ? 'Sending...' : 'Send Message'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

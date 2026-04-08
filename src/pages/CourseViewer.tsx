@@ -1238,7 +1238,7 @@ export default function CourseViewer() {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-950 text-white gap-4">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background text-white gap-4">
                 <Loader2 className="w-10 h-10 animate-spin text-primary" />
                 <p className="text-zinc-400">Loading your course...</p>
             </div>
@@ -1247,7 +1247,7 @@ export default function CourseViewer() {
 
     if (error) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-950 text-white gap-4 p-4">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background text-white gap-4 p-4">
                 <div className="p-4 bg-red-500/20 rounded-full">
                     <AlertCircle className="w-12 h-12 text-red-400" />
                 </div>
@@ -1264,7 +1264,7 @@ export default function CourseViewer() {
                 onContextMenu={(e) => e.preventDefault()}
             >
                 {/* Desktop Header - Global Full Width */}
-                <header className="hidden lg:flex h-16 items-center justify-between px-6 border-b border-white/5 bg-zinc-950 z-30 flex-shrink-0">
+                <header className="hidden lg:flex h-16 items-center justify-between px-6 border-b border-white/5 bg-background z-30 flex-shrink-0">
                     <div className="flex items-center gap-4">
                         <div className="w-px h-6 bg-white/10" />
                         <Button
@@ -1776,7 +1776,7 @@ export default function CourseViewer() {
                         </div>
 
                         {/* Mobile Content (Title, Actions, List) - Hidden on desktop */}
-                        <div className="lg:hidden p-4 space-y-6 bg-zinc-950 pb-20">
+                        <div className="lg:hidden p-4 space-y-6 bg-background pb-20">
                             <div className="flex items-center justify-between">
                                 <Button
                                     variant="ghost"
@@ -1931,11 +1931,11 @@ export default function CourseViewer() {
                     {/* Right Sidebar - Desktop Lesson List */}
                     <aside
                         className={cn(
-                            'hidden lg:flex flex-col w-96 border-l border-white/5 bg-zinc-950 flex-shrink-0 transition-all duration-300',
+                            'hidden lg:flex flex-col w-96 border-l border-white/5 bg-background flex-shrink-0 transition-all duration-300',
                             !sidebarOpen && 'w-0 border-l-0 opacity-0 overflow-hidden'
                         )}
                     >
-                        <div className="p-4 border-b border-white/5 flex items-center justify-between bg-zinc-950/50 backdrop-blur-sm">
+                        <div className="p-4 border-b border-white/5 flex items-center justify-between bg-background/50 backdrop-blur-sm">
                             <div className="flex items-center gap-2">
                                 <span className="font-bold text-sm tracking-wide text-zinc-100">Course Content</span>
                                 <span className="text-xs text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">{completedCount}/{lessons.length}</span>

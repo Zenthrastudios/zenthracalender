@@ -136,7 +136,7 @@ export default function LessonAdPopup({ isOpen, onClose, settings, lessonId, pur
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-zinc-950 border-zinc-800 text-white gap-0 [&>button[aria-label='Close']]:hidden">
+            <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-background border-zinc-800 text-white gap-0 [&>button[aria-label='Close']]:hidden">
                 <VisuallyHidden>
                     <DialogTitle>{displayHeadline || 'Special Offer'}</DialogTitle>
                     <DialogDescription>{settings.body || 'Check out this offer'}</DialogDescription>

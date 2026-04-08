@@ -441,10 +441,10 @@ export default function Enterprise() {
             <aside className="w-full lg:w-72 bg-card border-r border-border/60 flex flex-col lg:sticky lg:top-0 h-auto lg:h-screen z-50">
                 <div className="p-6 lg:p-10 flex-1">
                     <Link to="/" className="flex items-center gap-4 mb-14 group">
-                        <div className="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center shadow-xl shadow-orange-600/30 group-hover:rotate-6 transition-all duration-500">
+                        <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-xl shadow-primary/30 group-hover:rotate-6 transition-all duration-500">
                             <Calendar className="w-6 h-6 text-white" />
                         </div>
-                        <span className="font-black text-2xl tracking-[ -0.05em] text-foreground uppercase">Zenthra</span>
+                        <span className="font-black text-2xl tracking-[ -0.05em] text-foreground uppercase">Intimatecare.in</span>
                     </Link>
 
                     <nav className="space-y-2">
@@ -1455,7 +1455,7 @@ export default function Enterprise() {
                     </div>
                     <div className="p-8 bg-muted/5">
                         <p className="text-sm font-medium text-muted-foreground leading-relaxed italic">
-                            This action is irreversible. All digital assets, storefronts, and earnings associated with this creator will be permanently deleted from the Zenthra environment.
+                            This action is irreversible. All digital assets, storefronts, and earnings associated with this creator will be permanently deleted from the Intimatecare.in environment.
                         </p>
                     </div>
                     <AlertDialogFooter className="p-8 pt-0 gap-3">

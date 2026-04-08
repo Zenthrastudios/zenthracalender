@@ -15,7 +15,7 @@ export default function SEO({ title, description, image, url, type = 'website' }
     const fullTitle = `${title} | ${siteTitle}`;
 
     // Default image if none provided (could be a logo or generic banner)
-    const defaultImage = 'https://zenthra.com/og-image.png'; // Replace with actual asset later
+    const defaultImage = 'https://intimatecare.in/og-image.png'; // Replace with actual asset later
 
     return (
         <Helmet>

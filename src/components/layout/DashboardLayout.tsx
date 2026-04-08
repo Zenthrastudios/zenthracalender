@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { useRole } from '@/hooks/useRole';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/contexts/ThemeContext';
 import {
   Link2,
   Calendar,
@@ -92,7 +92,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Mobile Header - Sticky */}
       <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border/60 bg-card/80 backdrop-blur-xl sticky top-0 z-40 pt-[calc(12px+env(safe-area-inset-top))]">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary flex items-center justify-center text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20">
             {profile?.name?.charAt(0) || profile?.username?.charAt(0) || 'C'}
           </div>
           <div>
@@ -137,7 +137,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {isSuperAdmin && (
             <Link
               to="/enterprise"
-              className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold bg-orange-600 text-white shadow-lg shadow-orange-900/20 mb-4 transition-all hover:scale-[1.02] active:scale-95"
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold bg-primary text-white shadow-lg shadow-orange-900/20 mb-4 transition-all hover:scale-[1.02] active:scale-95"
             >
               <Layout className="w-5 h-5" />
               Enterprise Admin
@@ -193,7 +193,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* User Profile */}
         <div className="p-6 border-b border-border/60">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center text-primary-foreground font-bold text-lg shadow-lg shadow-primary/25">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary flex items-center justify-center text-primary-foreground font-bold text-lg shadow-lg shadow-primary/25">
               {profile?.name?.charAt(0) || profile?.username?.charAt(0) || 'C'}
             </div>
             <div className="flex-1 min-w-0">
@@ -216,9 +216,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {isSuperAdmin && (
             <Link
               to="/enterprise"
-              className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold bg-orange-100 text-orange-600 hover:bg-orange-200 transition-all duration-200 mb-6 border border-orange-200"
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200 mb-6 border border-primary/20"
             >
-              <Sparkles className="w-5 h-5 text-orange-500" />
+              <Sparkles className="w-5 h-5 text-primary" />
               Enterprise Dashboard
             </Link>
           )}
@@ -275,14 +275,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <main className="flex-1 overflow-auto relative">
         {/* Trial Banner or Lockdown */}
         {isTrialActive && (
-          <div className="bg-orange-600/10 border-b border-orange-600/20 px-4 py-2 flex items-center justify-between backdrop-blur-sm sticky top-0 z-30">
+          <div className="bg-primary/10 border-b border-primary/20 px-4 py-2 flex items-center justify-between backdrop-blur-sm sticky top-0 z-30">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-orange-600 animate-pulse" />
-              <span className="text-xs font-bold text-orange-600 uppercase tracking-widest">
+              <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+              <span className="text-xs font-bold text-primary uppercase tracking-widest">
                 Pulse Trial Active: {daysRemaining + 1} Days Remaining
               </span>
             </div>
-            <Link to="/pricing" className="text-xs font-black bg-orange-600 text-white px-3 py-1 rounded-lg hover:bg-orange-700 transition-colors uppercase tracking-wider">
+            <Link to="/pricing" className="text-xs font-black bg-primary text-white px-3 py-1 rounded-lg hover:bg-orange-700 transition-colors uppercase tracking-wider">
               Upgrade Protocol
             </Link>
           </div>
@@ -291,8 +291,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {isTrialExpired ? (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xl">
             <div className="max-w-md w-full p-8 text-center space-y-6">
-              <div className="w-20 h-20 bg-orange-600/10 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                <LogOut className="w-8 h-8 text-orange-600" />
+              <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                <LogOut className="w-8 h-8 text-primary" />
               </div>
               <h2 className="text-3xl font-black uppercase tracking-tighter">Protocol Expired</h2>
               <p className="text-muted-foreground font-medium text-lg">
@@ -300,7 +300,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </p>
               <Button
                 onClick={() => navigate('/pricing')}
-                className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-lg rounded-2xl shadow-xl shadow-orange-600/20"
+                className="w-full h-14 bg-primary hover:bg-orange-700 text-white font-black uppercase tracking-widest text-lg rounded-2xl shadow-xl shadow-primary/20"
               >
                 Restore Access
               </Button>

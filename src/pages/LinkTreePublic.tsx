@@ -122,7 +122,7 @@ export default function LinkTreePublic() {
                 {/* Footer */}
                 <div className="mt-auto pt-10 pb-4">
                     <a href="/" className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-colors" style={{ color: theme.textColor }}>
-                        <span className="text-xs font-semibold">Zenthra Link</span>
+                        <span className="text-xs font-semibold">Intimatecare.in Link</span>
                     </a>
                 </div>
             </div>

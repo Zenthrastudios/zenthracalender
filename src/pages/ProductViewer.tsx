@@ -245,7 +245,7 @@ export default function ProductViewer() {
     return (
         <div className="flex flex-col h-screen bg-zinc-900 overflow-hidden select-none">
             {/* Header */}
-            <div className="h-14 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between px-3 sm:px-4 z-10 shrink-0">
+            <div className="h-14 bg-background border-b border-zinc-800 flex items-center justify-between px-3 sm:px-4 z-10 shrink-0">
                 <div className="flex items-center gap-2 text-zinc-200 overflow-hidden">
                     <Button
                         variant="ghost"
@@ -328,7 +328,7 @@ export default function ProductViewer() {
             </div>
 
             {/* Navigation Footer */}
-            <div className="h-14 sm:h-16 bg-zinc-950 border-t border-zinc-800 flex items-center justify-center gap-3 sm:gap-4 shrink-0">
+            <div className="h-14 sm:h-16 bg-background border-t border-zinc-800 flex items-center justify-center gap-3 sm:gap-4 shrink-0">
                 <Button
                     variant="outline"
                     size="sm"

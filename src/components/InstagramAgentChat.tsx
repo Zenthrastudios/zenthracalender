@@ -85,7 +85,7 @@ export function InstagramAgentChat({ contextData }: { contextData: any }) {
                     <MessageCircle className="h-7 w-7" />
                 </Button>
             </SheetTrigger>
-            <SheetContent className="w-[400px] sm:w-[540px] flex flex-col p-0 border-l border-zinc-800 bg-zinc-950">
+            <SheetContent className="w-[400px] sm:w-[540px] flex flex-col p-0 border-l border-zinc-800 bg-background">
                 <SheetHeader className="p-6 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
                     <SheetTitle className="flex items-center gap-3 text-white">
                         <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg">
@@ -98,7 +98,7 @@ export function InstagramAgentChat({ contextData }: { contextData: any }) {
                     </SheetTitle>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-hidden relative bg-zinc-950/50">
+                <div className="flex-1 overflow-hidden relative bg-background/50">
                     <ScrollArea className="h-full p-6">
                         <div className="space-y-6 pb-4">
                             {messages.length === 0 && (
@@ -181,7 +181,7 @@ export function InstagramAgentChat({ contextData }: { contextData: any }) {
                             onChange={(e) => setInput(e.target.value)}
                             placeholder="Ask for strategy advice..."
                             disabled={isLoading}
-                            className="bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 pr-12 h-12 rounded-xl focus-visible:ring-purple-500/50"
+                            className="bg-background border-zinc-800 text-zinc-100 placeholder:text-zinc-500 pr-12 h-12 rounded-xl focus-visible:ring-purple-500/50"
                         />
                         <Button
                             type="submit"

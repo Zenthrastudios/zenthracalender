@@ -21,7 +21,7 @@ export default function BrandingPage() {
     const [formData, setFormData] = useState({
         brand_name: '',
         brand_logo_url: '',
-        brand_color: '#111827',
+        brand_color: '#ec4899',
         site_url: '',
         is_enabled: true
     });
@@ -31,9 +31,9 @@ export default function BrandingPage() {
     useEffect(() => {
         if (settings) {
             setFormData({
-                brand_name: settings.brand_name || 'CalSchedule',
+                brand_name: settings.brand_name || 'Intimatecare.in',
                 brand_logo_url: settings.brand_logo_url || '',
-                brand_color: settings.brand_color || '#111827',
+                brand_color: settings.brand_color || '#ec4899',
                 site_url: settings.site_url || '',
                 is_enabled: settings.is_enabled ?? true
             });
@@ -121,7 +121,7 @@ export default function BrandingPage() {
                                     <Label htmlFor="site-url">Primary Domain (App URL)</Label>
                                     <Input
                                         id="site-url"
-                                        placeholder="https://cal.zenthrashop.in"
+                                        placeholder="https://cal.intimatecare.in"
                                         value={formData.site_url}
                                         onChange={e => setFormData(prev => ({ ...prev, site_url: e.target.value }))}
                                     />

@@ -458,7 +458,7 @@ END:VCALENDAR`;
             <div className="flex flex-col items-center gap-2 opacity-40 hover:opacity-100 transition-opacity">
               <div className="flex items-center gap-2">
                 <Sparkle className="w-3 h-3 text-primary" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Zenthra Calendar</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Intimatecare.in Calendar</span>
                 <Sparkle className="w-3 h-3 text-primary" />
               </div>
             </div>

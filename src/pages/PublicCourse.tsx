@@ -377,15 +377,15 @@ export default function PublicCoursePage() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-zinc-950">
-                <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+            <div className="flex items-center justify-center min-h-screen bg-background">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
     }
 
     if (!data || !data.course) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-zinc-950">
+            <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-background">
                 <div className="p-8 bg-zinc-900 rounded-full shadow-2xl mb-4 border border-zinc-800">
                     <GraduationCap className="w-10 h-10 text-zinc-600" />
                 </div>
@@ -403,12 +403,12 @@ export default function PublicCoursePage() {
     // Success state
     if (purchaseSuccess && accessToken) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
+            <div className="min-h-screen flex items-center justify-center bg-background p-4">
                 <Card className="max-w-md w-full border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden rounded-3xl">
-                    <div className="h-1 bg-gradient-to-r from-orange-500 to-orange-600 w-full" />
+                    <div className="h-1 bg-gradient-to-r from-primary to-primary w-full" />
                     <CardHeader className="text-center pb-2 pt-8">
                         <div className="w-16 h-16 bg-orange-500/10 rounded-full mx-auto flex items-center justify-center mb-4 border border-orange-500/20">
-                            <CheckCircle2 className="w-8 h-8 text-orange-500" />
+                            <CheckCircle2 className="w-8 h-8 text-primary" />
                         </div>
                         <h2 className="text-2xl font-bold text-white">You're Enrolled!</h2>
                         <p className="text-zinc-500 text-sm mt-1">Your access has been confirmed</p>
@@ -424,7 +424,7 @@ export default function PublicCoursePage() {
                     </CardContent>
                     <CardFooter className="flex flex-col gap-3 pt-2 pb-8 px-8">
                         <Button
-                            className="w-full h-12 text-base font-semibold bg-orange-500 hover:bg-orange-600 transition-all group"
+                            className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary transition-all group"
                             onClick={() => window.open(`/course/${accessToken}`, '_blank')}
                         >
                             <PlayCircle className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
@@ -437,7 +437,7 @@ export default function PublicCoursePage() {
     }
 
     return (
-        <div className="min-h-screen bg-zinc-950 flex flex-col items-center">
+        <div className="min-h-screen bg-background flex flex-col items-center">
             <SEO
                 title={course.title}
                 description={course.description || `Enroll in ${course.title} by ${instructorData.name}`}
@@ -453,7 +453,7 @@ export default function PublicCoursePage() {
                     className="rounded-full border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 text-xs font-medium gap-2 h-9 px-4"
                     onClick={() => window.location.href = currentUser ? (currentUser.email?.includes('@admin') ? '/dashboard' : '/guest') : '/'}
                 >
-                    <Layout className="w-3.5 h-3.5 text-orange-500" />
+                    <Layout className="w-3.5 h-3.5 text-primary" />
                     Home
                 </Button>
             </div>
@@ -462,7 +462,7 @@ export default function PublicCoursePage() {
                 {/* Main Card */}
                 <div className="grid md:grid-cols-5 gap-0 overflow-hidden rounded-3xl border border-zinc-800 shadow-2xl">
                     {/* Left: Course Info (3 cols) */}
-                    <div className="md:col-span-3 bg-zinc-950 p-6 sm:p-10 flex flex-col gap-7 relative overflow-hidden">
+                    <div className="md:col-span-3 bg-background p-6 sm:p-10 flex flex-col gap-7 relative overflow-hidden">
                         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(249,115,22,0.06),transparent_60%)] pointer-events-none" />
 
                         <div className="relative z-10 flex flex-col gap-7 flex-1">
@@ -600,7 +600,7 @@ export default function PublicCoursePage() {
                         {existingPurchase ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-center gap-5 py-8">
                                 <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center border border-orange-500/20">
-                                    <ShieldCheck className="w-8 h-8 text-orange-500" />
+                                    <ShieldCheck className="w-8 h-8 text-primary" />
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold text-white">Already Enrolled</h2>
@@ -639,7 +639,7 @@ export default function PublicCoursePage() {
                                             placeholder="Enter your name"
                                             value={customerName}
                                             onChange={(e) => setCustomerName(e.target.value)}
-                                            className="h-10 bg-zinc-800 border-zinc-700 rounded-xl text-white text-sm placeholder:text-zinc-600 focus-visible:ring-orange-500"
+                                            className="h-10 bg-zinc-800 border-zinc-700 rounded-xl text-white text-sm placeholder:text-zinc-600 focus-visible:ring-primary"
                                             required
                                         />
                                     </div>
@@ -650,7 +650,7 @@ export default function PublicCoursePage() {
                                             placeholder="you@example.com"
                                             value={customerEmail}
                                             onChange={(e) => setCustomerEmail(e.target.value)}
-                                            className="h-10 bg-zinc-800 border-zinc-700 rounded-xl text-white text-sm placeholder:text-zinc-600 focus-visible:ring-orange-500"
+                                            className="h-10 bg-zinc-800 border-zinc-700 rounded-xl text-white text-sm placeholder:text-zinc-600 focus-visible:ring-primary"
                                             required
                                         />
                                     </div>
@@ -661,7 +661,7 @@ export default function PublicCoursePage() {
                                             placeholder="+91 98765 43210"
                                             value={customerPhone}
                                             onChange={(e) => setCustomerPhone(e.target.value)}
-                                            className="h-10 bg-zinc-800 border-zinc-700 rounded-xl text-white text-sm placeholder:text-zinc-600 focus-visible:ring-orange-500"
+                                            className="h-10 bg-zinc-800 border-zinc-700 rounded-xl text-white text-sm placeholder:text-zinc-600 focus-visible:ring-primary"
                                             required
                                         />
                                     </div>
@@ -673,7 +673,7 @@ export default function PublicCoursePage() {
                                     </div>
 
                                     <Button
-                                        className="w-full h-11 text-sm font-bold bg-orange-500 hover:bg-orange-600 text-white transition-all shadow-lg shadow-orange-500/20 group rounded-xl active:scale-[0.98]"
+                                        className="w-full h-11 text-sm font-bold bg-primary hover:bg-primary text-white transition-all shadow-lg shadow-primary/20 group rounded-xl active:scale-[0.98]"
                                         type="submit"
                                         disabled={isProcessing}
                                     >
@@ -700,7 +700,7 @@ export default function PublicCoursePage() {
                                         className="w-full p-3.5 rounded-xl border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40 transition-all duration-200 flex items-center gap-3 group text-left"
                                     >
                                         <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center group-hover:bg-orange-500/10 group-hover:border-orange-500/20 transition-all">
-                                            <Mail className="w-3.5 h-3.5 text-zinc-500 group-hover:text-orange-500 transition-colors" />
+                                            <Mail className="w-3.5 h-3.5 text-zinc-500 group-hover:text-primary transition-colors" />
                                         </div>
                                         <div>
                                             <p className="text-sm font-semibold text-zinc-200">Contact Support</p>
@@ -708,17 +708,17 @@ export default function PublicCoursePage() {
                                         </div>
                                     </button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-[460px] p-0 overflow-hidden border border-zinc-800 rounded-2xl shadow-2xl bg-zinc-950">
+                                <DialogContent className="sm:max-w-[460px] p-0 overflow-hidden border border-zinc-800 rounded-2xl shadow-2xl bg-background">
                                     <div className="p-5 border-b border-zinc-800 bg-zinc-900">
                                         <DialogHeader>
                                             <DialogTitle className="text-lg font-bold flex items-center gap-2.5 text-white">
-                                                <MessageSquare className="w-5 h-5 text-orange-500" />
+                                                <MessageSquare className="w-5 h-5 text-primary" />
                                                 Contact Support
                                             </DialogTitle>
                                         </DialogHeader>
                                         <p className="text-zinc-500 text-xs mt-1">We'll get back to you as soon as possible</p>
                                     </div>
-                                    <form onSubmit={handleSubmitTicket} className="p-5 space-y-3 bg-zinc-950">
+                                    <form onSubmit={handleSubmitTicket} className="p-5 space-y-3 bg-background">
                                         {(!customerName || !customerEmail) && (
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div className="flex flex-col gap-1">
@@ -912,7 +912,7 @@ export default function PublicCoursePage() {
                         <button className="hover:text-zinc-300 transition-colors">Terms</button>
                     </div>
                     <p className="text-xs text-zinc-700">
-                        © {new Date().getFullYear()} {instructorData.name} · Powered by Zenthra
+                        © {new Date().getFullYear()} {instructorData.name} · Powered by Intimatecare.in
                     </p>
                 </div>
             </footer>

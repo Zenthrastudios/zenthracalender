@@ -114,7 +114,7 @@ export default function Checkout() {
                 key: (import.meta as any).env.VITE_RAZORPAY_KEY_ID || 'rzp_test_YOUR_KEY_ID',
                 amount: orderData.amount,
                 currency: orderData.currency,
-                name: 'Zenthra',
+                name: 'Intimatecare.in',
                 description: `${plan.name} Subscription`,
                 order_id: orderData.id,
                 handler: async function (response: any) {
@@ -200,7 +200,7 @@ export default function Checkout() {
                                 <div className="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center shadow-xl shadow-orange-600/20">
                                     <Calendar className="w-6 h-6 text-white" />
                                 </div>
-                                <span className="font-black text-3xl tracking-tighter uppercase">Zenthra</span>
+                                <span className="font-black text-3xl tracking-tighter uppercase">Intimatecare.in</span>
                             </div>
                             <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-foreground mb-6 leading-none">
                                 SECURE YOUR <br />
@@ -271,7 +271,7 @@ export default function Checkout() {
                                     <div className="space-y-3">
                                         <Label className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Digital Identity (Username)</Label>
                                         <div className="relative">
-                                            <div className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground font-black pointer-events-none">zenthra.com/</div>
+                                            <div className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground font-black pointer-events-none">intimatecare.in/</div>
                                             <Input
                                                 placeholder="username"
                                                 className="h-16 rounded-2xl border-border/60 bg-muted/30 font-black text-lg pl-[110px] focus-visible:ring-orange-600/50"
@@ -341,7 +341,7 @@ export default function Checkout() {
                 </div>
 
                 <div className="mt-24 pt-12 border-t border-border/30 text-center">
-                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.4em] mb-4">Secured by Zenthra Banking Infrastructure</p>
+                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.4em] mb-4">Secured by Intimatecare.in Banking Infrastructure</p>
                     <div className="flex justify-center gap-12 opacity-30 grayscale transition-all hover:grayscale-0">
                         <CreditCard className="w-6 h-6" />
                         <Globe className="w-6 h-6" />

@@ -66,7 +66,7 @@ export default function Settings() {
   const [phone, setPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [accentColor, setAccentColor] = useState('orange');
+  const [accentColor, setAccentColor] = useState('pink');
   const { brandName, setBrandName } = useBrand();
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export default function Settings() {
 
   // Load saved accent color from localStorage
   useEffect(() => {
-    const savedColor = localStorage.getItem(ACCENT_COLOR_KEY) || 'orange';
+    const savedColor = localStorage.getItem(ACCENT_COLOR_KEY) || 'pink';
     setAccentColor(savedColor);
     applyAccentColor(savedColor);
   }, []);

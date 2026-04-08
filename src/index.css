@@ -16,8 +16,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 15%;
 
-    /* Vibrant Orange Primary */
-    --primary: 30 95% 50%;
+    /* Vibrant Pink Primary */
+    --primary: 330 80% 55%;
     --primary-foreground: 0 0% 100%;
 
     /* Sophisticated Secondary */
@@ -29,15 +29,15 @@
     --muted-foreground: 220 10% 50%;
 
     /* Subtle Accent */
-    --accent: 30 80% 97%;
-    --accent-foreground: 30 95% 40%;
+    --accent: 330 60% 97%;
+    --accent-foreground: 330 80% 45%;
 
     --destructive: 0 80% 55%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 15% 91%;
     --input: 220 15% 91%;
-    --ring: 30 95% 50%;
+    --ring: 330 80% 55%;
 
     --radius: 0.875rem;
 
@@ -52,20 +52,20 @@
     /* Sidebar - Glass Effect */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 15% 30%;
-    --sidebar-primary: 30 95% 50%;
+    --sidebar-primary: 330 80% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 30 80% 97%;
-    --sidebar-accent-foreground: 30 95% 40%;
+    --sidebar-accent: 330 60% 97%;
+    --sidebar-accent-foreground: 330 80% 45%;
     --sidebar-border: 220 15% 94%;
-    --sidebar-ring: 30 95% 50%;
+    --sidebar-ring: 330 80% 55%;
 
     /* Time slots */
-    --slot-available: 30 80% 97%;
-    --slot-selected: 30 95% 50%;
+    --slot-available: 330 60% 97%;
+    --slot-selected: 330 80% 55%;
     --slot-unavailable: 220 15% 94%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(30 95% 52%) 0%, hsl(15 95% 55%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(330 80% 55%) 0%, hsl(315 80% 50%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 15% 99%) 100%);
   }
 
@@ -74,51 +74,51 @@
     --background: 0 0% 0%;
     --foreground: 0 0% 98%;
 
-    --card: 0 0% 7%;
+    --card: 0 0% 3%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 7%;
+    --popover: 0 0% 2%;
     --popover-foreground: 0 0% 98%;
 
-    /* Vibrant Orange Primary */
-    --primary: 38 95% 55%;
+    /* Vibrant Pink Primary */
+    --primary: 330 80% 65%;
     --primary-foreground: 0 0% 0%;
 
     --secondary: 0 0% 12%;
     --secondary-foreground: 0 0% 90%;
 
-    --muted: 0 0% 12%;
+    --muted: 0 0% 5%;
     --muted-foreground: 0 0% 63%;
 
-    --accent: 0 0% 12%;
-    --accent-foreground: 38 95% 65%;
+    --accent: 0 0% 4%;
+    --accent-foreground: 330 80% 75%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 0 0% 15%;
-    --input: 0 0% 12%;
-    --ring: 38 95% 55%;
+    --input: 0 0% 4%;
+    --ring: 330 80% 65%;
 
     --radius: 1.25rem;
 
     /* Sidebar - Deep Dark */
     --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 88%;
-    --sidebar-primary: 38 95% 55%;
+    --sidebar-primary: 330 80% 65%;
     --sidebar-primary-foreground: 0 0% 0%;
     --sidebar-accent: 0 0% 10%;
-    --sidebar-accent-foreground: 38 95% 65%;
+    --sidebar-accent-foreground: 330 80% 75%;
     --sidebar-border: 0 0% 8%;
-    --sidebar-ring: 38 95% 55%;
+    --sidebar-ring: 330 80% 65%;
 
     /* Time slots Dark */
     --slot-available: 0 0% 10%;
-    --slot-selected: 38 95% 55%;
+    --slot-selected: 330 80% 65%;
     --slot-unavailable: 0 0% 5%;
 
     /* Gradients Dark */
-    --gradient-primary: linear-gradient(135deg, hsl(38 95% 55%) 0%, hsl(20 95% 50%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(330 80% 65%) 0%, hsl(315 80% 60%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 9%) 0%, hsl(0 0% 5%) 100%);
   }
 }
@@ -197,7 +197,7 @@
 
   /* Gradient Text */
   .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-orange-500;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-pink-500;
   }
 
   /* Floating Card Effect */
@@ -283,7 +283,7 @@
 
   /* Premium Button */
   .btn-premium {
-    @apply relative overflow-hidden bg-gradient-to-r from-primary to-orange-500 text-primary-foreground font-semibold px-6 py-3 rounded-xl shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 active:shadow-md;
+    @apply relative overflow-hidden bg-gradient-to-r from-primary to-pink-500 text-primary-foreground font-semibold px-6 py-3 rounded-xl shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 active:shadow-md;
   }
 
   .btn-premium::before {

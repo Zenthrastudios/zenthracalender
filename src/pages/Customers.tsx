@@ -647,7 +647,7 @@ export default function Customers() {
 
             {/* ─── Customer Detail Sheet ─────────────────────────────────────── */}
             <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-                <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col bg-zinc-950 border-white/5" side="right">
+                <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col bg-background border-white/5" side="right">
                     {selectedCustomer && (
                         <>
                             <SheetHeader className="p-6 border-b border-white/5 flex-shrink-0">
@@ -867,7 +867,7 @@ export default function Customers() {
 
             {/* ─── Add / Grant Access Dialog ─────────────────────────────────── */}
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                <DialogContent className="sm:max-w-md bg-zinc-950 border-white/10 text-white">
+                <DialogContent className="sm:max-w-md bg-background border-white/10 text-white">
                     <DialogHeader>
                         <DialogTitle className="text-white">
                             {addTarget ? `Grant Course Access` : 'Add New Customer'}

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 const BRAND_NAME_KEY = 'app-brand-name';
-const DEFAULT_BRAND_NAME = 'Zenthra';
+const DEFAULT_BRAND_NAME = 'Intimatecare.in';
 
 interface BrandContextType {
   brandName: string;

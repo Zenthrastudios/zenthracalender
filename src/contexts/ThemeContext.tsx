@@ -1,67 +1,31 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useTheme as useNextThemes } from 'next-themes';
+import { createContext, useContext, ReactNode } from 'react';
+import { ThemeProvider as NextThemesProvider, useTheme as useNextThemes } from 'next-themes';
+import { type ThemeProviderProps } from 'next-themes/dist/types';
 
 interface ThemeContextType {
-  theme: string;
+  theme: string | undefined;
   setTheme: (theme: string) => void;
-  systemTheme: string; // 'light' or 'dark' based on system preference
+  systemTheme: string | undefined;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { theme: nextTheme, setTheme: setNextThemesTheme, systemTheme } = useNextThemes();
-  
-  // Initialize theme from localStorage or system
-  const getInitialTheme = () => {
-    // Check for saved theme in localStorage
-    if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem('app-theme');
-      if (savedTheme) {
-        return savedTheme;
-      }
-    }
-    // Fall back to system theme or 'light'
-    return nextTheme || systemTheme || 'light';
-  };
-  
-  const [appTheme, setAppTheme] = useState<string>(getInitialTheme());
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  return (
+    <NextThemesProvider {...props}>
+      <ThemeContextHelper>{children}</ThemeContextHelper>
+    </NextThemesProvider>
+  );
+}
 
-  // Sync next-themes theme with our app theme
-  useEffect(() => {
-    if (nextTheme !== appTheme) {
-      setNextThemesTheme(appTheme);
-    }
-  }, [appTheme, nextTheme, setNextThemesTheme]);
-
-  // Update app theme when system theme changes (only if no explicit theme set)
-  useEffect(() => {
-    if (systemTheme && !nextTheme) {
-      // Only update if no explicit theme is set in localStorage
-      const hasSavedTheme = typeof window !== 'undefined' && localStorage.getItem('app-theme');
-      if (!hasSavedTheme) {
-        setAppTheme(systemTheme);
-      }
-    }
-  }, [systemTheme, nextTheme]);
-
-  // Persist theme to localStorage when it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('app-theme', appTheme);
-    }
-  }, [appTheme]);
-
-  const setTheme = (theme: string) => {
-    setAppTheme(theme);
-    setNextThemesTheme(theme);
-  };
+function ThemeContextHelper({ children }: { children: ReactNode }) {
+  const { theme, setTheme, systemTheme } = useNextThemes();
 
   return (
     <ThemeContext.Provider value={{
-      theme: appTheme,
+      theme,
       setTheme,
-      systemTheme: systemTheme || 'light'
+      systemTheme
     }}>
       {children}
     </ThemeContext.Provider>

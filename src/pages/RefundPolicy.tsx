@@ -69,9 +69,9 @@ const REFUND_POLICIES = [
 
 export default function RefundPolicy() {
     return (
-        <div className="min-h-screen bg-zinc-950 text-white">
+        <div className="min-h-screen bg-background text-white">
             {/* Header */}
-            <div className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-50">
+            <div className="border-b border-zinc-800 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="max-w-4xl mx-auto px-4 h-14 flex items-center gap-4">
                     <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white gap-2" asChild>
                         <Link to="/">
@@ -155,7 +155,7 @@ export default function RefundPolicy() {
                                 </div>
                             </div>
 
-                            <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950/40 flex items-center gap-2 text-xs text-zinc-500">
+                            <div className="px-6 py-4 border-t border-zinc-800 bg-background/40 flex items-center gap-2 text-xs text-zinc-500">
                                 <IndianRupee className="w-3.5 h-3.5 text-zinc-500" />
                                 Refund Processing: <span className="text-zinc-300 ml-1">{policy.processing}</span>
                             </div>

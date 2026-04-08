@@ -325,7 +325,7 @@ function WhatsAppConfigDialog({ isOpen, onClose }: WhatsAppConfigProps) {
                   <Label htmlFor="site_url">App URL / Custom Domain</Label>
                   <Input
                     id="site_url"
-                    placeholder="https://cal.zenthrashop.in"
+                    placeholder="https://cal.intimatecare.in"
                     value={formData.site_url}
                     onChange={e => setFormData(prev => ({ ...prev, site_url: e.target.value }))}
                   />

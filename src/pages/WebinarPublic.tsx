@@ -424,7 +424,7 @@ export default function WebinarPublic() {
                                 </div>
                                 <div>
                                     <p className="text-xs text-muted-foreground font-medium uppercase">Hosted By</p>
-                                    <p className="font-medium text-sm">Zenthra Calendar</p>
+                                    <p className="font-medium text-sm">Intimatecare.in Calendar</p>
                                 </div>
                             </div>
                         </div>
