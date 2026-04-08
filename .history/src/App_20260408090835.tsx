@@ -427,14 +427,12 @@ const App = () => {
       <HelmetProvider>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
-            <BrandProvider>
-              <TooltipProvider>
-                <Sonner />
-                <BrowserRouter>
-                  <AppRoutes />
-                </BrowserRouter>
-              </TooltipProvider>
-            </BrandProvider>
+            <TooltipProvider>
+              <Sonner />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </TooltipProvider>
           </AuthProvider>
         </ThemeProvider>
       </HelmetProvider>

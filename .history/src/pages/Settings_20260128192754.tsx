@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useTheme } from 'next-themes';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBrand } from '@/contexts/BrandContext';
 import { useUploadAvatar } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,22 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { User, Globe, Camera, Loader2, Moon, Sun, Monitor, Palette, Check } from 'lucide-react';
-
-// Available accent colors with their CSS variable values
-const ACCENT_COLORS = [
-  { name: 'Orange', value: 'orange', light: { primary: '30 95% 50%', accent: '30 80% 97%' }, dark: { primary: '38 95% 55%', accent: '0 0% 12%' } },
-  { name: 'Blue', value: 'blue', light: { primary: '210 95% 55%', accent: '210 80% 97%' }, dark: { primary: '210 95% 60%', accent: '0 0% 12%' } },
-  { name: 'Purple', value: 'purple', light: { primary: '270 75% 55%', accent: '270 60% 97%' }, dark: { primary: '270 80% 65%', accent: '0 0% 12%' } },
-  { name: 'Green', value: 'green', light: { primary: '155 75% 42%', accent: '155 60% 97%' }, dark: { primary: '155 75% 50%', accent: '0 0% 12%' } },
-  { name: 'Pink', value: 'pink', light: { primary: '330 80% 55%', accent: '330 60% 97%' }, dark: { primary: '330 80% 65%', accent: '0 0% 12%' } },
-  { name: 'Red', value: 'red', light: { primary: '0 80% 55%', accent: '0 60% 97%' }, dark: { primary: '0 80% 60%', accent: '0 0% 12%' } },
-  { name: 'Teal', value: 'teal', light: { primary: '175 70% 45%', accent: '175 50% 97%' }, dark: { primary: '175 70% 55%', accent: '0 0% 12%' } },
-  { name: 'Indigo', value: 'indigo', light: { primary: '235 80% 55%', accent: '235 60% 97%' }, dark: { primary: '235 80% 65%', accent: '0 0% 12%' } },
-];
-
-// Local storage key for accent color
-const ACCENT_COLOR_KEY = 'app-accent-color';
+import { User, Globe, Camera, Loader2, Moon, Sun, Monitor } from 'lucide-react';
 
 const TIMEZONES = [
   'America/New_York',
@@ -66,8 +50,6 @@ export default function Settings() {
   const [phone, setPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [accentColor, setAccentColor] = useState('orange');
-  const { brandName, setBrandName } = useBrand();
 
   useEffect(() => {
     if (profile) {
@@ -77,40 +59,6 @@ export default function Settings() {
       setPhone(profile.phone || '');
     }
   }, [profile]);
-
-  // Load saved accent color from localStorage
-  useEffect(() => {
-    const savedColor = localStorage.getItem(ACCENT_COLOR_KEY) || 'orange';
-    setAccentColor(savedColor);
-    applyAccentColor(savedColor);
-  }, []);
-
-  // Apply accent color to CSS variables
-  const applyAccentColor = (colorValue: string) => {
-    const color = ACCENT_COLORS.find(c => c.value === colorValue);
-    if (!color) return;
-
-    const root = document.documentElement;
-    // Light mode values
-    root.style.setProperty('--primary', color.light.primary);
-    root.style.setProperty('--accent', color.light.accent);
-    // Dark mode values (applied via class)
-    if (document.documentElement.classList.contains('dark')) {
-      root.style.setProperty('--primary', color.dark.primary);
-      root.style.setProperty('--accent', color.dark.accent);
-    }
-  };
-
-  const handleAccentColorChange = (colorValue: string) => {
-    setAccentColor(colorValue);
-    localStorage.setItem(ACCENT_COLOR_KEY, colorValue);
-    applyAccentColor(colorValue);
-    toast.success(`Accent color changed to ${ACCENT_COLORS.find(c => c.value === colorValue)?.name}`);
-  };
-
-  const handleBrandNameChange = (name: string) => {
-    setBrandName(name);
-  };
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -323,62 +271,6 @@ export default function Settings() {
               <p className="text-xs text-muted-foreground">
                 All times in your availability and bookings will be shown in this timezone
               </p>
-            </div>
-          </div>
-
-          {/* Brand Name */}
-          <div className="p-6 bg-card rounded-xl border border-border space-y-4">
-            <div className="flex items-center gap-2">
-              <User className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Brand Name</h3>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="brandName">Your Brand Name</Label>
-              <Input
-                id="brandName"
-                placeholder="Enter your brand name"
-                value={brandName}
-                onChange={(e) => handleBrandNameChange(e.target.value)}
-                className="bg-background"
-              />
-              <p className="text-xs text-muted-foreground">
-                This name will be displayed throughout the app (e.g., in headers, titles)
-              </p>
-            </div>
-          </div>
-
-          {/* Accent Color */}
-          <div className="p-6 bg-card rounded-xl border border-border space-y-4">
-            <div className="flex items-center gap-2">
-              <Palette className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Accent Color</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Choose the primary accent color for buttons and highlights throughout the app
-            </p>
-            <div className="grid grid-cols-4 gap-3">
-              {ACCENT_COLORS.map((color) => (
-                <button
-                  key={color.value}
-                  onClick={() => handleAccentColorChange(color.value)}
-                  className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                    accentColor === color.value
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  <div
-                    className="w-8 h-8 rounded-full shadow-md"
-                    style={{
-                      backgroundColor: `hsl(${color.light.primary})`,
-                    }}
-                  />
-                  <span className="text-xs font-medium">{color.name}</span>
-                  {accentColor === color.value && (
-                    <Check className="absolute top-1 right-1 w-4 h-4 text-primary" />
-                  )}
-                </button>
-              ))}
             </div>
           </div>
 

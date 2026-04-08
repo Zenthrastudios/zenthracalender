@@ -1,10 +1,8 @@
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { useBrand } from '@/contexts/BrandContext';
 
 export default function PrivacyPolicy() {
-    const { brandName } = useBrand();
     return (
         <div className="min-h-screen bg-background py-12 px-6">
             <div className="max-w-3xl mx-auto">
@@ -79,7 +77,7 @@ export default function PrivacyPolicy() {
                         <section>
                             <h2 className="text-2xl font-semibold text-foreground mb-4">6. Contact Us</h2>
                             <p>
-                                If you have any questions about this Privacy Policy, please contact us at support@{brandName.toLowerCase().replace(/\s+/g, '')}.com.
+                                If you have any questions about this Privacy Policy, please contact us at support@zenthracalendar.com.
                             </p>
                         </section>
                     </div>

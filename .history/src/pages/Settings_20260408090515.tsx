@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useTheme } from 'next-themes';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBrand } from '@/contexts/BrandContext';
 import { useUploadAvatar } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +33,7 @@ const ACCENT_COLORS = [
 
 // Local storage key for accent color
 const ACCENT_COLOR_KEY = 'app-accent-color';
+const BRAND_NAME_KEY = 'app-brand-name';
 
 const TIMEZONES = [
   'America/New_York',
@@ -67,7 +67,7 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [accentColor, setAccentColor] = useState('orange');
-  const { brandName, setBrandName } = useBrand();
+  const [brandName, setBrandName] = useState('');
 
   useEffect(() => {
     if (profile) {
@@ -78,10 +78,12 @@ export default function Settings() {
     }
   }, [profile]);
 
-  // Load saved accent color from localStorage
+  // Load saved accent color and brand name from localStorage
   useEffect(() => {
     const savedColor = localStorage.getItem(ACCENT_COLOR_KEY) || 'orange';
+    const savedBrandName = localStorage.getItem(BRAND_NAME_KEY) || '';
     setAccentColor(savedColor);
+    setBrandName(savedBrandName);
     applyAccentColor(savedColor);
   }, []);
 
@@ -110,6 +112,9 @@ export default function Settings() {
 
   const handleBrandNameChange = (name: string) => {
     setBrandName(name);
+    localStorage.setItem(BRAND_NAME_KEY, name);
+    // Dispatch custom event for other components to listen to
+    window.dispatchEvent(new CustomEvent('brandNameChange', { detail: name }));
   };
 
   const handleAvatarClick = () => {

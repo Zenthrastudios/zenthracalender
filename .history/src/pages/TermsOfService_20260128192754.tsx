@@ -1,10 +1,8 @@
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { useBrand } from '@/contexts/BrandContext';
 
 export default function TermsOfService() {
-    const { brandName } = useBrand();
     return (
         <div className="min-h-screen bg-background py-12 px-6">
             <div className="max-w-3xl mx-auto">
@@ -58,7 +56,7 @@ export default function TermsOfService() {
                         <section>
                             <h2 className="text-2xl font-semibold text-foreground mb-4">5. Intellectual Property</h2>
                             <p>
-                                The Service and its original content, features, and functionality are owned by {brandName} Studios
+                                The Service and its original content, features, and functionality are owned by Zenthra Studios
                                 and are protected by international copyright, trademark, and other intellectual property laws.
                             </p>
                         </section>
@@ -66,7 +64,7 @@ export default function TermsOfService() {
                         <section>
                             <h2 className="text-2xl font-semibold text-foreground mb-4">6. Limitation of Liability</h2>
                             <p>
-                                In no event shall {brandName} Studios be liable for any indirect, incidental, special,
+                                In no event shall Zenthra Studios be liable for any indirect, incidental, special,
                                 consequential or punitive damages, including without limitation, loss of profits, data,
                                 use, goodwill, or other intangible losses.
                             </p>

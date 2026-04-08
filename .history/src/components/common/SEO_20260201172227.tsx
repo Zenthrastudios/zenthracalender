@@ -1,5 +1,4 @@
 import { Helmet } from 'react-helmet-async';
-import { useBrand } from '@/contexts/BrandContext';
 
 interface SEOProps {
     title: string;
@@ -10,8 +9,7 @@ interface SEOProps {
 }
 
 export default function SEO({ title, description, image, url, type = 'website' }: SEOProps) {
-    const { brandName } = useBrand();
-    const siteTitle = brandName;
+    const siteTitle = 'Zenthra Calendar';
     const fullTitle = `${title} | ${siteTitle}`;
 
     // Default image if none provided (could be a logo or generic banner)

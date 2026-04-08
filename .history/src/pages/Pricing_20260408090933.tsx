@@ -5,7 +5,6 @@ import {
     Calendar, Check, Star, Shield, Zap, Info, ArrowRight, Instagram, Globe, Loader2
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,7 +45,6 @@ export default function Pricing() {
                         <Link to="/contact" className="hover:text-orange-600 transition-colors">Contact</Link>
                     </nav>
                     <div className="flex items-center gap-4">
-                        <ThemeToggle />
                         <Link to="/auth" className="text-[15px] font-semibold text-muted-foreground hover:text-orange-600 transition-colors hidden sm:block">Log in</Link>
                         <Button asChild className="rounded-full bg-foreground text-background hover:opacity-90 px-8 h-12 font-bold transition-all active:scale-95">
                             <Link to="/auth">Get Started</Link>

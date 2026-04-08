@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBrand } from '@/contexts/BrandContext';
 import { useRole } from '@/hooks/useRole';
 import { useTheme } from 'next-themes';
 import {
@@ -58,7 +57,6 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth();
   const { isSuperAdmin } = useRole();
-  const { brandName } = useBrand();
   const { hasFeature, isLoading: featuresLoading } = useFeatures();
   const { theme, setTheme } = useTheme();
   const location = useLocation();
@@ -267,7 +265,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* Footer */}
         <div className="p-4 border-t border-border/60">
-          <p className="text-xs text-muted-foreground/60">© 2026 {brandName}</p>
+          <p className="text-xs text-muted-foreground/60">© 2026 CalSchedule</p>
         </div>
       </aside>
 
@@ -296,7 +294,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
               <h2 className="text-3xl font-black uppercase tracking-tighter">Protocol Expired</h2>
               <p className="text-muted-foreground font-medium text-lg">
-                Your 4-day trial access to the {brandName} Pulse has concluded. Secure a subscription to restore full operational capability.
+                Your 4-day trial access to the Zenthra Pulse has concluded. Secure a subscription to restore full operational capability.
               </p>
               <Button
                 onClick={() => navigate('/pricing')}

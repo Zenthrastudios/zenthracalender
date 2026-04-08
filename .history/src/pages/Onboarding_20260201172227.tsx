@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBrand } from '@/contexts/BrandContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +27,6 @@ const GOALS = [
 
 export default function Onboarding() {
     const { user, refreshProfile } = useAuth();
-    const { brandName } = useBrand();
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -141,7 +139,7 @@ export default function Onboarding() {
                         Initialize <span className="text-orange-600">Identity.</span>
                     </h1>
                     <p className="text-muted-foreground font-medium text-lg max-w-lg mx-auto">
-                        Configure your digital matrix to align the {brandName} infrastructure with your specific growth protocols.
+                        Configure your digital matrix to align the Zenthra infrastructure with your specific growth protocols.
                     </p>
                 </div>
 

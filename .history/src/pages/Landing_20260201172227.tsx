@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useBrand } from '@/contexts/BrandContext';
 import {
   Calendar, Clock, Users, Zap, ArrowRight, Check, Star, Shield,
   Smartphone, Video, Code, MessageSquare, CreditCard, Globe,
@@ -37,7 +36,6 @@ const STATS = [
 
 export default function LandingPage() {
   const [storeName, setStoreName] = useState("");
-  const { brandName } = useBrand();
 
   const { data: featuredCreators } = useQuery({
     queryKey: ['landing-creators'],
@@ -58,7 +56,7 @@ export default function LandingPage() {
 
       {/* Top Banner - Subtle like Stan */}
       <div className="bg-foreground text-background py-2 px-6 text-center text-xs font-black tracking-widest uppercase">
-        JOIN 50,000+ CREATORS MONETIZING THEIR CONTENT ON {brandName.toUpperCase()}
+        JOINT 50,000+ CREATORS MONETIZING THEIR CONTENT ON ZENTHRA
       </div>
 
       {/* Navigation */}
@@ -68,7 +66,7 @@ export default function LandingPage() {
             <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/20 transition-transform group-hover:scale-105">
               <Calendar className="w-6 h-6 text-white" />
             </div>
-            <span className="font-black text-2xl tracking-tighter">{brandName.toUpperCase()}</span>
+            <span className="font-black text-2xl tracking-tighter">ZENTHRA</span>
           </Link>
 
           <nav className="hidden lg:flex items-center gap-10 text-[13px] font-black uppercase tracking-widest text-muted-foreground">
@@ -79,7 +77,6 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-4">
-            <ThemeToggle />
             <Link to="/auth" className="text-[13px] font-black uppercase tracking-widest text-muted-foreground hover:text-orange-600 transition-colors hidden sm:block">Log in</Link>
             <Link to="/auth?signup=true" className="text-[13px] font-black uppercase tracking-widest text-muted-foreground hover:text-orange-600 transition-colors hidden sm:block">Sign Up</Link>
             <Button asChild className="rounded-2xl bg-orange-600 hover:bg-orange-700 text-white px-8 h-12 text-sm font-black uppercase tracking-widest shadow-xl shadow-orange-600/20 transition-all active:scale-95">
@@ -104,13 +101,13 @@ export default function LandingPage() {
               To Grow.
             </h1>
             <p className="text-xl text-muted-foreground mb-12 max-w-xl mx-auto lg:mx-0 leading-relaxed font-medium">
-              {brandName} is the easiest way to sell your digital products, book coaching calls, and automate your Instagram—all from one beautiful link.
+              Zenthra is the easiest way to sell your digital products, book coaching calls, and automate your Instagram—all from one beautiful link.
             </p>
 
             {/* Claim your link input */}
             <div className="flex flex-col sm:flex-row items-stretch gap-3 max-w-lg mx-auto lg:mx-0 p-2 bg-card rounded-[2rem] border border-border shadow-2xl focus-within:border-orange-600/50 transition-all">
               <div className="flex items-center px-4 py-3 bg-muted rounded-2xl text-muted-foreground font-black text-sm tracking-tighter shrink-0">
-                {brandName.toLowerCase()}.com/
+                zenthra.com/
               </div>
               <Input
                 placeholder="yourname"
@@ -130,7 +127,7 @@ export default function LandingPage() {
             <div className="relative rounded-[3rem] border-8 border-muted shadow-2xl overflow-hidden bg-card">
               <img
                 src={IMAGES.hero}
-                alt="{brandName} Dashboard"
+                alt="Zenthra Dashboard"
                 className="w-full h-auto object-cover scale-105"
               />
             </div>
@@ -244,7 +241,7 @@ export default function LandingPage() {
                 <span className="text-orange-600 italic">BEST</span> IN THE GAME.
               </h2>
               <p className="text-muted-foreground font-medium max-w-2xl mx-auto">
-                Join the elite circle of creators who have moved their entire digital empire onto the {brandName} infrastructure.
+                Join the elite circle of creators who have moved their entire digital empire onto the Zenthra infrastructure.
               </p>
             </div>
 
@@ -324,7 +321,7 @@ export default function LandingPage() {
                 <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-white" />
                 </div>
-                <span className="font-black text-2xl tracking-tighter text-foreground uppercase">{brandName.toUpperCase()}</span>
+                <span className="font-black text-2xl tracking-tighter text-foreground uppercase">ZENTHRA</span>
               </Link>
               <p className="text-muted-foreground font-medium text-lg leading-relaxed">The simplest all-in-one store for creators to sell digital products, book coaching calls, and automate social growth.</p>
             </div>
@@ -356,7 +353,7 @@ export default function LandingPage() {
           </div>
 
           <div className="border-t border-border pt-12 flex flex-col md:flex-row justify-between items-center gap-8">
-            <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.3em]">© {new Date().getFullYear()} {brandName.toUpperCase()} INC. [V1.2]</p>
+            <p className="text-muted-foreground text-[10px] font-black uppercase tracking-[0.3em]">© {new Date().getFullYear()} ZENTHRA CALENDAR INC. [V1.2]</p>
             <div className="flex gap-10 text-muted-foreground">
               <Instagram className="w-5 h-5 cursor-pointer hover:text-orange-600 transition-colors" />
               <Zap className="w-5 h-5 cursor-pointer hover:text-orange-600 transition-colors" />

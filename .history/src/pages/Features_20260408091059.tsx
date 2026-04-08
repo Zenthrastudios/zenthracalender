@@ -107,19 +107,19 @@ export default function Features() {
                                 <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">
                                     {feature.title}
                                 </h2>
-                                <p className="text-lg text-muted-foreground font-medium leading-relaxed">
+                                <p className="text-lg text-slate-500 font-medium leading-relaxed">
                                     {feature.desc}
                                 </p>
                                 <div className="flex flex-wrap gap-2">
                                     {feature.tags.map((tag, j) => (
-                                        <Badge key={j} variant="secondary" className="bg-card border border-border text-foreground font-bold px-4 py-2 text-sm rounded-xl">
+                                        <Badge key={j} variant="secondary" className="bg-white border-2 border-slate-100 text-slate-600 font-bold px-4 py-2 text-sm rounded-xl">
                                             {tag}
                                         </Badge>
                                     ))}
                                 </div>
                             </div>
                             <div className={`${i % 2 !== 0 ? 'lg:order-1' : ''}`}>
-                                <div className="relative rounded-[3rem] overflow-hidden border-8 border-muted shadow-2xl">
+                                <div className="relative rounded-[3rem] overflow-hidden border-8 border-slate-50 shadow-2xl">
                                     <img src={feature.image} alt={feature.title} className="w-full h-auto" />
                                 </div>
                             </div>
@@ -128,11 +128,11 @@ export default function Features() {
                 </div>
             </section>
 
-            <section className="py-24 px-6 bg-foreground text-background rounded-[4rem] mx-6">
+            <section className="py-24 px-6 bg-slate-900 text-white rounded-[4rem] mx-6">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-20">
                         <h2 className="text-4xl md:text-6xl font-extrabold italic mb-6">Built for Creators</h2>
-                        <p className="text-background/60 text-lg max-w-2xl mx-auto">Small details that make a massive difference in your daily workflow.</p>
+                        <p className="text-slate-400 text-lg max-w-2xl mx-auto">Small details that make a massive difference in your daily workflow.</p>
                     </div>
                     <div className="grid md:grid-cols-3 gap-8">
                         {[
@@ -143,10 +143,10 @@ export default function Features() {
                             { icon: Users, title: "Team Roles", desc: "Assign moderators and admins to manage your store." },
                             { icon: CheckCircle2, title: "No Commisions", desc: "Keep 100% of your earnings. We only charge a flat monthly fee." }
                         ].map((f, i) => (
-                            <div key={i} className="p-10 rounded-[2.5rem] bg-background/5 border border-background/10 hover:bg-background/[0.08] transition-all group">
+                            <div key={i} className="p-10 rounded-[2.5rem] bg-white/5 border border-white/10 hover:bg-white/[0.08] transition-all group">
                                 <f.icon className="w-10 h-10 text-orange-500 mb-6 group-hover:scale-110 transition-transform" />
                                 <h3 className="text-xl font-bold mb-4">{f.title}</h3>
-                                <p className="text-background/60 font-medium leading-relaxed">{f.desc}</p>
+                                <p className="text-slate-400 font-medium leading-relaxed">{f.desc}</p>
                             </div>
                         ))}
                     </div>
@@ -155,17 +155,17 @@ export default function Features() {
 
             <section className="py-32 px-6 text-center">
                 <div className="max-max-w-4xl mx-auto">
-                    <h2 className="text-5xl md:text-7xl font-extrabold text-foreground mb-10 tracking-tight">
+                    <h2 className="text-5xl md:text-7xl font-extrabold text-slate-900 mb-10 tracking-tight">
                         Ready to <span className="text-orange-600 italic underline decoration-8 underline-offset-8">scale?</span>
                     </h2>
-                    <Button size="xl" className="rounded-full bg-foreground text-background hover:opacity-90 px-12 h-16 text-xl font-bold shadow-2xl transition-all active:scale-95" asChild>
+                    <Button size="xl" className="rounded-full bg-slate-900 hover:bg-slate-800 text-white px-12 h-16 text-xl font-bold shadow-2xl shadow-slate-200 transition-all active:scale-95" asChild>
                         <Link to="/auth">Claim Your Store</Link>
                     </Button>
                 </div>
             </section>
 
             {/* Footer - Master Stan.store Style */}
-            <footer className="border-t border-border py-20 px-6 bg-card">
+            <footer className="border-t border-slate-100 py-20 px-6 bg-white">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex flex-col md:flex-row justify-between gap-12 mb-16 px-4">
                         <div className="space-y-6 max-w-sm">
@@ -173,31 +173,31 @@ export default function Features() {
                                 <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center">
                                     <Calendar className="w-5 h-5 text-white" />
                                 </div>
-                                <span className="font-bold text-xl tracking-tight">{brandName}</span>
+                                <span className="font-bold text-xl tracking-tight">Zenthra</span>
                             </Link>
-                            <p className="text-muted-foreground font-medium">The simplest all-in-one store for creators to sell their digital products and book coaching calls.</p>
+                            <p className="text-slate-400 font-medium">The simplest all-in-one store for creators to sell their digital products and book coaching calls.</p>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-12">
                             <div>
-                                <h4 className="font-bold text-foreground mb-6 uppercase tracking-widest text-xs">Product</h4>
-                                <ul className="space-y-4 text-sm font-bold text-muted-foreground">
+                                <h4 className="font-bold text-slate-900 mb-6 uppercase tracking-widest text-xs">Product</h4>
+                                <ul className="space-y-4 text-sm font-bold text-slate-400">
                                     <li><Link to="/features" className="hover:text-orange-600 transition-colors">Features</Link></li>
                                     <li><Link to="/pricing" className="hover:text-orange-600 transition-colors">Pricing</Link></li>
                                     <li><Link to="/creators" className="hover:text-orange-600 transition-colors">Creators</Link></li>
                                 </ul>
                             </div>
                             <div>
-                                <h4 className="font-bold text-foreground mb-6 uppercase tracking-widest text-xs">Support</h4>
-                                <ul className="space-y-4 text-sm font-bold text-muted-foreground">
+                                <h4 className="font-bold text-slate-900 mb-6 uppercase tracking-widest text-xs">Support</h4>
+                                <ul className="space-y-4 text-sm font-bold text-slate-400">
                                     <li><Link to="/contact" className="hover:text-orange-600 transition-colors">Contact Us</Link></li>
                                     <li><Link to="/pricing" className="hover:text-orange-600 transition-colors">FAQ</Link></li>
                                     <li><Link to="/contact" className="hover:text-orange-600 transition-colors">Help Center</Link></li>
                                 </ul>
                             </div>
                             <div>
-                                <h4 className="font-bold text-foreground mb-6 uppercase tracking-widest text-xs">Legal</h4>
-                                <ul className="space-y-4 text-sm font-bold text-muted-foreground">
+                                <h4 className="font-bold text-slate-900 mb-6 uppercase tracking-widest text-xs">Legal</h4>
+                                <ul className="space-y-4 text-sm font-bold text-slate-400">
                                     <li><Link to="/privacy" className="hover:text-orange-600 transition-colors">Privacy Policy</Link></li>
                                     <li><Link to="/terms" className="hover:text-orange-600 transition-colors">Terms of Service</Link></li>
                                 </ul>
@@ -205,9 +205,9 @@ export default function Features() {
                         </div>
                     </div>
 
-                    <div className="border-t border-border pt-10 flex flex-col md:flex-row justify-between items-center gap-6">
-                        <p className="text-muted-foreground text-sm font-medium">© {new Date().getFullYear()} {brandName} Inc. All rights reserved.</p>
-                        <div className="flex gap-8 text-muted-foreground">
+                    <div className="border-t border-slate-100 pt-10 flex flex-col md:flex-row justify-between items-center gap-6">
+                        <p className="text-slate-400 text-sm font-medium">© {new Date().getFullYear()} Zenthra Calendar Inc. All rights reserved.</p>
+                        <div className="flex gap-8 text-slate-400">
                             <Instagram className="w-5 h-5 cursor-pointer hover:text-orange-600 transition-colors" />
                             <Zap className="w-5 h-5 cursor-pointer hover:text-orange-600 transition-colors" />
                             <Globe className="w-5 h-5 cursor-pointer hover:text-orange-600 transition-colors" />

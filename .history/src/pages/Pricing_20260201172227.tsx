@@ -1,18 +1,15 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useBrand } from '@/contexts/BrandContext';
 import {
     Calendar, Check, Star, Shield, Zap, Info, ArrowRight, Instagram, Globe, Loader2
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
 export default function Pricing() {
-    const { brandName } = useBrand();
     const { data: plans, isLoading } = useQuery({
         queryKey: ['public-pricing-plans'],
         queryFn: async () => {
@@ -37,7 +34,7 @@ export default function Pricing() {
                         <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/20">
                             <Calendar className="w-6 h-6 text-white" />
                         </div>
-                        <span className="font-bold text-2xl tracking-tighter">{brandName}</span>
+                        <span className="font-bold text-2xl tracking-tighter">Zenthra</span>
                     </Link>
                     <nav className="hidden lg:flex items-center gap-10 text-[15px] font-semibold text-muted-foreground">
                         <Link to="/features" className="hover:text-orange-600 transition-colors">Features</Link>
@@ -46,7 +43,6 @@ export default function Pricing() {
                         <Link to="/contact" className="hover:text-orange-600 transition-colors">Contact</Link>
                     </nav>
                     <div className="flex items-center gap-4">
-                        <ThemeToggle />
                         <Link to="/auth" className="text-[15px] font-semibold text-muted-foreground hover:text-orange-600 transition-colors hidden sm:block">Log in</Link>
                         <Button asChild className="rounded-full bg-foreground text-background hover:opacity-90 px-8 h-12 font-bold transition-all active:scale-95">
                             <Link to="/auth">Get Started</Link>
@@ -134,7 +130,7 @@ export default function Pricing() {
                         <div className="w-12 h-12 rounded-2xl bg-orange-600/10 flex items-center justify-center shrink-0">
                             <Zap className="w-6 h-6 text-orange-600" />
                         </div>
-                        <p className="font-bold text-foreground text-lg">{brandName} creators earn an average of 3.5x more than traditional link tools.</p>
+                        <p className="font-bold text-foreground text-lg">Zenthra creators earn an average of 3.5x more than traditional link tools.</p>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                         {[
@@ -158,7 +154,7 @@ export default function Pricing() {
                 <Accordion type="single" collapsible className="space-y-4">
                     {[
                         { q: "Can I cancel anytime?", a: "Yes, you can cancel your subscription at any time from your settings panel. No questions asked." },
-                        { q: "Is there a transaction fee?", a: `No, ${brandName} does not take any cut of your sales. You keep 100% of what you earn (minus payment processor fees like Stripe/Razorpay).` },
+                        { q: "Is there a transaction fee?", a: "No, Zenthra does not take any cut of your sales. You keep 100% of what you earn (minus payment processor fees like Stripe/Razorpay)." },
                         { q: "Can I use my own domain?", a: "Absolutely. Pro users can connect their own custom domains (e.g., store.yourname.com) easily." },
                         { q: "How many products can I sell?", a: "Unlimited! Whether you have 1 e-book or 50 courses, we don't limit your potential." }
                     ].map((item, i) => (
@@ -181,7 +177,7 @@ export default function Pricing() {
                                 <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center">
                                     <Calendar className="w-5 h-5 text-white" />
                                 </div>
-                                <span className="font-bold text-xl tracking-tight text-foreground">{brandName}</span>
+                                <span className="font-bold text-xl tracking-tight text-foreground">Zenthra</span>
                             </Link>
                             <p className="text-muted-foreground font-medium">The simplest all-in-one store for creators to sell digital products, book coaching calls, and automate social growth.</p>
                         </div>
@@ -214,7 +210,7 @@ export default function Pricing() {
                     </div>
 
                     <div className="border-t border-border pt-10 flex flex-col md:flex-row justify-between items-center gap-6">
-                        <p className="text-muted-foreground text-xs font-bold font-mono uppercase tracking-tighter">© {new Date().getFullYear()} {brandName.toUpperCase()} INC.</p>
+                        <p className="text-muted-foreground text-xs font-bold font-mono uppercase tracking-tighter">© {new Date().getFullYear()} ZENTHRA CALENDAR INC.</p>
                         <div className="flex gap-8 text-muted-foreground">
                             <Instagram className="w-5 h-5 cursor-pointer hover:text-orange-600 transition-colors" />
                             <Zap className="w-5 h-5 cursor-pointer hover:text-orange-600 transition-colors" />

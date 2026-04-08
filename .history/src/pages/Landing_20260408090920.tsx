@@ -79,7 +79,6 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-4">
-            <ThemeToggle />
             <Link to="/auth" className="text-[13px] font-black uppercase tracking-widest text-muted-foreground hover:text-orange-600 transition-colors hidden sm:block">Log in</Link>
             <Link to="/auth?signup=true" className="text-[13px] font-black uppercase tracking-widest text-muted-foreground hover:text-orange-600 transition-colors hidden sm:block">Sign Up</Link>
             <Button asChild className="rounded-2xl bg-orange-600 hover:bg-orange-700 text-white px-8 h-12 text-sm font-black uppercase tracking-widest shadow-xl shadow-orange-600/20 transition-all active:scale-95">
