@@ -22,6 +22,7 @@ import {
     FolderOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isIOS } from '@/utils/deviceDetection';
 
 // Cast supabase for new tables
 const db = supabase as any;
@@ -87,10 +88,19 @@ const ensureProtocol = (url: string) => {
     return `https://${url}`;
 };
 
+const getResourceHref = (resource: LessonResource) => {
+    if (resource.title && resource.title.startsWith('http')) {
+        return ensureProtocol(resource.title);
+    }
+
+    return ensureProtocol(resource.resource_url || '');
+};
+
 export default function ViewerResources({ lessonId, lessonTitle, variant = 'sheet' }: ViewerResourcesProps) {
     const [resources, setResources] = useState<LessonResource[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedNote, setExpandedNote] = useState<string | null>(null);
+    const iosDevice = isIOS();
 
     useEffect(() => {
         async function loadResources() {
@@ -177,21 +187,17 @@ export default function ViewerResources({ lessonId, lessonTitle, variant = 'shee
                                     )}
                                 </Button>
                             ) : (resource.resource_url || (resource.title && resource.title.startsWith('http'))) ? (
-                                <a
-                                    href={ensureProtocol(
-                                        (resource.title && resource.title.startsWith('http'))
-                                            ? resource.title
-                                            : (resource.resource_url || '')
-                                    )}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1"
-                                    onClick={(e) => e.stopPropagation()}
+                                <Button
+                                    asChild
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-primary hover:text-primary"
                                 >
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-primary hover:text-primary"
+                                    <a
+                                        href={getResourceHref(resource)}
+                                        target={iosDevice ? '_self' : '_blank'}
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
                                     >
                                         {resource.resource_type === 'link' ? (
                                             <>
@@ -202,8 +208,8 @@ export default function ViewerResources({ lessonId, lessonTitle, variant = 'shee
                                                 Download <Download className="w-3 h-3 ml-1" />
                                             </>
                                         )}
-                                    </Button>
-                                </a>
+                                    </a>
+                                </Button>
                             ) : null}
                         </div>
 
