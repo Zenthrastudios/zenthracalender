@@ -17,7 +17,7 @@ const IOSInstallBanner = () => {
 
     if (shouldShow) {
       // Small delay so page loads first
-      const timer = setTimeout(() => setShowBanner(true), 2000);
+      const timer = setTimeout(() => setShowBanner(true), 1200);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -30,42 +30,59 @@ const IOSInstallBanner = () => {
   if (!showBanner) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[9999] flex flex-col items-center px-4 pb-3 pointer-events-none">
-      <div className="bg-white/97 backdrop-blur-xl rounded-2xl p-4 flex items-center gap-3 shadow-lg pointer-events-auto w-full max-w-md">
-        {/* App Icon */}
-        <img
-          src="/icons/apple-touch-icon-180x180.png"
-          alt="App Icon"
-          className="w-14 h-14 rounded-xl flex-shrink-0"
-        />
+    <div className="fixed inset-x-0 bottom-0 z-[9999] px-4 pb-3 pointer-events-none">
+      <div className="pointer-events-auto mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950/95 shadow-2xl backdrop-blur-xl">
+        <div className="h-1.5 w-full bg-gradient-to-r from-cyan-400 via-indigo-500 to-fuchsia-500" />
 
-        {/* Text */}
-        <div className="flex-1 min-w-0">
-          <p className="text-base font-bold text-black m-0">Add to Home Screen</p>
-          <p className="text-sm text-gray-600 mt-1 leading-snug">
-            Tap{' '}
-            <span className="inline-block bg-[#007aff] text-white rounded px-1.5 py-0.5 text-xs font-bold">
-              <svg className="inline w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M16.5 9.5l-4-4v14.17h-1V5.5l-4 4-.71-.71 5.21-5.21 5.21 5.21-.71.71z"/>
-              </svg>
-            </span>
-            {' '}then <strong>"Add to Home Screen"</strong> to install
-          </p>
+        <div className="p-4">
+          <div className="mb-3 flex items-start gap-3">
+            <img
+              src="/icons/apple-touch-icon-180x180.png"
+              alt="App Icon"
+              className="h-12 w-12 rounded-xl border border-zinc-700"
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-zinc-300">Install Intimatecare App</p>
+              <p className="text-base font-bold text-white">Add to Home Screen</p>
+              <p className="mt-0.5 text-xs text-zinc-400">Takes 10 seconds. You'll get full-screen app experience and notifications.</p>
+            </div>
+
+            <button
+              onClick={handleDismiss}
+              className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-300">
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-[10px] font-bold text-blue-300">1</span>
+              <p>
+                Tap the Safari <strong className="text-white">Share</strong> button
+                <span className="mx-1 inline-flex items-center rounded bg-blue-500 px-1.5 py-0.5 text-[10px] font-bold text-white">↑</span>
+                at the bottom.
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-[10px] font-bold text-blue-300">2</span>
+              <p><strong className="text-white">Scroll down</strong> in the menu to find options.</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-[10px] font-bold text-blue-300">3</span>
+              <p>Tap <strong className="text-white">Add to Home Screen</strong> → then tap <strong className="text-white">Add</strong>.</p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleDismiss}
+            className="mt-3 w-full rounded-xl bg-white px-3 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
+          >
+            Got it
+          </button>
         </div>
-
-        {/* Dismiss */}
-        <button 
-          onClick={handleDismiss} 
-          className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 transition-colors"
-          aria-label="Dismiss"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Arrow pointing to Safari share button */}
-      <div className="flex justify-center mt-1">
-        <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[10px] border-t-white/97" />
       </div>
     </div>
   );

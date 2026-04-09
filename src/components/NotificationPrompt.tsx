@@ -3,8 +3,8 @@ import { Bell, X } from 'lucide-react';
 import { isInStandaloneMode, isPushSupported } from '@/utils/deviceDetection';
 import { subscribeToPush } from '@/utils/pushNotifications';
 
-// Replace with your VAPID public key
-const VAPID_PUBLIC_KEY = '';
+// VAPID public key for push notifications
+const VAPID_PUBLIC_KEY = 'BKXh-uKDv0tEQ1YmKTIJzU6H_BQJdWOou-6-FCiFCNh1HWsEOLE9ik8QJVtKmpVHRo1lYVcXZctsAnQENdDLclQ';
 
 interface NotificationPromptProps {
   vapidPublicKey?: string;

@@ -428,7 +428,7 @@ export default function PublicCoursePage() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-background">
+            <div className="dark flex items-center justify-center min-h-screen bg-background text-foreground">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
@@ -436,7 +436,7 @@ export default function PublicCoursePage() {
 
     if (!data || !data.course) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-background">
+            <div className="dark flex flex-col items-center justify-center min-h-screen p-4 text-center bg-background text-foreground">
                 <div className="p-8 bg-zinc-900 rounded-full shadow-2xl mb-4 border border-zinc-800">
                     <GraduationCap className="w-10 h-10 text-zinc-600" />
                 </div>
@@ -455,7 +455,7 @@ export default function PublicCoursePage() {
     if (purchaseSuccess && accessToken) {
         const loginUrl = `/auth?email=${encodeURIComponent(customerEmail)}`;
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background p-4">
+            <div className="dark min-h-screen flex items-center justify-center bg-background text-foreground p-4">
                 <div className="max-w-md w-full space-y-4">
                     <div className="border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden rounded-3xl">
                         <div className="h-1 bg-gradient-to-r from-primary to-primary w-full" />
@@ -506,7 +506,7 @@ export default function PublicCoursePage() {
     }
 
     return (
-        <div className="min-h-screen bg-background flex flex-col items-center">
+        <div className="dark min-h-screen bg-background text-foreground flex flex-col items-center">
             <SEO
                 title={course.title}
                 description={course.description || `Enroll in ${course.title} by ${instructorData.name}`}
