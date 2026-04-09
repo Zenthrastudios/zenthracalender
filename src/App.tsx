@@ -14,6 +14,8 @@ import { Capacitor } from "@capacitor/core";
 import { App as AppPlugin } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { Loader2 } from "lucide-react";
+import IOSInstallBanner from "@/components/IOSInstallBanner";
+import NotificationPrompt from "@/components/NotificationPrompt";
 
 // Pages
 import Auth from "./pages/Auth";
@@ -430,6 +432,9 @@ const App = () => {
                 <BrowserRouter>
                   <AppRoutes />
                 </BrowserRouter>
+                {/* iOS PWA Components */}
+                <IOSInstallBanner />
+                <NotificationPrompt />
               </TooltipProvider>
             </BrandProvider>
           </AuthProvider>
