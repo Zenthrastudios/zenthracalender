@@ -68,7 +68,7 @@ export default function LandingPage() {
             <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center shadow-lg shadow-orange-600/20 transition-transform group-hover:scale-105">
               <Calendar className="w-6 h-6 text-white" />
             </div>
-            <span className="font-black text-2xl tracking-tighter">{brandName.toUpperCase()}</span>
+            <span className="font-semibold text-xl tracking-tight">{brandName}</span>
           </Link>
 
           <nav className="hidden lg:flex items-center gap-10 text-[13px] font-black uppercase tracking-widest text-muted-foreground">
@@ -324,7 +324,7 @@ export default function LandingPage() {
                 <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-white" />
                 </div>
-                <span className="font-black text-2xl tracking-tighter text-foreground uppercase">{brandName.toUpperCase()}</span>
+                <span className="font-semibold text-xl tracking-tight text-foreground">{brandName}</span>
               </Link>
               <p className="text-muted-foreground font-medium text-lg leading-relaxed">The simplest all-in-one store for creators to sell digital products, book coaching calls, and automate social growth.</p>
             </div>

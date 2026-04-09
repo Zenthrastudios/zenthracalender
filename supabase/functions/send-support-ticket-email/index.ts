@@ -39,9 +39,9 @@ serve(async (req: Request) => {
       .eq("user_id", ticket.user_id)
       .single();
 
-    const supportEmail = branding?.support_email || "support@zenthracalendar.com";
-    const siteName = branding?.site_name || "Zenthra Calendar";
-    const siteUrl = branding?.site_url || "https://zenthracalendar.com";
+    const supportEmail = branding?.support_email || "support@intimatecare.in";
+    const siteName = branding?.site_name || "Intimate Care";
+    const siteUrl = branding?.site_url || "https://app.intimatecare.in";
 
     // Send email to admin/instructor
     const emailRes = await fetch("https://api.resend.com/emails", {

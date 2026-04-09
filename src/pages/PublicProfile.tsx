@@ -193,7 +193,7 @@ export default function PublicProfilePage() {
           </Link>
           <div className="flex items-center gap-2 sm:gap-4">
             <Button variant="ghost" size="sm" asChild className="hidden sm:flex text-xs font-medium text-muted-foreground hover:text-foreground">
-              <Link to="https://calschedule.com" target="_blank">Powered by CalSchedule</Link>
+              <Link to="https://app.intimatecare.in" target="_blank">Powered by Intimate Care</Link>
             </Button>
             <ThemeToggle />
           </div>

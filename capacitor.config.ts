@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
     appId: 'cal.schedule',
-    appName: 'Zenthra Calendar',
+    appName: 'Intimate Care',
     webDir: 'dist',
     server: {
         androidScheme: 'https',

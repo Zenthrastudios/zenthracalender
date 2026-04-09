@@ -8,7 +8,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 // @ts-ignore
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // @ts-ignore
-const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL") || "https://zenthracalendar.com";
+const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL") || "https://app.intimatecare.in";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -48,7 +48,7 @@ const wrapEmail = (opts: {
     actionText?: string;
 }) => {
     const accent = "#FF9124";
-    const brand = opts.brandName || "Zenthra";
+    const brand = opts.brandName || "Intimate Care";
     const bg = "#f3f4f6";
     const cardBg = "#ffffff";
     const textMain = "#111827";
@@ -108,7 +108,7 @@ const wrapEmail = (opts: {
 
 // --- Helper: Send Email via Resend ---
 
-async function sendEmail(to: string, subject: string, html: string, fromName = "Zenthra Notifications") {
+async function sendEmail(to: string, subject: string, html: string, fromName = "Intimate Care Notifications") {
     if (!RESEND_API_KEY) {
         console.error("RESEND_API_KEY is missing");
         throw new Error("RESEND_API_KEY is missing in Edge Function secrets");
@@ -202,8 +202,8 @@ serve(async (req: Request) => {
             const baseUrl = branding?.site_url || PUBLIC_SITE_URL;
             const { data: seller } = await supabase.from('profiles').select('email, name, phone').eq('user_id', product.user_id).single();
             
-            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (seller?.name || "Zenthra Notifications");
-            const emailFromName = branding?.is_enabled ? branding.brand_name : "Zenthra Notifications";
+            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (seller?.name || "Intimate Care Notifications");
+            const emailFromName = branding?.is_enabled ? branding.brand_name : "Intimate Care Notifications";
 
             // WhatsApp Settings
             const { data: waSettings } = await supabase
@@ -313,8 +313,8 @@ serve(async (req: Request) => {
             const baseUrl = branding?.site_url || PUBLIC_SITE_URL;
             const { data: instructor } = await supabase.from('profiles').select('email, name, phone').eq('user_id', course.user_id).single();
 
-            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (instructor?.name || "Zenthra Notifications");
-            const emailFromName = branding?.is_enabled ? branding.brand_name : "Zenthra Notifications";
+            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (instructor?.name || "Intimate Care Notifications");
+            const emailFromName = branding?.is_enabled ? branding.brand_name : "Intimate Care Notifications";
 
             // WhatsApp Settings
             const { data: waSettings } = await supabase
@@ -403,8 +403,8 @@ serve(async (req: Request) => {
             const baseUrl = branding?.site_url || PUBLIC_SITE_URL;
             const { data: host } = await supabase.from('profiles').select('email, name').eq('user_id', webinar.user_id).single();
 
-            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (host?.name || "Zenthra Notifications");
-            const emailFromName = branding?.is_enabled ? branding.brand_name : "Zenthra Notifications";
+            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (host?.name || "Intimate Care Notifications");
+            const emailFromName = branding?.is_enabled ? branding.brand_name : "Intimate Care Notifications";
 
             const formattedDate = formatDate(webinar.start_time);
             const webinarUrl = `${baseUrl}/webinar/${webinar.id}`; // Fixed URL to public page

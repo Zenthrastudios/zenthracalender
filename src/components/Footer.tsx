@@ -25,7 +25,7 @@ export function Footer() {
                   <Calendar className="w-6 h-6 text-white" />
                 )}
               </div>
-              <span className="font-black text-2xl tracking-tighter text-foreground uppercase">{brandName.toUpperCase()}</span>
+              <span className="font-semibold text-xl tracking-tight text-foreground">{brandName}</span>
             </Link>
             <p className="text-muted-foreground font-medium text-lg leading-relaxed">The simplest all-in-one store for creators to sell digital products, book coaching calls, and automate social growth.</p>
           </div>

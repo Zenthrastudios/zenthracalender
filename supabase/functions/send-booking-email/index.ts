@@ -70,7 +70,7 @@ const wrapEmail = (opts: {
   accentColor?: string;
 }) => {
   const accent = opts.accentColor || "#FF9124";
-  const brand = opts.brandName || "Zenthra";
+  const brand = opts.brandName || "Intimate Care";
   const bg = "#f3f4f6";
   const cardBg = "#ffffff";
   const textMain = "#111827";
@@ -139,7 +139,7 @@ const generateICSContent = (data: EmailRequest, isCancellation = false): string 
     return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   };
 
-  const uid = `${data.bookingId}@calschedule`;
+  const uid = `${data.bookingId}@intimatecare`;
   const now = formatToICS(new Date());
   const start = formatToICS(startDate);
   const end = formatToICS(endDate);
@@ -149,7 +149,7 @@ const generateICSContent = (data: EmailRequest, isCancellation = false): string 
 
   return `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//CalSchedule//EN
+PRODID:-//IntimateCare//EN
 CALSCALE:GREGORIAN
 METHOD:${isCancellation ? 'CANCEL' : 'REQUEST'}
 BEGIN:VEVENT
@@ -161,7 +161,7 @@ SUMMARY:${data.eventTitle} with ${data.hostName}
 DESCRIPTION:${description}
 LOCATION:${location}
 STATUS:${isCancellation ? 'CANCELLED' : 'CONFIRMED'}
-ORGANIZER;CN=${data.hostName}:mailto:${data.hostEmail || 'noreply@calschedule.com'}
+ORGANIZER;CN=${data.hostName}:mailto:${data.hostEmail || 'noreply@intimatecare.in'}
 ATTENDEE;CN=${data.recipientName};RSVP=TRUE:mailto:${data.recipientEmail}
 SEQUENCE:${isCancellation ? '1' : '0'}
 END:VEVENT
@@ -413,7 +413,7 @@ const handler = async (req: Request): Promise<Response> => {
     const icsContent = generateICSContent(data, isCancellation);
     const icsBase64 = btoa(icsContent);
 
-    const emailFromTitle = data.branding?.isEnabled ? (data.branding.brandName || "CalSchedule") : "CalSchedule";
+    const emailFromTitle = data.branding?.isEnabled ? (data.branding.brandName || "Intimate Care") : "Intimate Care";
 
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is missing");

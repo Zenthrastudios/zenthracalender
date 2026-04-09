@@ -140,7 +140,7 @@ function CanvasLogic({ videoRef, isPlaying, setSecurityWarning }: { videoRef: an
             for (const selector of BLOCKED_SELECTORS) {
                 if (document.querySelector(selector)) {
                     console.warn("Screen recorder detected:", selector);
-                    setSecurityWarning(true);
+                    // setSecurityWarning(true); // Disabled
                     return true;
                 }
             }
@@ -174,7 +174,7 @@ function CanvasLogic({ videoRef, isPlaying, setSecurityWarning }: { videoRef: an
             });
 
             if (found || checkForRecorders()) {
-                setSecurityWarning(true);
+                // setSecurityWarning(true);
             }
         });
 
@@ -358,7 +358,7 @@ export default function CourseViewer() {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                setSecurityWarning(true);
+                // setSecurityWarning(true);
                 return false;
             }
 
@@ -410,7 +410,7 @@ export default function CourseViewer() {
                     // Pause and warn immediately
                     if (videoRef.current) videoRef.current.pause();
                     setIsPlaying(false);
-                    setSecurityWarning(true);
+                    // setSecurityWarning(true);
                 }
             }
             if (isFocused) {
@@ -426,7 +426,7 @@ export default function CourseViewer() {
             if (isPlaying) {
                 if (videoRef.current) videoRef.current.pause();
                 setIsPlaying(false);
-                setSecurityWarning(true);
+                // setSecurityWarning(true);
             }
         };
 
@@ -435,7 +435,7 @@ export default function CourseViewer() {
                 if (videoRef.current) videoRef.current.pause();
                 setIsPlaying(false);
                 // On mobile: just pause, don't show scary security warning
-                if (!isMobile) setSecurityWarning(true);
+                // if (!isMobile) setSecurityWarning(true);
             }
         };
 
@@ -469,7 +469,7 @@ export default function CourseViewer() {
                 (window.outerWidth - window.innerWidth > threshold) ||
                 (window.outerHeight - window.innerHeight > threshold)
             ) {
-                setSecurityWarning(true);
+                // setSecurityWarning(true);
             }
         };
         window.addEventListener('resize', checkDevTools);
@@ -1676,8 +1676,8 @@ export default function CourseViewer() {
                                     )}
 
                                     {/* Static Watermark (Always Visible) */}
-                                    <div className="absolute top-4 right-4 z-20 opacity-20 pointer-events-none text-[10px] text-white/50 select-none">
-                                        Protected Content • {purchase?.customer_email}
+                                    <div className="absolute top-4 right-4 z-20 opacity-40 pointer-events-none text-xs text-white select-none whitespace-pre-wrap text-right drop-shadow-md">
+                                        © IntimaCare by Khushboo Bist. All rights reserved.
                                     </div>
 
                                     {!isMobile && (
@@ -2109,9 +2109,7 @@ export default function CourseViewer() {
                                                                 <CheckCircle2 className="w-3 h-3 text-primary" />
                                                             </div>
                                                         )}
-                                                        <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 rounded text-[9px] font-medium text-white">
-                                                            {formatTime(lessonDurationSeconds)}
-                                                        </div>
+
                                                     </div>
                                                     <div className="flex-1 min-w-0 py-1">
                                                         <h4 className={cn("text-xs font-bold leading-snug line-clamp-2", isCurrent ? "text-primary" : "text-zinc-200")}>
@@ -2190,9 +2188,7 @@ export default function CourseViewer() {
                                                         />
                                                     </div>
                                                 )}
-                                                <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 rounded text-[9px] font-medium text-white">
-                                                    {formatTime(lessonDurationSeconds)}
-                                                </div>
+
                                                 {isCompleted && (
                                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                                                         <CheckCircle2 className="w-5 h-5 text-primary" />
