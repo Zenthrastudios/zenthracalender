@@ -1658,6 +1658,22 @@ export default function CourseViewer() {
         className="flex flex-col h-screen bg-background text-foreground font-sans selection:bg-primary/30 overflow-hidden select-none"
         onContextMenu={(e) => e.preventDefault()}
       >
+        {/* Mobile Header */}
+        <header className="flex lg:hidden h-14 items-center justify-between px-4 border-b border-border bg-background z-30 flex-shrink-0">
+          <div className="font-bold text-lg tracking-tight">intimatecare.in</div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => (window.location.href = "/guest")}
+            >
+              <User className="w-5 h-5" />
+            </Button>
+          </div>
+        </header>
+
         {/* Desktop Header - Global Full Width */}
         <header className="hidden lg:flex h-16 items-center justify-between px-6 border-b border-border bg-background z-30 flex-shrink-0">
           <div className="flex items-center gap-4">
@@ -1748,19 +1764,20 @@ export default function CourseViewer() {
         <div className="flex-1 flex overflow-hidden relative">
           {/* Main Content Area (Video + Details) */}
           <div className="flex-1 flex flex-col h-full min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-border bg-background">
-            {/* Video Player Section */}
-            {/* On Desktop: We want it to be large but constrained if needed, or full width container */}
-            <div
-              ref={playerContainerRef}
-              className={cn(
-                "flex-shrink-0 bg-zinc-950 dark:bg-black relative w-full group",
-                "aspect-video lg:w-full lg:max-h-[80vh] lg:aspect-video mx-auto"
-              )}
-              // Show controls on any touch/mouse interaction with video area
-              onMouseMove={showControlsTemporarily}
-              onTouchStart={showControlsTemporarily}
-              onClick={showControlsTemporarily}
-            >
+            {/* Sticky Container for Video & Mobile Header */}
+            <div className="sticky top-0 z-50 flex flex-col bg-background shadow-md lg:shadow-none lg:bg-transparent">
+              {/* Video Player Section */}
+              <div
+                ref={playerContainerRef}
+                className={cn(
+                  "flex-shrink-0 bg-zinc-950 dark:bg-black relative w-full group",
+                  "aspect-video lg:w-full lg:max-h-[80vh] lg:aspect-video mx-auto"
+                )}
+                // Show controls on any touch/mouse interaction with video area
+                onMouseMove={showControlsTemporarily}
+                onTouchStart={showControlsTemporarily}
+                onClick={showControlsTemporarily}
+              >
               {currentLesson?.video_url ? (
                 <>
                   <div
@@ -2247,7 +2264,71 @@ export default function CourseViewer() {
               )}
             </div>
 
-            {/* Desktop Details (Description etc) */}
+            {/* Mobile Title & Info Section - Sticky on Mobile */}
+            <div className="lg:hidden p-4 pb-3 space-y-3 border-b border-border">
+              <div>
+                <h1 className="text-lg font-bold text-foreground leading-snug line-clamp-2">
+                  {currentLesson?.title}
+                </h1>
+                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground font-medium">
+                  <span className="bg-muted text-foreground px-1.5 py-0.5 rounded text-xs leading-none font-bold">
+                    EP {currentLessonIndex + 1}
+                  </span>
+                  <span>•</span>
+                  <span>{lessons.length} Episodes</span>
+                </div>
+              </div>
+
+              {/* Mobile Nav */}
+              <div className="flex items-center gap-2 pb-1">
+                {purchase?.course.instructor && (
+                  <div className="flex items-center gap-2 bg-muted pl-1.5 pr-3 py-1 rounded-full border border-border">
+                    {purchase.course.instructor.avatar_url ? (
+                      <img
+                        src={purchase.course.instructor.avatar_url}
+                        alt={purchase.course.instructor.name}
+                        className="w-6 h-6 rounded-full object-cover ring-1 ring-white/20"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                        <User className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                    )}
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-zinc-500 font-medium leading-none uppercase tracking-wider">
+                        Instructor
+                      </span>
+                      <span className="text-[11px] text-foreground font-bold leading-tight">
+                        {purchase.course.instructor.name}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex-1" />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={currentLessonIndex === 0}
+                  onClick={() => goToLesson(currentLessonIndex - 1)}
+                  className="bg-muted hover:bg-muted/80 text-foreground border border-border h-9"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={currentLessonIndex === lessons.length - 1}
+                  onClick={() => goToLesson(currentLessonIndex + 1)}
+                  className="bg-muted/50 hover:bg-muted text-foreground border border-border h-9"
+                >
+                  Next <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Details (Description etc) */}
             <div className="hidden lg:block">
               <div className="max-w-[1600px] mx-auto p-8 space-y-8">
                 <div className="grid grid-cols-1 gap-8">
@@ -2314,88 +2395,16 @@ export default function CourseViewer() {
 
             {/* Mobile Content (Title, Actions, List) - Hidden on desktop */}
             <div className="lg:hidden p-4 space-y-6 bg-background pb-20">
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground pl-0 h-auto"
-                  onClick={() => (window.location.href = "/guest")}
-                >
-                  <Home className="w-4 h-4 mr-2" /> Back to Profile
-                </Button>
-                <div className="flex items-center gap-3">
-                  <ThemeToggle />
-                  {currentLesson && (
-                    <ViewerResources
-                      lessonId={currentLesson.id}
-                      lessonTitle={currentLesson.title}
-                    />
-                  )}
+              {currentLesson && (
+                <div className="flex justify-end">
+                  <ViewerResources
+                    lessonId={currentLesson.id}
+                    lessonTitle={currentLesson.title}
+                  />
                 </div>
-              </div>
+              )}
 
-              {/* Title & Info Section */}
-              <div className="space-y-3">
-                <div>
-                  <h1 className="text-lg font-bold text-foreground leading-snug line-clamp-2">
-                    {currentLesson?.title}
-                  </h1>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground font-medium">
-                    <span className="bg-muted text-foreground px-1.5 py-0.5 rounded text-xs leading-none font-bold">
-                      EP {currentLessonIndex + 1}
-                    </span>
-                    <span>•</span>
-                    <span>{lessons.length} Episodes</span>
-                  </div>
-                </div>
-
-                {/* Mobile Nav */}
-                <div className="flex items-center gap-2 pb-2">
-                  {purchase?.course.instructor && (
-                    <div className="flex items-center gap-2 bg-muted pl-1.5 pr-3 py-1 rounded-full border border-border">
-                      {purchase.course.instructor.avatar_url ? (
-                        <img
-                          src={purchase.course.instructor.avatar_url}
-                          alt={purchase.course.instructor.name}
-                          className="w-6 h-6 rounded-full object-cover ring-1 ring-white/20"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                          <User className="w-3.5 h-3.5 text-primary" />
-                        </div>
-                      )}
-                      <div className="flex flex-col">
-                        <span className="text-[10px] text-zinc-500 font-medium leading-none uppercase tracking-wider">
-                          Instructor
-                        </span>
-                        <span className="text-[11px] text-foreground font-bold leading-tight">
-                          {purchase.course.instructor.name}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex-1" />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={currentLessonIndex === 0}
-                    onClick={() => goToLesson(currentLessonIndex - 1)}
-                    className="bg-muted hover:bg-muted/80 text-foreground border border-border h-9"
-                  >
-                    <ChevronLeft className="w-4 h-4 mr-1" /> Prev
-                  </Button>
-
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={currentLessonIndex === lessons.length - 1}
-                    onClick={() => goToLesson(currentLessonIndex + 1)}
-                    className="bg-muted/50 hover:bg-muted text-foreground border border-border h-9"
-                  >
-                    Next <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
-              </div>
+              {/* Title & Info Section moved to sticky container */}
 
               {/* Mobile Description with Show More */}
               <div className="bg-muted/50 rounded-lg p-4 border border-border">

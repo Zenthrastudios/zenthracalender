@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProductBySlug } from '@/hooks/useDigitalProducts';
 import { useCreateRazorpayOrder, useVerifyRazorpayPayment, usePublicPaymentInfo } from '@/hooks/usePayments';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ export default function PublicProductPage() {
     const { username, slug } = useParams();
     const navigate = useNavigate();
     const { data, isLoading } = useProductBySlug(username, slug);
+    const { user: currentUser } = useAuth();
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
@@ -33,9 +35,20 @@ export default function PublicProductPage() {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [existingPurchase, setExistingPurchase] = useState<any>(null);
 
+    // Pre-fill user data if available
+    useEffect(() => {
+        if (currentUser && !customerEmail) {
+            setCustomerEmail(currentUser.email || '');
+            setCustomerName(currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || '');
+        }
+    }, [currentUser, customerEmail]);
+
     // Check for existing purchase if email is entered
     useEffect(() => {
-        if (!customerEmail || !data?.product?.id) return;
+        if (!customerEmail || !data?.product?.id) {
+            setExistingPurchase(null);
+            return;
+        }
         
         const checkExisting = async () => {
             const { data: existing } = await supabase
