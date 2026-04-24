@@ -58,11 +58,21 @@ serve(async (req) => {
     }
 
     // ─── CASE 2: Lookup by Email (recovery) ──────────────────────────────────
+    // ─── CASE 2: Lookup by Email (recovery) ──────────────────────────────────
     if (email) {
-      console.log(`Lookup by email: ${email}`);
+      const { otp } = await (async () => {
+        try {
+          return await req.json();
+        } catch {
+          return { otp: null };
+        }
+      })();
+
+      console.log(`Lookup by email: ${email}, OTP: ${otp || 'None'}`);
+      
       const { data: purchases, error } = await supabase
         .from("course_purchases")
-        .select("access_token, course:courses(id, title, thumbnail_url)")
+        .select("id, access_token, course:courses(id, title, thumbnail_url)")
         .ilike("customer_email", email.trim())
         .eq("status", "paid")
         .order("created_at", { ascending: false })
@@ -80,14 +90,86 @@ serve(async (req) => {
         });
       }
 
+      // Step 2.1: Requesting OTP
+      if (!otp) {
+        // Generate 6-digit OTP
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Store in DB
+        const { error: otpError } = await supabase
+          .from("course_recovery_otps")
+          .insert({
+            email: email.trim(),
+            otp: otpCode,
+            expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+          });
+
+        if (otpError) throw otpError;
+
+        // Send OTP via first purchase (to get course context for branding)
+        try {
+          await supabase.functions.invoke("send-product-notification", {
+            body: { 
+              type: "course_access_otp", 
+              id: purchases[0].id 
+            },
+          });
+        } catch (notifError) {
+          console.error("Failed to send OTP email:", notifError);
+        }
+
+        return new Response(
+          JSON.stringify({
+            found: true,
+            otpSent: true,
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Step 2.2: Verifying OTP
+      const { data: validOtp, error: verifyError } = await supabase
+        .from("course_recovery_otps")
+        .select("id")
+        .eq("email", email.trim())
+        .eq("otp", otp.trim())
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (verifyError || !validOtp) {
+        return new Response(JSON.stringify({ error: "Invalid or expired verification code" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // OTP is valid! Cleanup and generate access tokens
+      await supabase.from("course_recovery_otps").delete().eq("email", email.trim());
+
+      const updatedPurchases = [];
+      for (const p of purchases) {
+        const newToken = crypto.randomUUID();
+        
+        await supabase
+          .from("course_purchases")
+          .update({ access_token: newToken })
+          .eq("id", p.id);
+
+        updatedPurchases.push({
+          access_token: newToken,
+          course_title: p.course?.title || "Your Course",
+          thumbnail_url: p.course?.thumbnail_url || null,
+        });
+      }
+
       return new Response(
         JSON.stringify({
           found: true,
-          purchases: purchases.map((p: any) => ({
-            access_token: p.access_token,
-            course_title: p.course?.title || "Your Course",
-            thumbnail_url: p.course?.thumbnail_url || null,
-          })),
+          verified: true,
+          purchases: updatedPurchases,
         }),
         {
           status: 200,

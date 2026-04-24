@@ -168,7 +168,7 @@ async function sendWhatsAppAlert(payload: {
 // --- Main Handler ---
 
 interface NotificationRequest {
-    type: 'product_purchase' | 'course_purchase' | 'webinar_registration';
+    type: 'product_purchase' | 'course_purchase' | 'webinar_registration' | 'course_access_recovery';
     id: string;
 }
 
@@ -503,6 +503,104 @@ serve(async (req: Request) => {
                     });
                 }
             }
+        } else if (type === 'course_access_recovery') {
+            const { data: purchase, error } = await supabase
+                .from('course_purchases')
+                .select('*, courses(*)')
+                .eq('id', id)
+                .single();
+
+            if (error || !purchase) throw new Error("Course purchase not found");
+            const course = purchase.courses;
+            
+            // Get Branding Settings
+            const { data: branding } = await supabase
+                .from('branding_settings')
+                .select('site_url, brand_name, brand_logo_url, brand_color, is_enabled')
+                .eq('user_id', course.user_id)
+                .maybeSingle();
+
+            const baseUrl = branding?.site_url || PUBLIC_SITE_URL;
+            const { data: instructor } = await supabase.from('profiles').select('email, name, phone').eq('user_id', course.user_id).single();
+
+            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : (instructor?.name || "Intimate Care Notifications");
+            const emailFromName = branding?.is_enabled ? branding.brand_name : "Intimate Care Notifications";
+
+            const courseUrl = `${baseUrl}/course/${purchase.access_token}`;
+
+            // Email to Student
+            await sendEmail(
+                purchase.customer_email,
+                `Access Link: ${course.title}`,
+                wrapEmail({
+                    title: "Your Access Link",
+                    subtitle: `Here is your link to access <b>${escapeHtml(course.title)}</b>.`,
+                    heroImage: course.thumbnail_url || course.cover_image_url,
+                    brandName: brandName,
+                    actionLink: courseUrl,
+                    actionText: "Access Course",
+                    bodyHtml: `
+                        <p style="color:#6b7280; line-height:1.6;">Use the button below to resume your learning. This link is unique to your purchase.</p>
+                        <div class="divider"></div>
+                        <div style="font-size: 14px; color: #6b7280;">
+                            If the button doesn't work, copy and paste this URL into your browser:<br/>
+                            <a href="${courseUrl}" style="color: #FF9124;">${courseUrl}</a>
+                        </div>
+                    `
+                }),
+                emailFromName
+            );
+        } else if (type === 'course_access_otp') {
+            const { data: purchase, error } = await supabase
+                .from('course_purchases')
+                .select('*, courses(*)')
+                .eq('id', id)
+                .single();
+
+            if (error || !purchase) throw new Error("Purchase not found");
+            const course = purchase.courses;
+            
+            // Get Branding Settings
+            const { data: branding } = await supabase
+                .from('branding_settings')
+                .select('brand_name, is_enabled')
+                .eq('user_id', course.user_id)
+                .maybeSingle();
+
+            const brandName = (branding?.is_enabled && branding?.brand_name) ? branding.brand_name : "Intimate Care";
+            const emailFromName = branding?.is_enabled ? branding.brand_name : "Intimate Care Notifications";
+
+            // The OTP will be passed in the body or retrieved from another table
+            // For now, we assume the caller provides the OTP or we get the latest for this email
+            const { data: otpData } = await supabase
+                .from('course_recovery_otps')
+                .select('otp')
+                .eq('email', purchase.customer_email)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            const otpCode = otpData?.otp || "******";
+
+            // Email to Student
+            await sendEmail(
+                purchase.customer_email,
+                `Verification Code: ${otpCode}`,
+                wrapEmail({
+                    title: "Verification Code",
+                    subtitle: `Use the code below to verify your access to <b>${escapeHtml(course.title)}</b>.`,
+                    brandName: brandName,
+                    bodyHtml: `
+                        <div style="text-align: center; padding: 24px; background: #f9fafb; border-radius: 16px; margin: 24px 0;">
+                            <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #FF9124;">${otpCode}</span>
+                        </div>
+                        <p style="color:#6b7280; text-align: center; font-size: 14px;">This code will expire in 10 minutes.</p>
+                        <div class="divider"></div>
+                        <p style="color:#6b7280; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+                    `
+                }),
+                emailFromName
+            );
         }
 
         return new Response(

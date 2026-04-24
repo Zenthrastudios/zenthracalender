@@ -1,34 +1,34 @@
-# Google Play Store Listing: Zenthra Calendar
+# Google Play Store Listing: Intimate Care
 
 ## 📋 App Information
 
-- **App Title:** Zenthra Calendar: Smart Scheduling
-- **Short Description:** Seamless scheduling. Premium booking experience. Built for professionals.
+- **App Title:** Intimate Care: Virtual Wellness Hub
+- **Short Description:** Premium virtual wellness. Book sessions, join webinars, and access health resources.
 - **Full Description:**
-Experience the future of time management with Zenthra Calendar. Designed for professionals, entrepreneurs, and teams, Zenthra simplifies your life by automating your scheduling workflow with a premium, high-performance mobile experience.
+Experience the future of virtual wellness with Intimate Care. Designed for those who value privacy, convenience, and premium care, Intimate Care simplifies your wellness journey by providing a seamless platform to book consultations, attend expert-led webinars, and access holistic health resources.
 
-### Why choose Zenthra?
+### Why choose Intimate Care?
 
-🚀 **Smarter Scheduling**
-Create custom event types, set your availability, and share your unique booking link in seconds. No more back-and-forth emails.
+🚀 **Seamless Booking**
+Book your wellness sessions in seconds. Our intuitive interface allows you to select experts, pick a time that works for you, and manage your appointments effortlessly.
 
 ✨ **Premium Native Experience**
-Enjoy a stunning UI with glassmorphism design, smooth animations, and tactile haptic feedback that makes every interaction feel high-end.
+Enjoy a stunning UI with a soft pink and white aesthetic, clean lines, and a luxury feel. The app is optimized for performance, ensuring a smooth and empathetic user experience.
 
 🔔 **Stay Notified**
-Native push notifications keep you updated on new bookings, cancellations, and upcoming meetings. Never miss a beat.
+Native push notifications keep you updated on your upcoming sessions, new webinar announcements, and wellness tips. Never miss an important update.
 
 📲 **Native Sharing**
-Share your availability instantly via the native Android share sheet to WhatsApp, LinkedIn, SMS, and more.
+Share wellness resources and booking links instantly via the native Android share sheet to your favorite messaging and social apps.
 
 🔒 **Secure & Private**
-We prioritize your data privacy. Securely integrate with your existing calendars and manage your schedule with confidence.
+We prioritize your privacy. All your consultations and personal data are protected with enterprise-grade security, giving you peace of mind.
 
 🎨 **Beautifully Designed**
-Dark mode by default, vibrant gradients, and a modern aesthetic that looks as good as it works.
+A curated color palette of baby pink and white creates a calming, inclusive, and professional environment for your wellness journey.
 
-**Streamline your meetings. Scale your business. Stay in control.**
-Download Zenthra Calendar today.
+**Prioritize your well-being. Connect with experts. Take control of your health.**
+Download Intimate Care today.
 
 ---
 
@@ -40,7 +40,7 @@ Download Zenthra Calendar today.
 
 ## 📊 Data Safety & Privacy
 
-- **Privacy Policy URL:** `https://your-domain.com/privacy`
+- **Privacy Policy URL:** `https://intimatecare.in/privacy`
 - **Data Collection:** 
     - **Identity:** User ID, Name, Email (for account creation).
     - **App Activity:** Interaction data (to improve UX).
@@ -48,27 +48,9 @@ Download Zenthra Calendar today.
 - **Data Usage:** All data is used for app functionality and is not shared with third parties for advertising.
 
 ## 🚀 Release Notes (v1.0.0)
-Welcome to the first version of Zenthra Calendar!
+Welcome to the first version of Intimate Care!
 - Initial launch of the native Android application.
-- Full Dashboard support for managing event types.
-- Native Push Notifications for booking updates.
-- Native Sharing integration for meeting links.
-- Premium Haptic Feedback across the app.
-
-## 🎨 Asset Design Brief (Use these prompts with an AI Image Generator)
-
-Since I am currently unable to generate images due to high server load, here are the exact prompts you can use to generate consistent, high-quality assets:
-
-### 1. Feature Graphic (1024x500)
-> **Prompt:** A premium, high-resolution Google Play Store Feature Graphic (1024x500). Concept: 'Zenthra Calendar'. The design is sleek and modern with a deep navy and vibrant purple gradient background. It features a stylized, glowing 3D calendar icon on the left and clean, elegant typography for 'Zenthra' in a modern sans-serif font on the right. Add subtle abstract geometric shapes and light flares to give it a futuristic, 'glassmorphism' feel. No other text. Professional, tech-forward, and high-end aesthetic.
-
-### 2. App Icon (512x512)
-> **Prompt:** A premium, high-resolution App Icon for Google Play Store (512x512). The icon features a minimalist, modern 'Z' merged with a subtle calendar grid shape. Use a vibrant gradient of deep purple and electric blue. The style is 3D with a slight glassmorphism effect and soft shadows. The background is a clean, solid dark color. Professional and iconic. No text.
-
-### 3. Screenshots (Phone Mockups)
-> **Prompt 1 (Dashboard):** A digital mockup of a smartphone displaying the 'Zenthra Calendar' dashboard. The UI features dark mode, glassmorphism cards with glowing borders, and a vibrant purple/blue color scheme. The phone is floating against a dark, abstract background. Text 'Smart Scheduling' appears above the phone in a clean font.
->
-> **Prompt 2 (Booking):** A digital mockup of a smartphone displaying a 'Booking Confirmed' screen. The screen shows a large green checkmark, confetti animation details, and meeting details on a dark, glass-morphism card. The phone is floating against a dark background. Text 'Premium Booking Experience' appears above.
->
-> **Prompt 3 (Sharing):** A digital mockup of a smartphone showing a native Android share sheet sliding up over a booking link. The share sheet shows icons for WhatsApp, LinkedIn, and Copy. The phone is floating against a dark background. Text 'Share Your Availability' appears above.
-
+- Full Virtual Wellness Hub support.
+- Native Push Notifications for session reminders.
+- Native Sharing integration for wellness resources.
+- Premium empathetic design with pink and white theme.

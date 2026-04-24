@@ -7,6 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { CourseProgress, useCourseProgress, useUpdateProgress } from "@/hooks/useCourses";
 import { LessonAdSettings } from "@/hooks/useCourses";
 import {
   Loader2,
@@ -284,8 +290,10 @@ export default function CourseViewer() {
   const [securityWarning, setSecurityWarning] = useState(false);
 
   // Access recovery state
-  const [recoveryEmail, setRecoveryEmail] = useState("");
   const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
   const [recoveryMessage, setRecoveryMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -1406,46 +1414,49 @@ export default function CourseViewer() {
   const handleAccessRecovery = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recoveryEmail) return;
+    
+    // If showing OTP but no value, don't submit
+    if (showOtpInput && otpValue.length < 6) return;
+
     setIsRecovering(true);
     setRecoveryMessage(null);
 
     try {
-      // Use edge function with service role key to bypass RLS restrictions
+      const payload = showOtpInput 
+        ? { email: recoveryEmail.trim(), otp: otpValue }
+        : { email: recoveryEmail.trim() };
+
       const { data, error: fnError } = await supabase.functions.invoke(
         "recover-course-access",
-        {
-          body: { email: recoveryEmail.trim() },
-        }
+        { body: payload }
       );
 
-      if (fnError)
-        throw new Error("Lookup service unavailable. Please try again.");
+      if (fnError || data?.error) {
+        throw new Error(data?.error || "Verification failed. Please try again.");
+      }
 
-      if (data?.found && data.purchases?.length > 0) {
+      if (data?.otpSent) {
+        setShowOtpInput(true);
+        setRecoveryMessage({
+          type: "success",
+          text: "Verification code sent! Please check your email inbox.",
+        });
+      } else if (data?.verified && data.purchases?.length > 0) {
         const purchases = data.purchases;
         const latest = purchases[0];
 
-        if (purchases.length === 1) {
-          setRecoveryMessage({
-            type: "success",
-            text: `Found your purchase! Redirecting to "${latest.course_title}"...`,
-          });
-          setTimeout(() => {
-            window.location.href = `/course/${latest.access_token}`;
-          }, 1000);
-        } else {
-          setRecoveryMessage({
-            type: "success",
-            text: `Found ${purchases.length} purchased courses! Redirecting to your most recent: "${latest.course_title}"...`,
-          });
-          setTimeout(() => {
-            window.location.href = `/course/${latest.access_token}`;
-          }, 1500);
-        }
-      } else {
+        setRecoveryMessage({
+          type: "success",
+          text: `Verified! We've sent new access links to your email and are redirecting you now...`,
+        });
+        
+        setTimeout(() => {
+          window.location.href = `/course/${latest.access_token}`;
+        }, 2000);
+      } else if (!data?.found) {
         setRecoveryMessage({
           type: "error",
-          text: "No purchases found for this email. Please check your email address or contact support.",
+          text: "No purchases found for this email address.",
         });
       }
     } catch (err: any) {
@@ -1518,11 +1529,37 @@ export default function CourseViewer() {
                     placeholder="Enter your purchase email"
                     value={recoveryEmail}
                     onChange={(e) => setRecoveryEmail(e.target.value)}
+                    disabled={showOtpInput || isRecovering}
                     className="h-11 bg-zinc-800 border-zinc-700 text-white rounded-xl placeholder:text-zinc-600 focus-visible:ring-primary"
                     required
                     autoFocus
                   />
                 </div>
+
+                {showOtpInput && (
+                  <div className="space-y-3 pt-2">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400 block text-center">
+                      Enter 6-digit Verification Code
+                    </Label>
+                    <div className="flex justify-center">
+                      <InputOTP
+                        maxLength={6}
+                        value={otpValue}
+                        onChange={(value) => setOtpValue(value)}
+                        disabled={isRecovering}
+                      >
+                        <InputOTPGroup className="gap-2">
+                          <InputOTPSlot index={0} className="bg-zinc-800 border-zinc-700 h-12 w-10 text-lg text-white" />
+                          <InputOTPSlot index={1} className="bg-zinc-800 border-zinc-700 h-12 w-10 text-lg text-white" />
+                          <InputOTPSlot index={2} className="bg-zinc-800 border-zinc-700 h-12 w-10 text-lg text-white" />
+                          <InputOTPSlot index={3} className="bg-zinc-800 border-zinc-700 h-12 w-10 text-lg text-white" />
+                          <InputOTPSlot index={4} className="bg-zinc-800 border-zinc-700 h-12 w-10 text-lg text-white" />
+                          <InputOTPSlot index={5} className="bg-zinc-800 border-zinc-700 h-12 w-10 text-lg text-white" />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+                  </div>
+                )}
 
                 {recoveryMessage && (
                   <div
@@ -1539,18 +1576,34 @@ export default function CourseViewer() {
 
                 <Button
                   type="submit"
-                  disabled={isRecovering}
-                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl text-sm"
+                  disabled={isRecovering || (showOtpInput && otpValue.length < 6)}
+                  className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl text-sm transition-all"
                 >
                   {isRecovering ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Looking up your purchase...
+                      {showOtpInput ? "Verifying code..." : "Sending code..."}
                     </>
+                  ) : showOtpInput ? (
+                    "Verify & Access Course →"
                   ) : (
-                    "Send My Access Link →"
+                    "Send Verification Code →"
                   )}
                 </Button>
+                
+                {showOtpInput && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOtpInput(false);
+                      setOtpValue("");
+                      setRecoveryMessage(null);
+                    }}
+                    className="w-full text-xs text-zinc-500 hover:text-zinc-300 transition-colors py-1"
+                  >
+                    Use a different email address
+                  </button>
+                )}
               </form>
 
               {/* Login section */}

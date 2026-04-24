@@ -11,6 +11,19 @@ export default defineConfig(({ mode }) => ({
     allowedHosts: [".ngrok-free.app"],
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          supabase: ["@supabase/supabase-js", "@tanstack/react-query"],
+          ui: ["lucide-react", "sonner", "next-themes"],
+          charts: ["recharts"],
+          pdf: ["react-pdf"],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

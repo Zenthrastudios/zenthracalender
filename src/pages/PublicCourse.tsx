@@ -540,6 +540,7 @@ export default function PublicCoursePage() {
                             <div className="relative group overflow-hidden rounded-2xl aspect-video bg-zinc-900 border border-zinc-800 shadow-xl">
                                 {course.trailer_url ? (
                                     <iframe
+                                        title={`${course.title} trailer`}
                                         src={course.trailer_url.includes('youtube.com') || course.trailer_url.includes('youtu.be')
                                             ? `https://www.youtube.com/embed/${course.trailer_url.split('v=')[1] || course.trailer_url.split('/').pop()}?autoplay=0&modestbranding=1&rel=0`
                                             : course.trailer_url}

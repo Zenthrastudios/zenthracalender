@@ -1,6 +1,6 @@
 # Google Play Store Deployment Guide
 
-This guide outlines the mandatory steps and policies required to successfully publish **Zenthra Calendar** on the Google Play Store using the Capacitor build we've set up.
+This guide outlines the mandatory steps and policies required to successfully publish **Intimate Care** on the Google Play Store using the Capacitor build we've set up.
 
 ---
 
