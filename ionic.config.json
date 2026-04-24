@@ -1,0 +1,8 @@
+{
+  "name": "ZenthraCalendar",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react",
+  "id": "d7cb3126"
+}

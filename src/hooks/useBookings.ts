@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendWhatsAppNotification } from '@/utils/whatsapp';
 
 export interface CustomResponse {
   fieldId: string;
@@ -15,6 +16,7 @@ export interface Booking {
   host_id: string;
   attendee_name: string;
   attendee_email: string;
+  attendee_phone?: string | null;
   attendee_timezone: string;
   start_time: string;
   end_time: string;
@@ -33,9 +35,10 @@ export interface Booking {
     location_type: string;
     description?: string;
   };
+  is_rescheduled?: boolean;
 }
 
-export function useBookings(filter?: 'upcoming' | 'past' | 'cancelled') {
+export function useBookings(filter?: 'upcoming' | 'past' | 'cancelled' | 'rescheduled') {
   const { user } = useAuth();
 
   return useQuery({
@@ -60,6 +63,8 @@ export function useBookings(filter?: 'upcoming' | 'past' | 'cancelled') {
         query = query.lt('start_time', now).neq('status', 'cancelled');
       } else if (filter === 'cancelled') {
         query = query.eq('status', 'cancelled');
+      } else if (filter === 'rescheduled') {
+        query = query.eq('is_rescheduled', true);
       }
 
       const { data, error } = await query;
@@ -84,7 +89,13 @@ export function useBookingById(id: string | undefined) {
         .from('bookings')
         .select(`
           *,
-          event_type:event_types(title, duration, location_type, description)
+          event_type:event_types(
+            title, 
+            duration, 
+            location_type, 
+            description,
+            instructor:instructors(*)
+          )
         `)
         .eq('id', id)
         .maybeSingle();
@@ -94,7 +105,7 @@ export function useBookingById(id: string | undefined) {
       return {
         ...data,
         custom_responses: (data.custom_responses as unknown as CustomResponse[]) || [],
-      } as Booking;
+      } as Booking & { event_type: { instructor: import('@/integrations/supabase/types').Tables<'instructors'> | null } };
     },
     enabled: !!id,
   });
@@ -109,6 +120,7 @@ export function useCreateBooking() {
       host_id: string;
       attendee_name: string;
       attendee_email: string;
+      attendee_phone?: string;
       attendee_timezone: string;
       start_time: string;
       end_time: string;
@@ -118,7 +130,7 @@ export function useCreateBooking() {
       // Get event type details
       const { data: eventType } = await supabase
         .from('event_types')
-        .select('title, duration, location_type')
+        .select('title, duration, location_type, instructor_id')
         .eq('id', data.event_type_id)
         .single();
 
@@ -129,19 +141,11 @@ export function useCreateBooking() {
         .eq('user_id', data.host_id)
         .single();
 
-      // Check if host has Google Calendar integration
-      const { data: integration } = await supabase
-        .from('user_integrations')
-        .select('id')
-        .eq('user_id', data.host_id)
-        .eq('provider', 'google')
-        .maybeSingle();
-
       let googleEventId: string | null = null;
       let meetLink: string | null = null;
 
       // Create Google Calendar event with Meet link if integrated
-      if (integration && eventType?.location_type === 'google_meet') {
+      if (eventType?.location_type === 'google_meet') {
         try {
           const { data: calendarResult, error: calendarError } = await supabase.functions.invoke('google-calendar', {
             body: {
@@ -161,7 +165,12 @@ export function useCreateBooking() {
 
           if (!calendarError && calendarResult?.event) {
             googleEventId = calendarResult.event.id;
-            meetLink = calendarResult.event.hangoutLink;
+            meetLink =
+              calendarResult.event.hangoutLink ||
+              calendarResult.event.conferenceData?.entryPoints?.find(
+                (ep: { entryPointType?: string; uri?: string }) => ep.entryPointType === 'video' && !!ep.uri
+              )?.uri ||
+              null;
           }
         } catch (err) {
           console.error('Failed to create Google Calendar event:', err);
@@ -176,6 +185,7 @@ export function useCreateBooking() {
           host_id: data.host_id,
           attendee_name: data.attendee_name,
           attendee_email: data.attendee_email,
+          attendee_phone: data.attendee_phone,
           attendee_timezone: data.attendee_timezone,
           start_time: data.start_time,
           end_time: data.end_time,
@@ -192,9 +202,19 @@ export function useCreateBooking() {
 
       if (error) throw error;
 
-      // Send confirmation email
-      try {
-        await supabase.functions.invoke('send-booking-email', {
+      // Fetch branding settings for email
+      const { data: branding } = await (supabase as any)
+        .from('branding_settings')
+        .select('site_url, brand_name, brand_logo_url, brand_color, is_enabled')
+        .eq('user_id', data.host_id)
+        .maybeSingle();
+
+      // Prepare notification promises
+      const notifications = [];
+
+      // 1. Email Notification
+      notifications.push(
+        supabase.functions.invoke('send-booking-email', {
           body: {
             type: 'confirmation',
             bookingId: newBooking.id,
@@ -205,15 +225,70 @@ export function useCreateBooking() {
             startTime: data.start_time,
             endTime: data.end_time,
             timezone: data.attendee_timezone,
-            meetLink: meetLink,
+            meetingLink: meetLink,
+            siteUrl: branding?.site_url,
+            branding: branding?.is_enabled ? {
+              brandName: branding.brand_name,
+              brandLogoUrl: branding.brand_logo_url,
+              brandColor: branding.brand_color,
+              isEnabled: branding.is_enabled
+            } : undefined
           }
-        });
-      } catch (emailError) {
-        console.error('Failed to send confirmation email:', emailError);
+        }).catch(err => console.error('Failed to send confirmation email:', err))
+      );
+
+      // 2. Customer WhatsApp
+      if (data.attendee_phone) {
+        notifications.push(
+          sendWhatsAppNotification(data.host_id, 'customer', data.attendee_phone, {
+            ...newBooking,
+            host_name: hostProfile?.name || 'Host',
+            meet_link: meetLink
+          }).catch(err => console.error('Failed to send customer WhatsApp:', err))
+        );
       }
 
-      return { 
-        ...newBooking, 
+      // 3. Instructor/Host WhatsApp
+      // Fetch phone number first
+      const getInstructorPhone = async () => {
+        let instructorPhone = null;
+        if (eventType?.instructor_id) {
+          const { data: instr } = await supabase
+            .from('instructors')
+            .select('phone')
+            .eq('id', eventType.instructor_id)
+            .maybeSingle();
+          instructorPhone = instr?.phone;
+        }
+
+        if (!instructorPhone) {
+          const { data: hostProfileDetails } = await supabase
+            .from('profiles')
+            .select('phone')
+            .eq('user_id', data.host_id)
+            .maybeSingle();
+          instructorPhone = hostProfileDetails?.phone;
+        }
+        return instructorPhone;
+      };
+
+      notifications.push(
+        getInstructorPhone().then(phone => {
+          if (phone) {
+            return sendWhatsAppNotification(data.host_id, 'instructor', phone, {
+              ...newBooking,
+              host_name: hostProfile?.name || 'Host',
+              meet_link: meetLink
+            });
+          }
+        }).catch(err => console.error('Failed to send instructor WhatsApp:', err))
+      );
+
+      // Execute all notifications in parallel without blocking response
+      await Promise.allSettled(notifications);
+
+      return {
+        ...newBooking,
         meet_link: meetLink,
         custom_responses: (newBooking.custom_responses as unknown as CustomResponse[]) || [],
       } as Booking;
@@ -244,6 +319,13 @@ export function useCancelBooking() {
           .eq('user_id', booking.host_id)
           .single();
 
+        // Fetch branding settings
+        const { data: branding } = await (supabase as any)
+          .from('branding_settings')
+          .select('site_url, brand_name, brand_logo_url, brand_color, is_enabled')
+          .eq('user_id', booking.host_id)
+          .maybeSingle();
+
         await supabase.functions.invoke('send-booking-email', {
           body: {
             type: 'cancellation',
@@ -255,10 +337,32 @@ export function useCancelBooking() {
             startTime: booking.start_time,
             endTime: booking.end_time,
             timezone: booking.attendee_timezone,
+            siteUrl: branding?.site_url,
+            branding: branding?.is_enabled ? {
+              brandName: branding.brand_name,
+              brandLogoUrl: branding.brand_logo_url,
+              brandColor: branding.brand_color,
+              isEnabled: branding.is_enabled
+            } : undefined
           }
         });
       } catch (emailError) {
         console.error('Failed to send cancellation email:', emailError);
+      }
+
+      // Send WhatsApp cancellation
+      if (booking.attendee_phone) {
+        // Fetch host profile if not already fetched
+        const { data: hostProfile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('user_id', booking.host_id)
+          .single();
+
+        await sendWhatsAppNotification(booking.host_id, 'cancellation', booking.attendee_phone, {
+          ...booking,
+          host_name: hostProfile?.name || 'Host'
+        });
       }
     },
     onSuccess: () => {

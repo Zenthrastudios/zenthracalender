@@ -1,23 +1,41 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Video, MapPin, Phone, Search, ArrowLeft, User, ExternalLink } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  Video,
+  MapPin,
+  Phone,
+  Search,
+  ArrowLeft,
+  User,
+  ExternalLink,
+  ChevronRight,
+  ShieldAlert,
+  CalendarCheck,
+  History,
+  Sparkles,
+  Loader2
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { useUserBranding } from '@/hooks/useProfile';
+import { FileText, Download as DownloadIcon } from 'lucide-react';
 
 interface Booking {
   id: string;
+  host_id: string;
   start_time: string;
   end_time: string;
   status: string;
   attendee_name: string;
   attendee_email: string;
+  attendee_phone?: string | null;
   attendee_timezone: string;
   notes: string | null;
   meet_link: string | null;
@@ -35,14 +53,42 @@ interface Booking {
   } | null;
 }
 
+interface ProductPurchase {
+  id: string;
+  created_at: string;
+  amount: number;
+  access_token: string;
+  product: {
+    id: string;
+    title: string;
+    description: string | null;
+    thumbnail_url: string | null;
+  } | null;
+}
+
+type BookingQueryRow = Omit<Booking, 'event_type' | 'host'> & {
+  event_type: Booking['event_type'] | Booking['event_type'][];
+};
+
 export default function MyBookings() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [purchases, setPurchases] = useState<ProductPurchase[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Auto-fetch bookings if user is logged in
+  // For demonstration, use a default accent color since we don't have a single host here
+  const accentColor = "#FF9124";
+
+  const getJoinLink = (booking: Booking) => {
+    if (booking.meet_link) return booking.meet_link;
+    const lv = booking.event_type?.location_value;
+    if (lv && /^https?:\/\//i.test(lv)) return lv;
+    return null;
+  };
+
   useEffect(() => {
     if (user?.email) {
       setEmail(user.email);
@@ -64,32 +110,71 @@ export default function MyBookings() {
         .from('bookings')
         .select(`
           id,
+          host_id,
           start_time,
           end_time,
           status,
           attendee_name,
           attendee_email,
+          attendee_phone,
           attendee_timezone,
           notes,
           meet_link,
           cancel_token,
           reschedule_token,
           event_type:event_types(title, duration, location_type, location_value),
-          host:profiles!bookings_host_id_fkey(name, username)
+          host_id
         `)
-        .eq('attendee_email', searchEmail.toLowerCase())
+        .ilike('attendee_email', searchEmail.trim())
         .order('start_time', { ascending: false });
 
       if (error) throw error;
 
-      // Transform data to handle the joined relations
-      const transformedBookings = (data || []).map(booking => ({
+      const rows = ((data || []) as unknown as BookingQueryRow[]).map((booking) => ({
         ...booking,
         event_type: Array.isArray(booking.event_type) ? booking.event_type[0] : booking.event_type,
-        host: Array.isArray(booking.host) ? booking.host[0] : booking.host,
       }));
 
-      setBookings(transformedBookings);
+      const hostIds = Array.from(new Set(rows.map((b) => b.host_id).filter(Boolean)));
+      const hostByUserId = new Map<string, { name: string; username: string | null }>();
+
+      if (hostIds.length > 0) {
+        const { data: hostProfiles, error: hostError } = await supabase
+          .from('profiles')
+          .select('user_id, name, username')
+          .in('user_id', hostIds);
+
+        if (hostError) throw hostError;
+
+        (hostProfiles || []).forEach((p: { user_id: string; name: string; username: string | null }) => {
+          hostByUserId.set(p.user_id, { name: p.name, username: p.username });
+        });
+      }
+
+      const transformedBookings = rows.map((b) => ({
+        ...b,
+        host: hostByUserId.get(b.host_id) || null,
+      }));
+
+      setBookings(transformedBookings as Booking[]);
+
+      // Also fetch purchased products for this email
+      console.log('Fetching products for email:', searchEmail.trim());
+      const { data: productData, error: productError } = await supabase
+        .from('product_purchases')
+        .select('id, created_at, amount, access_token, product:digital_products(id, title, description, thumbnail_url)')
+        .eq('customer_email', searchEmail.trim())
+        .eq('status', 'paid')
+        .order('created_at', { ascending: false });
+
+      console.log('Product query result:', { productData, productError });
+
+      if (productError) {
+        console.error('Error fetching products:', productError);
+      } else {
+        console.log('Setting purchases:', productData);
+        setPurchases(productData as unknown as ProductPurchase[] || []);
+      }
     } catch (error: any) {
       console.error('Error fetching bookings:', error);
       toast.error('Failed to fetch bookings');
@@ -106,7 +191,6 @@ export default function MyBookings() {
   const getLocationIcon = (type: string) => {
     switch (type) {
       case 'google_meet':
-        return <Video className="w-4 h-4" />;
       case 'zoom':
         return <Video className="w-4 h-4" />;
       case 'phone':
@@ -118,19 +202,6 @@ export default function MyBookings() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20">Confirmed</Badge>;
-      case 'cancelled':
-        return <Badge variant="destructive">Cancelled</Badge>;
-      case 'completed':
-        return <Badge variant="secondary">Completed</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
   const upcomingBookings = bookings.filter(
     b => b.status === 'confirmed' && new Date(b.start_time) > new Date()
   );
@@ -139,26 +210,29 @@ export default function MyBookings() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0B0B0F] text-white selection:bg-primary/30 pb-20">
+      {/* Background Glow */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[500px] opacity-[0.03] blur-[120px] pointer-events-none rounded-full bg-primary"></div>
+
       {/* Header */}
-      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-foreground flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-background" />
+      <header className="w-full px-6 py-6 flex items-center justify-between border-b border-white/5 backdrop-blur-md sticky top-0 z-50 bg-[#0B0B0F]/80">
+        <Link to="/" className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center shadow-lg">
+            <Calendar className="w-5 h-5 text-white" />
           </div>
-          <span className="font-semibold text-lg">CalSchedule</span>
+          <span className="font-bold text-xl tracking-tight text-white">CalSchedule</span>
         </Link>
         <div className="flex items-center gap-4">
           {user ? (
             <Link to="/dashboard">
-              <Button variant="outline" size="sm">
-                <User className="w-4 h-4 mr-2" />
-                Dashboard
+              <Button variant="ghost" className="text-gray-400 font-bold hover:text-white gap-2">
+                <User className="w-4 h-4" />
+                Go to Dashboard
               </Button>
             </Link>
           ) : (
             <Link to="/auth">
-              <Button variant="outline" size="sm">
+              <Button className="rounded-xl font-bold bg-white text-black hover:bg-gray-200">
                 Sign In
               </Button>
             </Link>
@@ -166,207 +240,316 @@ export default function MyBookings() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4">
-            <ArrowLeft className="w-4 h-4" />
-            Back to home
-          </Link>
-          <h1 className="text-3xl font-bold text-foreground">My Bookings</h1>
-          <p className="text-muted-foreground mt-2">
-            View and manage your scheduled meetings
-          </p>
+      <main className="max-w-5xl mx-auto px-6 pt-12">
+        <div className="mb-12">
+          <button
+            onClick={() => navigate(-1)}
+            className="group flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-6 font-bold"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Back
+          </button>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <h1 className="text-4xl font-black text-white mb-3 tracking-tight">My Bookings</h1>
+              <p className="text-gray-500 font-medium">Manage and view all your scheduled appointments in one place.</p>
+            </div>
+            {user && (
+              <div className="bg-white/[0.03] border border-white/5 rounded-2xl px-5 py-3 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span className="text-sm font-bold text-gray-400">Authenticated as <span className="text-white">{user.email}</span></span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Search Form */}
-        {!user && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="text-lg">Find Your Bookings</CardTitle>
-              <CardDescription>
-                Enter the email address you used when booking to see your appointments
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSearch} className="flex gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="email" className="sr-only">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-12"
-                    required
-                  />
-                </div>
-                <Button type="submit" className="h-12 px-6" disabled={isLoading}>
-                  <Search className="w-4 h-4 mr-2" />
-                  {isLoading ? 'Searching...' : 'Find Bookings'}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+        {/* Search Experience - Only for non-logged in */}
+        {!user && !hasSearched && (
+          <div className="bg-[#1C1C1E] rounded-[2.5rem] border border-white/5 p-10 md:p-16 text-center shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div className="w-24 h-24 rounded-[2rem] bg-white/[0.02] border border-white/5 flex items-center justify-center mb-10 mx-auto">
+              <Search className="w-10 h-10 text-gray-600" />
+            </div>
+            <h2 className="text-3xl font-black text-white mb-6">Find your bookings</h2>
+            <p className="text-gray-500 mb-12 max-w-md mx-auto font-medium leading-relaxed">
+              Enter the email address you used to book your meetings to see your upcoming schedule.
+            </p>
+
+            <form onSubmit={handleSearch} className="max-w-lg mx-auto flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative group">
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-16 rounded-2xl border-white/5 bg-white/[0.02] px-6 text-lg font-bold focus:ring-primary focus:border-primary transition-all group-hover:border-white/10"
+                  required
+                />
+              </div>
+              <Button type="submit" className="h-16 px-10 rounded-2xl font-black text-lg bg-white text-black hover:bg-gray-200 transition-all active:scale-95" disabled={isLoading}>
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Search Bookings'}
+              </Button>
+            </form>
+          </div>
         )}
 
-        {/* Logged in user info */}
-        {user && (
-          <Card className="mb-8 bg-primary/5 border-primary/20">
-            <CardContent className="py-4">
-              <p className="text-sm text-muted-foreground">
-                Showing bookings for: <span className="font-medium text-foreground">{user.email}</span>
-              </p>
-            </CardContent>
-          </Card>
+        {/* Search bar for after search / for logged in */}
+        {(hasSearched || user) && (
+          <div className="mb-12">
+            <form onSubmit={handleSearch} className="flex gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Input
+                  type="email"
+                  placeholder="Change email address..."
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-14 rounded-2xl border-white/5 bg-white/[0.02] pl-14 pr-6 text-sm font-bold focus:ring-primary/20 backdrop-blur-xl"
+                  required
+                />
+              </div>
+              <Button type="submit" variant="outline" className="h-14 px-6 rounded-2xl border-white/5 bg-white/[0.02] hover:bg-white/5 font-bold" disabled={isLoading}>
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+              </Button>
+            </form>
+          </div>
         )}
 
-        {/* Results */}
-        {hasSearched && (
-          <>
-            {bookings.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium text-foreground mb-2">No bookings found</h3>
-                  <p className="text-muted-foreground">
-                    We couldn't find any bookings associated with this email address.
-                  </p>
-                </CardContent>
-              </Card>
+        {/* Results Grid */}
+        {(hasSearched || user) && !isLoading && (
+          <div className="space-y-16">
+            {bookings.length === 0 && purchases.length === 0 ? (
+              <div className="bg-[#1C1C1E] rounded-[2.5rem] border border-white/5 p-20 text-center shadow-inner">
+                <Calendar className="w-16 h-16 mx-auto text-gray-800 mb-6" />
+                <h3 className="text-2xl font-black text-white mb-2">No bookings or purchases found</h3>
+                <p className="text-gray-500 font-medium">We couldn't find any appointments or digital products for this email.</p>
+              </div>
             ) : (
-              <div className="space-y-8">
-                {/* Upcoming Bookings */}
+              <div className="grid gap-16">
+                {/* Digital Products Section */}
+                {purchases.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-primary" />
+                      </div>
+                      <h2 className="text-2xl font-black text-white tracking-tight">My Digital Products</h2>
+                      <div className="h-px flex-1 bg-white/5"></div>
+                      <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest bg-white/[0.02] px-3 py-1 rounded-full border border-white/5">{purchases.length} Total</span>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {purchases.map((purchase) => (
+                        <div key={purchase.id} className="group bg-[#1C1C1E] rounded-[2rem] border border-white/5 overflow-hidden hover:border-white/10 transition-all duration-300 hover:shadow-2xl">
+                          {/* Thumbnail */}
+                          <div className="aspect-video w-full bg-gradient-to-br from-primary/10 to-primary/5 relative overflow-hidden">
+                            {purchase.product?.thumbnail_url ? (
+                              <img
+                                src={purchase.product.thumbnail_url}
+                                alt={purchase.product.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <FileText className="w-12 h-12 text-muted-foreground/30" />
+                              </div>
+                            )}
+                            <div className="absolute top-3 right-3">
+                              <span className="px-3 py-1 rounded-lg bg-green-500/90 backdrop-blur-sm text-white text-[10px] font-black uppercase tracking-widest">Purchased</span>
+                            </div>
+                          </div>
+
+                          {/* Content */}
+                          <div className="p-6 space-y-4">
+                            <div>
+                              <h3 className="text-lg font-bold text-white mb-1 line-clamp-1 group-hover:text-primary transition-colors">{purchase.product?.title || 'Digital Product'}</h3>
+                              <p className="text-xs text-gray-500 font-medium">{format(new Date(purchase.created_at), 'MMM d, yyyy')}</p>
+                            </div>
+
+                            <p className="text-sm text-gray-400 line-clamp-2">{purchase.product?.description || 'Digital product'}</p>
+
+                            <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                              <span className="text-sm font-bold text-white">₹{purchase.amount}</span>
+                              <Button
+                                size="sm"
+                                onClick={() => navigate(`/view/${purchase.access_token}`)}
+                                className="rounded-xl font-bold bg-white text-black hover:bg-gray-200 transition-all active:scale-95"
+                              >
+                                View Product
+                                <ExternalLink className="w-3 h-3 ml-2" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Upcoming Section */}
                 {upcomingBookings.length > 0 && (
                   <div>
-                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                      Upcoming ({upcomingBookings.length})
-                    </h2>
-                    <div className="space-y-4">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                        <CalendarCheck className="w-5 h-5 text-emerald-500" />
+                      </div>
+                      <h2 className="text-2xl font-black text-white tracking-tight">Upcoming Sessions</h2>
+                      <div className="h-px flex-1 bg-white/5"></div>
+                      <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest bg-white/[0.02] px-3 py-1 rounded-full border border-white/5">{upcomingBookings.length} Total</span>
+                    </div>
+
+                    <div className="grid gap-6">
                       {upcomingBookings.map((booking) => (
-                        <Card key={booking.id} className="overflow-hidden">
-                          <CardContent className="p-6">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  {getStatusBadge(booking.status)}
-                                </div>
-                                <h3 className="text-lg font-semibold text-foreground">
-                                  {booking.event_type?.title || 'Meeting'}
-                                </h3>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                  with {booking.host?.name || 'Host'}
+                        <div key={booking.id} className="group relative bg-[#1C1C1E] rounded-[2rem] border border-white/5 p-8 md:p-10 shadow-xl overflow-hidden hover:border-white/10 transition-all duration-300">
+                          <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500 opacity-40"></div>
+
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-10">
+                            <div className="flex-1 space-y-6">
+                              <div className="flex items-center gap-3">
+                                <span className="px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">Confirmed</span>
+                                <div className="w-1 h-1 rounded-full bg-gray-800"></div>
+                                <span className="text-gray-500 text-xs font-bold px-2 py-1 bg-white/[0.02] rounded-md">ID: {booking.id.split('-')[0]}</span>
+                              </div>
+
+                              <div>
+                                <h3 className="text-2xl font-black text-white mb-2 group-hover:text-emerald-400 transition-colors">{booking.event_type?.title || 'Meeting'}</h3>
+                                <p className="flex items-center gap-2 text-gray-500 font-bold">
+                                  <span>with</span>
+                                  <span className="text-white bg-white/[0.05] px-2 py-0.5 rounded-md text-sm">{booking.host?.name || 'Host'}</span>
                                 </p>
-                                
-                                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-2">
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
+                                <div className="flex items-center gap-3 text-gray-400">
+                                  <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
                                     <Calendar className="w-4 h-4" />
-                                    {format(new Date(booking.start_time), 'EEEE, MMMM d, yyyy')}
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div>
+                                    <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest leading-none mb-1">DATE</p>
+                                    <p className="font-bold text-sm text-gray-200">{format(new Date(booking.start_time), 'EEE, MMM d, yyyy')}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 text-gray-400">
+                                  <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
                                     <Clock className="w-4 h-4" />
-                                    {format(new Date(booking.start_time), 'h:mm a')} - {format(new Date(booking.end_time), 'h:mm a')}
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div>
+                                    <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest leading-none mb-1">TIME</p>
+                                    <p className="font-bold text-sm text-gray-200">{format(new Date(booking.start_time), 'h:mm a')} – {format(new Date(booking.end_time), 'h:mm a')}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 text-gray-400">
+                                  <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
                                     {getLocationIcon(booking.event_type?.location_type || 'google_meet')}
-                                    {booking.event_type?.location_type === 'google_meet' ? 'Google Meet' :
-                                     booking.event_type?.location_type === 'zoom' ? 'Zoom' :
-                                     booking.event_type?.location_type === 'phone' ? 'Phone Call' :
-                                     booking.event_type?.location_type === 'in_person' ? 'In Person' : 'Video Call'}
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest leading-none mb-1">LOCATION</p>
+                                    <p className="font-bold text-sm text-gray-200 capitalize">{booking.event_type?.location_type?.replace('_', ' ')}</p>
                                   </div>
                                 </div>
                               </div>
+                            </div>
 
-                              <div className="flex flex-col gap-2">
-                                {booking.meet_link && (
-                                  <a href={booking.meet_link} target="_blank" rel="noopener noreferrer">
-                                    <Button size="sm" className="w-full">
-                                      <ExternalLink className="w-4 h-4 mr-2" />
-                                      Join Meeting
-                                    </Button>
+                            <div className="flex flex-col gap-3 min-w-[200px]">
+                              {getJoinLink(booking) ? (
+                                <Button asChild className="h-14 rounded-2xl font-black bg-white text-black hover:bg-gray-200 shadow-xl transition-all active:scale-95 group/btn">
+                                  <a href={getJoinLink(booking) as string} target="_blank" rel="noopener noreferrer">
+                                    Join Meeting
+                                    <ExternalLink className="w-4 h-4 ml-2 group-hover/btn:scale-110 transition-transform" />
                                   </a>
-                                )}
+                                </Button>
+                              ) : (
+                                <Button disabled className="h-14 rounded-2xl font-black bg-white/5 text-gray-500 border border-white/5">
+                                  Link Pending
+                                </Button>
+                              )}
+
+                              <div className="grid grid-cols-2 gap-3">
                                 {booking.reschedule_token && (
-                                  <Link to={`/reschedule/${booking.reschedule_token}`}>
-                                    <Button variant="outline" size="sm" className="w-full">
+                                  <Link to={`/reschedule/${booking.reschedule_token}`} className="flex-1">
+                                    <Button variant="outline" className="w-full h-12 rounded-xl border-white/5 bg-white/[0.02] hover:bg-white/[0.05] font-bold text-xs uppercase tracking-widest">
                                       Reschedule
                                     </Button>
                                   </Link>
                                 )}
                                 {booking.cancel_token && (
-                                  <Link to={`/cancel/${booking.cancel_token}`}>
-                                    <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive">
+                                  <Link to={`/cancel/${booking.cancel_token}`} className="flex-1">
+                                    <Button variant="ghost" className="w-full h-12 rounded-xl text-red-500/50 hover:text-red-500 hover:bg-red-500/5 font-bold text-xs uppercase tracking-widest">
                                       Cancel
                                     </Button>
                                   </Link>
                                 )}
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Past/Cancelled Bookings */}
+                {/* Past Section */}
                 {pastBookings.length > 0 && (
                   <div>
-                    <h2 className="text-xl font-semibold mb-4 text-muted-foreground">
-                      Past & Cancelled ({pastBookings.length})
-                    </h2>
-                    <div className="space-y-4">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-10 h-10 rounded-xl bg-white/[0.03] flex items-center justify-center">
+                        <History className="w-5 h-5 text-gray-600" />
+                      </div>
+                      <h2 className="text-2xl font-black text-gray-500 tracking-tight">Past Activity</h2>
+                      <div className="h-px flex-1 bg-white/5"></div>
+                    </div>
+
+                    <div className="grid gap-3">
                       {pastBookings.map((booking) => (
-                        <Card key={booking.id} className="overflow-hidden opacity-75">
-                          <CardContent className="p-6">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  {getStatusBadge(booking.status)}
-                                </div>
-                                <h3 className="text-lg font-semibold text-foreground">
-                                  {booking.event_type?.title || 'Meeting'}
-                                </h3>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                  with {booking.host?.name || 'Host'}
-                                </p>
-                                
-                                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-2">
-                                    <Calendar className="w-4 h-4" />
-                                    {format(new Date(booking.start_time), 'EEEE, MMMM d, yyyy')}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="w-4 h-4" />
-                                    {format(new Date(booking.start_time), 'h:mm a')}
-                                  </div>
-                                </div>
+                        <div key={booking.id} className="group bg-white/[0.01] rounded-2xl border border-white/5 p-6 hover:bg-white/[0.02] transition-all flex items-center justify-between gap-6 opacity-60 hover:opacity-100">
+                          <div className="flex items-center gap-6 flex-1">
+                            <div className="w-12 h-12 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center shrink-0">
+                              <Calendar className="w-5 h-5 text-gray-700" />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-white mb-1 truncate">{booking.event_type?.title}</h4>
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 font-bold">
+                                <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /> {format(new Date(booking.start_time), 'MMM d, yyyy')}</span>
+                                <span className="flex items-center gap-1.5"><User className="w-3 h-3" /> {booking.host?.name}</span>
+                                {booking.status === 'cancelled' && <span className="text-red-500/80 bg-red-500/5 px-2 py-0.5 rounded uppercase tracking-tighter">Cancelled</span>}
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                          <Button variant="ghost" size="icon" className="rounded-xl text-gray-700 hover:text-white hover:bg-white/5">
+                            <ChevronRight className="w-5 h-5" />
+                          </Button>
+                        </div>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
             )}
-          </>
+          </div>
         )}
 
-        {/* Initial state for non-logged in users */}
-        {!hasSearched && !user && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">Enter your email to find bookings</h3>
-              <p className="text-muted-foreground">
-                Use the search form above to find appointments booked with your email address.
-              </p>
-            </CardContent>
-          </Card>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="py-20 flex flex-col items-center justify-center">
+            <div className="relative w-24 h-24 mb-6">
+              <div className="absolute inset-0 border-4 border-white/5 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-transparent border-t-primary rounded-full animate-spin"></div>
+            </div>
+            <p className="text-gray-500 font-black uppercase tracking-[0.3em] text-xs">Accessing Schedule...</p>
+          </div>
         )}
+
+        {/* Support Section */}
+        <div className="mt-24 pt-12 border-t border-white/5 flex flex-col items-center gap-8">
+          <div className="flex items-center gap-4 text-gray-600">
+            <ShieldAlert className="w-4 h-4" />
+            <span className="text-sm font-medium">Need help with your bookings? Reach out to support.</span>
+          </div>
+
+          <div className="flex items-center gap-1 opacity-20 transform scale-90">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Powerhouse Technology</span>
+            <span className="text-xs font-black text-white italic">CalSchedule</span>
+          </div>
+        </div>
       </main>
     </div>
   );

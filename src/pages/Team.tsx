@@ -49,10 +49,10 @@ const ROLE_LABELS = {
 
 export default function Team() {
   const { profile, user } = useAuth();
-  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
-  const [isInviting, setIsInviting] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   // Mock team members (in real app, fetch from database)
   const [teamMembers] = useState<TeamMember[]>([
@@ -66,21 +66,21 @@ export default function Team() {
     },
   ]);
 
-  const handleInvite = async () => {
+  const handleAddMember = async () => {
     if (!inviteEmail.trim()) {
       toast.error('Please enter an email address');
       return;
     }
 
-    setIsInviting(true);
-    
+    setIsAdding(true);
+
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    toast.success(`Invitation sent to ${inviteEmail}`);
+
+    toast.success(`Member added: ${inviteEmail}`);
     setInviteEmail('');
-    setIsInviteOpen(false);
-    setIsInviting(false);
+    setIsAddOpen(false);
+    setIsAdding(false);
   };
 
   const handleRemoveMember = (memberId: string) => {
@@ -100,18 +100,18 @@ export default function Team() {
             <h1 className="text-2xl font-bold">Team</h1>
             <p className="text-muted-foreground">Manage your team members and their permissions</p>
           </div>
-          <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button>
                 <UserPlus className="w-4 h-4 mr-2" />
-                Invite Member
+                Add Member
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Invite Team Member</DialogTitle>
+                <DialogTitle>Add Team Member</DialogTitle>
                 <DialogDescription>
-                  Send an invitation to join your team. They'll receive an email with instructions.
+                  Add a new member to your team workspace.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -149,11 +149,11 @@ export default function Team() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsInviteOpen(false)}>
+                <Button variant="outline" onClick={() => setIsAddOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleInvite} disabled={isInviting}>
-                  {isInviting ? 'Sending...' : 'Send Invitation'}
+                <Button onClick={handleAddMember} disabled={isAdding}>
+                  {isAdding ? 'Adding...' : 'Add Member'}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -173,7 +173,7 @@ export default function Team() {
           <div className="divide-y divide-border">
             {teamMembers.map((member) => {
               const RoleIcon = ROLE_LABELS[member.role].icon;
-              
+
               return (
                 <div
                   key={member.id}
@@ -217,7 +217,7 @@ export default function Team() {
                           <Users className="w-4 h-4 mr-2" />
                           Make Member
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => handleRemoveMember(member.id)}
                           className="text-destructive"
                         >

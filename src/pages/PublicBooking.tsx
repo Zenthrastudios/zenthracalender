@@ -1,14 +1,22 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { useEventTypeBySlug } from '@/hooks/useEventTypes';
-import { useHostAvailabilityForBooking, useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useAvailability';
+import { useHostBookingsForDate, useGoogleCalendarConflicts } from '@/hooks/useAvailability';
+import { useBookingAvailability } from '@/hooks/useAvailabilitySchedules';
+import { useAvailabilityOverridesByUserId } from '@/hooks/useAvailabilityOverrides';
 import { useCreateBooking } from '@/hooks/useBookings';
-import { useCreateRazorpayOrder, useVerifyRazorpayPayment, useCreateCashfreeOrder, useVerifyCashfreePayment } from '@/hooks/usePayments';
+import { useTestimonials } from '@/hooks/useTestimonials';
+import { sendWhatsAppNotification } from '@/utils/whatsapp';
+import { useCreateRazorpayOrder, useVerifyRazorpayPayment, useCreateCashfreeOrder, useVerifyCashfreePayment, usePublicPaymentInfo } from '@/hooks/usePayments';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useBrandingSettings } from '@/hooks/useBrandingSettings';
+import { ThemeToggle } from '@/components/ThemeToggle';
+
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
@@ -17,15 +25,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Clock, Video, Globe, ChevronLeft, ChevronRight, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2 } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes } from 'date-fns';
+import { Clock, Video, Globe, ChevronLeft, ChevronRight, Calendar, MapPin, Phone, Link as LinkIcon, IndianRupee, CreditCard, Loader2, Star, Instagram, Facebook, Linkedin, Twitter, Youtube, Pin } from 'lucide-react';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, isToday, addMinutes, startOfDay, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { COUNTRY_DIAL_CODES } from '@/lib/countryDialCodes';
 
 declare global {
   interface Window {
-    Razorpay: any;
-    Cashfree: any;
+    Razorpay?: unknown;
+    Cashfree?: unknown;
   }
 }
 
@@ -45,10 +54,7 @@ interface CustomField {
   placeholder?: string;
 }
 
-const TIMEZONES = [
-  'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York',
-  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai', 'Australia/Sydney',
-];
+const TIMEZONES = ['Asia/Kolkata'];
 
 const getLocationIcon = (locationType: string) => {
   switch (locationType) {
@@ -79,21 +85,43 @@ const getLocationLabel = (locationType: string) => {
   }
 };
 
+type SocialLinks = {
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+  linkedin?: string;
+  twitter?: string;
+  youtube?: string;
+  pinterest?: string;
+};
+
 export default function PublicBookingPage() {
   const { username, eventSlug } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   const { data: eventData, isLoading } = useEventTypeBySlug(username, eventSlug);
-  const { data: availability } = useHostAvailabilityForBooking(eventData?.host?.id);
-  
+  const { data: branding } = useBrandingSettings(eventData?.host?.id);
+
+  // Fetch host's active payment gateway via edge function (works on unauthenticated public pages)
+  const { data: publicPaymentInfo } = usePublicPaymentInfo(
+    eventData?.eventType?.is_paid ? eventData?.host?.id : undefined
+  );
+
+  // Get schedule_id from event type, or use default schedule
+  const scheduleId = eventData?.eventType?.schedule_id || null;
+  const { data: availability } = useBookingAvailability(eventData?.host?.id, scheduleId);
+  const { data: overrides } = useAvailabilityOverridesByUserId(eventData?.host?.id);
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
-  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
+  const [timezone] = useState('Asia/Kolkata');
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [attendeeName, setAttendeeName] = useState('');
   const [attendeeEmail, setAttendeeEmail] = useState('');
+  const [attendeeCountryCode, setAttendeeCountryCode] = useState('IN');
+  const [attendeePhoneNational, setAttendeePhoneNational] = useState('');
   const [notes, setNotes] = useState('');
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -102,7 +130,7 @@ export default function PublicBookingPage() {
   const { data: existingBookings } = useHostBookingsForDate(eventData?.host?.id, selectedDate);
   const { data: googleCalendarConflicts } = useGoogleCalendarConflicts(eventData?.host?.id, selectedDate);
   const createBooking = useCreateBooking();
-  
+
   // Payment hooks
   const createRazorpayOrder = useCreateRazorpayOrder();
   const verifyRazorpayPayment = useVerifyRazorpayPayment();
@@ -110,10 +138,36 @@ export default function PublicBookingPage() {
   const verifyCashfreePayment = useVerifyCashfreePayment();
 
   // Get custom fields and payment info from event type
-  const customFields: CustomField[] = (eventData?.eventType as any)?.custom_fields || [];
-  const isPaidEvent = (eventData?.eventType as any)?.is_paid || false;
-  const eventPrice = (eventData?.eventType as any)?.price || 0;
-  const paymentProvider = (eventData?.eventType as any)?.payment_provider || 'razorpay';
+  const customFields: CustomField[] = Array.isArray(eventData?.eventType?.custom_fields)
+    ? (eventData?.eventType?.custom_fields as unknown as CustomField[])
+    : [];
+  const isPaidEvent = !!eventData?.eventType?.is_paid;
+  const eventPrice = eventData?.eventType?.price || 0;
+
+  // Active payment gateway comes from the backend (edge fn). Falls back to the
+  // event-type preference while the fetch is in-flight.
+  const paymentProvider = useMemo(() => {
+    if (publicPaymentInfo) return publicPaymentInfo.activeGateway;
+    return (eventData?.eventType?.payment_provider as 'razorpay' | 'cashfree') || 'razorpay';
+  }, [publicPaymentInfo, eventData?.eventType?.payment_provider]);
+
+  const showTestimonials = eventData?.eventType?.show_testimonials ?? true;
+  const { data: testimonials } = useTestimonials(eventData?.eventType?.id, { includeHidden: false });
+
+  const socialLinks: SocialLinks = useMemo(() => {
+    const incoming = eventData?.eventType?.social_links;
+    if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+      return incoming as unknown as SocialLinks;
+    }
+    return {};
+  }, [eventData?.eventType?.social_links]);
+
+  const normalizeUrl = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+    return `https://${trimmed}`;
+  };
 
   // Load Razorpay/Cashfree script dynamically
   useEffect(() => {
@@ -141,57 +195,111 @@ export default function PublicBookingPage() {
 
   const firstDayOffset = startOfMonth(currentMonth).getDay();
 
-  const hasAvailability = (date: Date) => {
-    if (isBefore(date, new Date()) && !isToday(date)) return false;
+  const getSchedulesForDate = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const override = overrides?.find(o => o.date === dateStr);
+
+    if (override) {
+      if (override.is_unavailable) return [];
+      if (override.start_time !== null && override.end_time !== null) {
+        return [{
+          start_time: override.start_time,
+          end_time: override.end_time
+        }];
+      }
+      return [];
+    }
+
+    // Fallback to weekly schedule
     const dayOfWeek = date.getDay();
-    return availability?.some(a => a.weekday === dayOfWeek) ?? false;
+    return availability?.filter(a => a.weekday === dayOfWeek) || [];
+  };
+
+  const hasAvailability = (date: Date) => {
+    // Past check
+    if (isBefore(date, new Date()) && !isToday(date)) return false;
+
+    const schedules = getSchedulesForDate(date);
+    if (schedules.length === 0) return false;
+
+    // Minimum notice check
+    const minimumNotice = eventData?.eventType?.minimum_notice || 0;
+    const earliestTime = addMinutes(new Date(), minimumNotice);
+
+    // Check if any schedule has time after earliest allowed booking time
+    return schedules.some(s => {
+      const scheduleEnd = new Date(date);
+      scheduleEnd.setHours(0, 0, 0, 0); // Reset to start of day
+      // Add minutes. end_time is minutes from midnight
+      scheduleEnd.setMinutes(s.end_time);
+
+      return isAfter(scheduleEnd, earliestTime);
+    });
   };
 
   const timeSlots = useMemo<TimeSlot[]>(() => {
-    if (!selectedDate || !eventData?.eventType || !availability) return [];
-    
-    const dayOfWeek = selectedDate.getDay();
-    const dayAvailability = availability.filter(a => a.weekday === dayOfWeek);
+    if (!selectedDate || !eventData?.eventType) return [];
+
+    const dayAvailability = getSchedulesForDate(selectedDate);
     if (dayAvailability.length === 0) return [];
 
     const slots: TimeSlot[] = [];
     const now = new Date();
+    const eventType = eventData.eventType;
+    const duration = eventType.duration;
+    const minimumNotice = eventType.minimum_notice || 60; // Default 1 hour
+    const bufferBefore = eventType.buffer_before || 0;
+    const bufferAfter = eventType.buffer_after || 0;
 
     dayAvailability.forEach(avail => {
       let currentTime = avail.start_time;
-      while (currentTime + eventData.eventType.duration <= avail.end_time) {
+      while (currentTime + duration <= avail.end_time) {
         const slotStart = new Date(selectedDate);
         slotStart.setHours(Math.floor(currentTime / 60), currentTime % 60, 0, 0);
-        const slotEnd = addMinutes(slotStart, eventData.eventType.duration);
-        
-        const isAvailable = slotStart > now;
-        
-        // Check existing bookings conflict
+        const slotEnd = addMinutes(slotStart, duration);
+
+        // Check minimum notice - slot must be at least minimumNotice minutes from now
+        const minutesUntilSlot = (slotStart.getTime() - now.getTime()) / 60000;
+        if (minutesUntilSlot < minimumNotice) {
+          currentTime += 30; // Increment by 30 mins (or configurable?)
+          continue;
+        }
+
+        // Calculate buffered times for conflict checking
+        const bufferedStart = addMinutes(slotStart, -bufferBefore);
+        const bufferedEnd = addMinutes(slotEnd, bufferAfter);
+
+        // Check existing bookings conflict (with buffer)
         const hasBookingConflict = existingBookings?.some(booking => {
           const bookingStart = new Date(booking.start_time);
           const bookingEnd = new Date(booking.end_time);
-          return slotStart < bookingEnd && slotEnd > bookingStart;
+
+          // Assuming existingBookings are active.
+          return bufferedStart < bookingEnd && bufferedEnd > bookingStart;
         });
 
-        // Check Google Calendar conflicts
+        // Check Google Calendar conflicts (with buffer)
         const hasGoogleConflict = googleCalendarConflicts?.some((conflict: { start: string; end: string }) => {
           const conflictStart = new Date(conflict.start);
           const conflictEnd = new Date(conflict.end);
-          return slotStart < conflictEnd && slotEnd > conflictStart;
+          return bufferedStart < conflictEnd && bufferedEnd > conflictStart;
         });
+
+        const isAvailable = !hasBookingConflict && !hasGoogleConflict;
 
         slots.push({
           time: format(slotStart, 'hh:mma').toLowerCase(),
-          available: isAvailable && !hasBookingConflict && !hasGoogleConflict,
+          available: isAvailable,
           startTime: slotStart,
           endTime: slotEnd,
         });
-        currentTime += 30;
+        currentTime += 30; // 30 min increments
       }
     });
 
     return slots;
-  }, [selectedDate, eventData, availability, existingBookings, googleCalendarConflicts]);
+  }, [selectedDate, eventData, availability, existingBookings, googleCalendarConflicts, overrides]);
+
 
   const updateCustomFieldValue = (fieldId: string, value: string | boolean) => {
     setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
@@ -204,6 +312,16 @@ export default function PublicBookingPage() {
     }
     if (!attendeeEmail.trim() || !/\S+@\S+\.\S+/.test(attendeeEmail)) {
       toast.error('Please enter a valid email address');
+      return false;
+    }
+
+    const phoneDigits = attendeePhoneNational.replace(/\D/g, '');
+    if (!phoneDigits) {
+      toast.error('Please enter your phone number');
+      return false;
+    }
+    if (phoneDigits.length < 6) {
+      toast.error('Please enter a valid phone number');
       return false;
     }
 
@@ -228,6 +346,16 @@ export default function PublicBookingPage() {
     return true;
   };
 
+  const buildAttendeePhone = () => {
+    const country = COUNTRY_DIAL_CODES.find(c => c.iso2 === attendeeCountryCode);
+    if (!country || !attendeePhoneNational) return undefined;
+
+    const dial = country.dialCode.replace(/[^\d+]/g, '');
+    const national = attendeePhoneNational.replace(/\D/g, '');
+    const normalizedDial = dial.startsWith('+') ? dial : `+${dial}`;
+    return `${normalizedDial}${national}`;
+  };
+
   const createBookingAfterPayment = async () => {
     if (!selectedSlot || !eventData) return;
 
@@ -249,6 +377,7 @@ export default function PublicBookingPage() {
       host_id: eventData.host.id,
       attendee_name: attendeeName,
       attendee_email: attendeeEmail,
+      attendee_phone: buildAttendeePhone(),
       attendee_timezone: timezone,
       start_time: selectedSlot.startTime.toISOString(),
       end_time: selectedSlot.endTime.toISOString(),
@@ -262,32 +391,33 @@ export default function PublicBookingPage() {
 
   const handleRazorpayPayment = async () => {
     if (!selectedSlot || !eventData) return;
-    
+
     setIsProcessingPayment(true);
     try {
       const tempBookingId = `temp_${Date.now()}`;
-      const amountInPaise = Math.round(eventPrice * 100);
-      
       const orderResult = await createRazorpayOrder.mutateAsync({
         bookingId: tempBookingId,
-        amount: amountInPaise,
+        amount: eventPrice,
         customerName: attendeeName,
         customerEmail: attendeeEmail,
+        hostId: eventData.host.id,
       });
 
+      const RazorpayCtor = window.Razorpay as unknown as (new (opts: unknown) => { open: () => void });
       const options = {
         key: orderResult.keyId,
         amount: orderResult.amount,
         currency: orderResult.currency,
         name: eventData.eventType.title,
-        description: `Booking with ${eventData.host.name}`,
-        order_id: orderResult.orderId,
-        handler: async function (response: any) {
+        description: `Booking with ${eventData.eventType.instructor?.name || eventData.host.name}`,
+        order_id: orderResult.id,
+        handler: async function (response: unknown) {
           try {
+            const r = response as { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string };
             const verifyResult = await verifyRazorpayPayment.mutateAsync({
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
+              razorpayOrderId: r.razorpay_order_id || '',
+              razorpayPaymentId: r.razorpay_payment_id || '',
+              razorpaySignature: r.razorpay_signature || '',
             });
 
             if (verifyResult.verified) {
@@ -295,6 +425,14 @@ export default function PublicBookingPage() {
               await createBookingAfterPayment();
             } else {
               toast.error('Payment verification failed. Please try again.');
+              if (buildAttendeePhone()) {
+                await sendWhatsAppNotification(eventData.host.id, 'payment_failed', buildAttendeePhone()!, {
+                  attendee_name: attendeeName,
+                  event_type: { title: eventData.eventType.title },
+                  start_time: selectedSlot.startTime.toISOString(),
+                  host: { username: username, name: eventData.eventType.instructor?.name || eventData.host.name }
+                });
+              }
             }
           } catch (error) {
             toast.error('Payment verification failed.');
@@ -315,7 +453,7 @@ export default function PublicBookingPage() {
         },
       };
 
-      const razorpay = new window.Razorpay(options);
+      const razorpay = new RazorpayCtor(options);
       razorpay.open();
     } catch (error) {
       console.error('Razorpay payment error:', error);
@@ -326,34 +464,49 @@ export default function PublicBookingPage() {
 
   const handleCashfreePayment = async () => {
     if (!selectedSlot || !eventData) return;
-    
+
     setIsProcessingPayment(true);
     try {
       const tempBookingId = `temp_${Date.now()}`;
-      
       const orderResult = await createCashfreeOrder.mutateAsync({
         bookingId: tempBookingId,
         amount: eventPrice,
         customerName: attendeeName,
         customerEmail: attendeeEmail,
         returnUrl: window.location.href,
+        hostId: eventData.host.id,
       });
 
       // Use Cashfree Drop-in checkout
-      const cashfree = window.Cashfree({
-        mode: 'sandbox', // Change to 'production' for live
+      if (!window.Cashfree) {
+        throw new Error('Cashfree SDK not loaded. Please refresh the page and try again.');
+      }
+
+      const cashfreeFactory = window.Cashfree as unknown as (opts: { mode: string }) => {
+        checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<{ error?: unknown }>;
+      };
+      const cashfree = cashfreeFactory({
+        mode: publicPaymentInfo?.cashfreeMode || 'sandbox',
       });
 
       cashfree.checkout({
         paymentSessionId: orderResult.paymentSessionId,
         redirectTarget: '_modal',
-      }).then(async (result: any) => {
+      }).then(async (result: { error?: unknown }) => {
         if (result.error) {
           toast.error('Payment failed. Please try again.');
+          if (buildAttendeePhone()) {
+            await sendWhatsAppNotification(eventData.host.id, 'payment_failed', buildAttendeePhone()!, {
+              attendee_name: attendeeName,
+              event_type: { title: eventData.eventType.title, slug: eventSlug },
+              start_time: selectedSlot.startTime.toISOString(),
+              host: { username: username, name: eventData.eventType.instructor?.name || eventData.host.name }
+            });
+          }
           setIsProcessingPayment(false);
           return;
         }
-        
+
         // Verify payment
         const verifyResult = await verifyCashfreePayment.mutateAsync(orderResult.orderId);
         if (verifyResult.isPaid) {
@@ -361,10 +514,26 @@ export default function PublicBookingPage() {
           await createBookingAfterPayment();
         } else {
           toast.error('Payment not completed. Please try again.');
+          if (buildAttendeePhone()) {
+            await sendWhatsAppNotification(eventData.host.id, 'payment_failed', buildAttendeePhone()!, {
+              attendee_name: attendeeName,
+              event_type: { title: eventData.eventType.title, slug: eventSlug },
+              start_time: selectedSlot.startTime.toISOString(),
+              host: { username: username, name: eventData.eventType.instructor?.name || eventData.host.name }
+            });
+          }
         }
         setIsProcessingPayment(false);
-      }).catch(() => {
+      }).catch(async () => {
         toast.error('Payment was cancelled.');
+        if (buildAttendeePhone()) {
+          await sendWhatsAppNotification(eventData.host.id, 'payment_failed', buildAttendeePhone()!, {
+            attendee_name: attendeeName,
+            event_type: { title: eventData.eventType.title, slug: eventSlug },
+            start_time: selectedSlot.startTime.toISOString(),
+            host: { username: username, name: eventData.eventType.instructor?.name || eventData.host.name }
+          });
+        }
         setIsProcessingPayment(false);
       });
     } catch (error) {
@@ -465,7 +634,9 @@ export default function PublicBookingPage() {
               onValueChange={(v) => updateCustomFieldValue(field.id, v)}
             >
               <SelectTrigger className="bg-background">
-                <SelectValue placeholder={field.placeholder || 'Select an option'} />
+                <div className="flex items-center gap-2">
+                  <SelectValue placeholder={field.placeholder || 'Select an option'} />
+                </div>
               </SelectTrigger>
               <SelectContent>
                 {field.options?.map((option) => (
@@ -498,71 +669,206 @@ export default function PublicBookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-foreground flex items-center justify-center">
-            <span className="text-background text-sm font-bold">C</span>
+    <div className="min-h-screen bg-background selection:bg-primary/30 text-foreground pb-12 transition-colors duration-300">
+      {/* Header */}
+      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border/50 backdrop-blur-md sticky top-0 z-50 bg-background/80">
+        <Link to="/" className="flex items-center gap-2.5">
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden"
+            style={{ background: branding?.is_enabled && branding?.brand_color ? branding.brand_color : "#FF9124" }}
+          >
+            {branding?.is_enabled && branding?.brand_logo_url ? (
+              <img src={branding.brand_logo_url} alt={branding.brand_name || ""} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-white font-semibold text-lg">{(branding?.brand_name || 'C')?.charAt(0)}</span>
+            )}
           </div>
-          <span className="font-semibold">CalSchedule</span>
+          <span className="font-semibold text-lg text-foreground">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
         </Link>
-        <span className="text-sm text-muted-foreground">Powered by CalSchedule</span>
+        <div className="flex items-center gap-4">
+          <span className="hidden sm:block text-xs text-muted-foreground">Powered by CalSchedule</span>
+          <ThemeToggle />
+        </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-12">
-        <div className="bg-card rounded-2xl shadow-card overflow-hidden">
-          <div className="grid md:grid-cols-[300px_1fr_1fr]">
-            {/* Host & Event Info */}
-            <div className="p-6 border-r border-border">
-              <Avatar className="w-16 h-16 mb-4">
-                <AvatarImage src={eventData.host?.avatar_url || ''} />
-                <AvatarFallback className="text-xl bg-primary/10 text-primary">
-                  {eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase() || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <p className="text-sm text-muted-foreground mb-1">{eventData.host?.name || username}</p>
-              <h1 className="text-xl font-bold mb-4">{eventData.eventType.title}</h1>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>{eventData.eventType.duration} min</span>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden relative">
+
+          {eventData.eventType.banner_image_url && eventData.eventType.banner_image_url.trim() !== '' && (
+            <div className="w-full h-40 md:h-48 bg-muted overflow-hidden">
+              <img
+                src={eventData.eventType.banner_image_url}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
+
+          <div className="grid lg:grid-cols-[260px_1fr_1fr] divide-y lg:divide-y-0 lg:divide-x divide-border">
+            {/* Column 1: Host & Event Info */}
+            <div className="p-5 lg:p-6">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-12 h-12 rounded-full border border-border bg-muted">
+                  <AvatarImage
+                    src={eventData.eventType.instructor?.avatar_url || eventData.host?.avatar_url || ''}
+                    className="rounded-full object-cover"
+                  />
+                  <AvatarFallback className="text-base font-medium bg-muted text-muted-foreground">
+                    {eventData.eventType.instructor?.name?.charAt(0) || eventData.host?.name?.charAt(0) || username?.charAt(0)?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {eventData.eventType.instructor?.name || eventData.host?.name || username}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {eventData.eventType.instructor?.specialization ? eventData.eventType.instructor.specialization : `@${username}`}
+                  </p>
                 </div>
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <LocationIcon className="w-4 h-4" />
+              </div>
+
+              <div className="mt-5">
+                <h1 className="text-xl font-semibold text-foreground leading-tight">{eventData.eventType.title}</h1>
+                <div className="flex items-center gap-2 text-muted-foreground text-sm mt-1.5">
+                  {(() => {
+                    const LocationIconComponent = getLocationIcon(eventData.eventType.location_type);
+                    return <LocationIconComponent className="w-4 h-4" />;
+                  })()}
                   <span>{getLocationLabel(eventData.eventType.location_type)}</span>
                 </div>
-                {isPaidEvent && eventPrice > 0 && (
-                  <div className="flex items-center gap-3 text-primary font-medium">
-                    <IndianRupee className="w-4 h-4" />
-                    <span>₹{eventPrice.toLocaleString('en-IN')}</span>
+              </div>
+
+              <div className="mt-5 space-y-2.5">
+                {selectedSlot ? (
+                  <div className="bg-muted/50 rounded-lg p-3 border border-border space-y-2">
+                    <div className="flex items-center gap-2 text-foreground text-sm">
+                      <Clock className="w-4 h-4" style={{ color: branding?.is_enabled && branding?.brand_color ? branding.brand_color : undefined }} />
+                      <span className="font-medium">
+                        {format(selectedSlot.startTime, 'MMM d, yyyy')} · {format(selectedSlot.startTime, 'h:mm a')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>Asia/Kolkata (IST)</span>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Clock className="w-4 h-4" />
+                      <span>{eventData.eventType.duration} min</span>
+                    </div>
+
+                    {isPaidEvent && eventPrice > 0 && (
+                      <div className="flex items-center gap-2 text-foreground font-medium">
+                        <IndianRupee className="w-4 h-4" style={{ color: branding?.is_enabled && branding?.brand_color ? branding.brand_color : undefined }} />
+                        <span>₹{eventPrice.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
+
               {eventData.eventType.description && (
-                <p className="text-sm text-muted-foreground mt-6 border-t border-border pt-4">
-                  {eventData.eventType.description}
-                </p>
+                <div className="mt-5 pt-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">About</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {eventData.eventType.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Social Links */}
+              {Object.values(socialLinks).some((v) => typeof v === 'string' && v.trim() !== '') && (
+                <div className="mt-5 pt-4 border-t border-border">
+                  <div className="flex flex-wrap gap-1.5">
+                    {socialLinks.website?.trim() && (
+                      <a href={normalizeUrl(socialLinks.website)} target="_blank" rel="noreferrer" title="Website" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Globe className="w-4 h-4" />
+                      </a>
+                    )}
+                    {socialLinks.instagram?.trim() && (
+                      <a href={normalizeUrl(socialLinks.instagram)} target="_blank" rel="noreferrer" title="Instagram" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Instagram className="w-4 h-4" />
+                      </a>
+                    )}
+                    {socialLinks.facebook?.trim() && (
+                      <a href={normalizeUrl(socialLinks.facebook)} target="_blank" rel="noreferrer" title="Facebook" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Facebook className="w-4 h-4" />
+                      </a>
+                    )}
+                    {socialLinks.linkedin?.trim() && (
+                      <a href={normalizeUrl(socialLinks.linkedin)} target="_blank" rel="noreferrer" title="LinkedIn" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Linkedin className="w-4 h-4" />
+                      </a>
+                    )}
+                    {socialLinks.twitter?.trim() && (
+                      <a href={normalizeUrl(socialLinks.twitter)} target="_blank" rel="noreferrer" title="Twitter" className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <Twitter className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Testimonials */}
+              {showTestimonials && (testimonials || []).length > 0 && (
+                <div className="mt-5 pt-4 border-t border-border">
+                  <h3 className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Reviews</h3>
+                  <div className="space-y-2.5 max-h-[200px] overflow-y-auto">
+                    {(testimonials || []).map((t) => (
+                      <div key={t.id} className="bg-muted/30 rounded-lg p-3 border border-border">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-medium text-xs text-foreground">{t.author_name}</span>
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star key={i} className={cn('w-3 h-3', i < t.rating! ? 'text-primary fill-primary' : 'text-muted')} style={{ color: i < t.rating! && branding?.brand_color ? branding.brand_color : undefined, fill: i < t.rating! && branding?.brand_color ? branding.brand_color : undefined }} />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">"{t.content}"</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* Calendar */}
-            <div className="p-6 border-r border-border">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-semibold">{format(currentMonth, 'MMMM yyyy')}</h2>
+            {/* Column 2: Calendar */}
+            <div className="p-5 lg:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-medium text-sm text-foreground">Select Date</h2>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                    <ChevronLeft className="w-4 h-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-md hover:bg-muted"
+                    onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                  >
+                    <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                    <ChevronRight className="w-4 h-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-md hover:bg-muted"
+                    onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                  >
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-                  <div key={day} className="text-center text-xs text-muted-foreground font-medium py-2">{day}</div>
+
+              <div className="text-center mb-3">
+                <p className="text-sm font-medium text-foreground">{format(currentMonth, 'MMMM yyyy')}</p>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 mb-1">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+                  <div key={idx} className="text-center text-xs text-muted-foreground font-medium py-2">{day}</div>
                 ))}
               </div>
+
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: firstDayOffset }).map((_, i) => <div key={`e-${i}`} className="aspect-square" />)}
                 {calendarDays.map(date => {
@@ -570,162 +876,231 @@ export default function PublicBookingPage() {
                   const isSelected = selectedDate && isSameDay(date, selectedDate);
                   const isPast = isBefore(date, new Date()) && !isToday(date);
                   return (
-                    <button 
-                      key={date.toISOString()} 
-                      onClick={() => isAvailable && !isPast && (setSelectedDate(date), setSelectedSlot(null), setShowBookingForm(false))} 
+                    <button
+                      key={date.toISOString()}
+                      onClick={() => isAvailable && !isPast && (setSelectedDate(date), setSelectedSlot(null), setShowBookingForm(false))}
                       disabled={!isAvailable || isPast}
                       className={cn(
-                        "aspect-square rounded-full flex items-center justify-center text-sm transition-all",
-                        isSelected && "bg-primary text-primary-foreground",
-                        !isSelected && isAvailable && !isPast && "hover:bg-accent",
-                        (!isAvailable || isPast) && "text-muted-foreground/50 cursor-not-allowed"
+                        "relative aspect-square rounded-md flex items-center justify-center text-sm transition-colors",
+                        isSelected
+                          ? "text-white font-medium"
+                          : isAvailable && !isPast
+                            ? "text-foreground hover:bg-muted"
+                            : "text-muted-foreground/40 cursor-not-allowed"
                       )}
                     >
-                      {format(date, 'd')}
+                      {isSelected && (
+                        <div
+                          className="absolute inset-0.5 rounded-md"
+                          style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
+                        />
+                      )}
+                      <span className="relative">{format(date, 'd')}</span>
+                      {isAvailable && !isPast && !isSelected && (
+                        <div
+                          className="absolute bottom-1 w-1 h-1 rounded-full"
+                          style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
+                        />
+                      )}
                     </button>
                   );
                 })}
               </div>
+
               <div className="mt-6">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide mb-2 block">Time Zone</Label>
-                <Select value={timezone} onValueChange={setTimezone}>
-                  <SelectTrigger className="bg-background">
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-muted-foreground" />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz.replace('_', ' ')}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <p className="text-xs text-muted-foreground mb-2">Timezone</p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Globe className="w-4 h-4" />
+                  <span>Asia/Kolkata (IST)</span>
+                </div>
               </div>
             </div>
 
-            {/* Time Slots / Booking Form */}
-            <div className="p-6">
+            {/* Column 3: Time Slots / Form */}
+            <div className="p-5 lg:p-6">
               {showBookingForm && selectedSlot ? (
-                <form onSubmit={handleBookingSubmit} className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                  <div>
-                    <h2 className="font-semibold mb-1">Enter your details</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {format(selectedSlot.startTime, 'EEEE, MMMM d')} at {format(selectedSlot.startTime, 'h:mm a')}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Your Name <span className="text-destructive">*</span></Label>
-                    <Input 
-                      value={attendeeName} 
-                      onChange={(e) => setAttendeeName(e.target.value)} 
-                      required 
-                      className="bg-background" 
-                      placeholder="John Doe"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email Address <span className="text-destructive">*</span></Label>
-                    <Input 
-                      type="email" 
-                      value={attendeeEmail} 
-                      onChange={(e) => setAttendeeEmail(e.target.value)} 
-                      required 
-                      className="bg-background"
-                      placeholder="john@example.com"
-                    />
+                <form onSubmit={handleBookingSubmit} className="space-y-4">
+                  <div className="pb-3 border-b border-border">
+                    <h2 className="text-sm font-medium text-foreground">Your Details</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Complete the form to confirm</p>
                   </div>
 
-                  {/* Custom Fields */}
-                  {customFields.map(renderCustomField)}
-
-                  <div className="space-y-2">
-                    <Label>Additional Notes</Label>
-                    <Textarea 
-                      value={notes} 
-                      onChange={(e) => setNotes(e.target.value)} 
-                      className="bg-background min-h-[80px]"
-                      placeholder="Any additional information..."
-                    />
-                  </div>
-                  {/* Price Display for Paid Events */}
-                  {isPaidEvent && eventPrice > 0 && (
-                    <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="w-5 h-5 text-primary" />
-                          <span className="font-medium">Payment Required</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-lg font-bold text-primary">
-                          <IndianRupee className="w-5 h-5" />
-                          {eventPrice.toLocaleString('en-IN')}
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Payment via {paymentProvider === 'razorpay' ? 'Razorpay' : 'Cashfree'}
-                      </p>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Full Name</Label>
+                      <Input
+                        value={attendeeName}
+                        onChange={(e) => setAttendeeName(e.target.value)}
+                        required
+                        className="h-9 rounded-md bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
+                        placeholder="John Doe"
+                      />
                     </div>
-                  )}
 
-                  <div className="flex gap-3 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setShowBookingForm(false)} className="flex-1">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Email Address</Label>
+                      <Input
+                        type="email"
+                        value={attendeeEmail}
+                        onChange={(e) => setAttendeeEmail(e.target.value)}
+                        required
+                        className="h-9 rounded-md bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
+                        placeholder="john@example.com"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Phone Number</Label>
+                      <div className="flex gap-2">
+                        <Select value={attendeeCountryCode} onValueChange={setAttendeeCountryCode}>
+                          <SelectTrigger className="w-[80px] h-9 rounded-md bg-background border-border">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border-border">
+                            {COUNTRY_DIAL_CODES.map((c) => (
+                              <SelectItem key={c.iso2} value={c.iso2}>{c.iso2}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="tel"
+                          value={attendeePhoneNational}
+                          onChange={(e) => setAttendeePhoneNational(e.target.value)}
+                          required
+                          className="h-9 rounded-md bg-background border-border focus:border-primary text-foreground placeholder:text-muted-foreground flex-1"
+                          placeholder="1234567890"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Custom Fields */}
+                    {customFields.length > 0 && (
+                      <div className="space-y-3 pt-2">
+                        {customFields.map((field) => (
+                          <div key={field.id} className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                            {field.type === 'textarea' ? (
+                              <Textarea
+                                value={(customFieldValues[field.id] as string) || ''}
+                                onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
+                                className="rounded-md bg-background border-border min-h-[70px] text-foreground text-sm"
+                              />
+                            ) : field.type === 'select' ? (
+                              <Select value={(customFieldValues[field.id] as string) || ''} onValueChange={(v) => updateCustomFieldValue(field.id, v)}>
+                                <SelectTrigger className="h-9 rounded-md bg-background border-border text-sm">
+                                  <SelectValue placeholder={field.placeholder || "Select an option"} />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover border-border">
+                                  {(field as any).options?.map((opt: string) => (
+                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : field.type === 'checkbox' ? (
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id={field.id}
+                                  checked={(customFieldValues[field.id] as boolean) || false}
+                                  onCheckedChange={(c) => updateCustomFieldValue(field.id, !!c)}
+                                />
+                                <label htmlFor={field.id} className="text-sm text-foreground">{field.label}</label>
+                              </div>
+                            ) : (
+                              <Input
+                                type={field.type}
+                                value={(customFieldValues[field.id] as string) || ''}
+                                onChange={(e) => updateCustomFieldValue(field.id, e.target.value)}
+                                className="h-9 rounded-md bg-background border-border text-foreground text-sm"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Additional Notes (optional)</Label>
+                      <Textarea
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        className="rounded-md bg-background border-border min-h-[60px] text-foreground placeholder:text-muted-foreground resize-none"
+                        placeholder="Any special requirements..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-3 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowBookingForm(false)}
+                      className="h-9 rounded-md flex-1"
+                    >
                       Back
                     </Button>
-                    <Button 
-                      type="submit" 
-                      className="flex-1" 
+                    <Button
+                      type="submit"
+                      className="h-9 rounded-md flex-1 font-medium text-white"
                       disabled={createBooking.isPending || isProcessingPayment}
+                      style={{ background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" }}
                     >
                       {isProcessingPayment ? (
                         <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Processing...
+                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                          Processing
                         </>
                       ) : createBooking.isPending ? (
-                        'Booking...'
+                        'Confirming...'
                       ) : isPaidEvent && eventPrice > 0 ? (
-                        <>
-                          <CreditCard className="w-4 h-4 mr-2" />
-                          Pay & Confirm
-                        </>
+                        'Pay & Confirm'
                       ) : (
-                        'Confirm Booking'
+                        'Confirm'
                       )}
                     </Button>
                   </div>
                 </form>
               ) : selectedDate ? (
-                <>
-                  <h2 className="font-semibold mb-4">{format(selectedDate, 'EEEE, MMM d')}</h2>
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                    {timeSlots.filter(s => s.available).map((slot) => (
-                      <div key={slot.time} className="flex gap-2">
-                        <button 
-                          onClick={() => setSelectedSlot(slot)} 
-                          className={cn(
-                            "flex-1 py-3 px-4 rounded-lg text-sm font-medium border transition-all",
-                            selectedSlot?.time === slot.time 
-                              ? "bg-foreground text-background border-foreground" 
-                              : "bg-background border-border hover:border-primary text-primary"
-                          )}
-                        >
-                          {slot.time}
-                        </button>
-                        {selectedSlot?.time === slot.time && (
-                          <Button onClick={() => setShowBookingForm(true)} className="animate-scale-in">
-                            Next
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    {timeSlots.filter(s => s.available).length === 0 && (
-                      <p className="text-muted-foreground text-sm text-center py-8">
-                        No available slots for this day.
-                      </p>
-                    )}
+                <div className="animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-medium text-foreground">{format(selectedDate, 'EEEE, MMM d')}</h2>
+                    <span className="text-xs text-muted-foreground">{timeSlots.filter(s => s.available).length} slots</span>
                   </div>
-                </>
+
+                  <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">
+                    {timeSlots.filter(s => s.available).map((slot) => (
+                      <button
+                        key={slot.time}
+                        onClick={() => {
+                          setSelectedSlot(slot);
+                          setShowBookingForm(true);
+                        }}
+                        className={cn(
+                          "h-10 rounded-md text-sm font-medium transition-colors border",
+                          selectedSlot?.time === slot.time
+                            ? "border-transparent text-white"
+                            : "bg-muted/30 border-border text-foreground hover:bg-muted"
+                        )}
+                        style={selectedSlot?.time === slot.time ? { background: branding?.is_enabled && branding.brand_color ? branding.brand_color : "#FF9124" } : undefined}
+                      >
+                        {slot.time}
+                      </button>
+                    ))}
+                  </div>
+                  {timeSlots.filter(s => s.available).length === 0 && (
+                    <div className="text-center py-12 bg-muted/20 rounded-lg border border-dashed border-border">
+                      <Calendar className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">No slots available</p>
+                      <p className="text-xs text-muted-foreground mt-1">Try another date</p>
+                    </div>
+                  )}
+                </div>
               ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  <p className="text-sm">Select a date to see available times</p>
+                <div className="h-full flex flex-col items-center justify-center text-center px-4 py-12">
+                  <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                    <Clock className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-sm font-medium text-foreground mb-1">Select a date</h3>
+                  <p className="text-xs text-muted-foreground max-w-[200px]">Choose a date to see available time slots</p>
                 </div>
               )}
             </div>

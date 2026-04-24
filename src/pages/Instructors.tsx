@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useInstructors, useCreateInstructor, useDeleteInstructor, useUpdateInstructor } from '@/hooks/useInstructors';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,8 +45,10 @@ export default function Instructors() {
   const updateInstructor = useUpdateInstructor();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editInstructorId, setEditInstructorId] = useState<string | null>(null);
 
   // Form state
   const [name, setName] = useState('');
@@ -54,6 +57,18 @@ export default function Instructors() {
   const [showPassword, setShowPassword] = useState(false);
   const [bio, setBio] = useState('');
   const [specialization, setSpecialization] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [phone, setPhone] = useState('');
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [twitterUrl, setTwitterUrl] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [addAvatarFile, setAddAvatarFile] = useState<File | null>(null);
+  const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const addAvatarFileInputRef = useRef<HTMLInputElement>(null);
+  const editAvatarFileInputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
     setName('');
@@ -61,7 +76,95 @@ export default function Instructors() {
     setPassword('');
     setBio('');
     setSpecialization('');
+    setPhone('');
+    setInstagramUrl('');
+    setLinkedinUrl('');
+    setTwitterUrl('');
+    setWebsiteUrl('');
+    setAvatarUrl('');
+    setEditIsActive(true);
+    setAddAvatarFile(null);
+    setEditAvatarFile(null);
     setShowPassword(false);
+  };
+
+  const uploadPublicImage = async (folder: string, file: File) => {
+    const fileExt = file.name.split('.').pop() || 'png';
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${folder}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('public-images')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data: publicUrlData } = supabase.storage
+      .from('public-images')
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  };
+
+  const openEditInstructor = (instructorId: string) => {
+    const instructor = instructors?.find((i) => i.id === instructorId);
+    if (!instructor) return;
+
+    setEditInstructorId(instructor.id);
+    setName(instructor.name);
+    setEmail(instructor.email);
+    setBio(instructor.bio || '');
+    setSpecialization(instructor.specialization || '');
+    setAvatarUrl(instructor.avatar_url || '');
+    setPhone(instructor.phone || '');
+    setInstagramUrl(instructor.instagram_url || '');
+    setLinkedinUrl(instructor.linkedin_url || '');
+    setTwitterUrl(instructor.twitter_url || '');
+    setWebsiteUrl(instructor.website_url || '');
+    setEditIsActive(instructor.is_active);
+    setEditAvatarFile(null);
+    setIsEditOpen(true);
+  };
+
+  const handleEditInstructor = async () => {
+    if (!editInstructorId) return;
+    if (!name.trim()) {
+      toast.error('Please enter a name');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let finalAvatarUrl: string | null = avatarUrl.trim() ? avatarUrl.trim() : null;
+      if (editAvatarFile) {
+        setIsAvatarUploading(true);
+        finalAvatarUrl = await uploadPublicImage(`instructors/${editInstructorId}`, editAvatarFile);
+      }
+
+      await updateInstructor.mutateAsync({
+        id: editInstructorId,
+        name,
+        bio: bio || null,
+        specialization: specialization || null,
+        phone: phone || null,
+        instagram_url: instagramUrl || null,
+        linkedin_url: linkedinUrl || null,
+        twitter_url: twitterUrl || null,
+        website_url: websiteUrl || null,
+        avatar_url: finalAvatarUrl,
+        is_active: editIsActive,
+      });
+      toast.success('Instructor updated');
+      setIsEditOpen(false);
+      setEditInstructorId(null);
+      resetForm();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to update instructor';
+      toast.error(message);
+    } finally {
+      setIsAvatarUploading(false);
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddInstructor = async () => {
@@ -80,13 +183,20 @@ export default function Instructors() {
 
     setIsSubmitting(true);
     try {
-      await createInstructor.mutateAsync({
+      const created = await createInstructor.mutateAsync({
         name,
         email,
         password,
+        phone: phone || undefined,
         bio: bio || undefined,
         specialization: specialization || undefined,
       });
+
+      if (addAvatarFile) {
+        setIsAvatarUploading(true);
+        const avatarPublicUrl = await uploadPublicImage(`instructors/${created.id}`, addAvatarFile);
+        await updateInstructor.mutateAsync({ id: created.id, avatar_url: avatarPublicUrl });
+      }
       toast.success(`Instructor ${name} added successfully`);
       resetForm();
       setIsAddOpen(false);
@@ -94,13 +204,14 @@ export default function Instructors() {
       console.error('Error creating instructor:', error);
       toast.error(error.message || 'Failed to add instructor');
     } finally {
+      setIsAvatarUploading(false);
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    
+
     try {
       await deleteInstructor.mutateAsync(deleteId);
       toast.success('Instructor removed');
@@ -143,6 +254,47 @@ export default function Instructors() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Avatar</Label>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={avatarUrl || undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary">{name.charAt(0).toUpperCase() || 'I'}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        ref={addAvatarFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        aria-label="Upload instructor avatar"
+                        title="Upload instructor avatar"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (!file.type.startsWith('image/')) {
+                            toast.error('Please select an image file');
+                            return;
+                          }
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast.error('Image must be less than 5MB');
+                            return;
+                          }
+                          setAddAvatarFile(file);
+                          setAvatarUrl(URL.createObjectURL(file));
+                        }}
+                      />
+                      <Button type="button" variant="outline" size="sm" onClick={() => addAvatarFileInputRef.current?.click()}>
+                        Upload
+                      </Button>
+                      {avatarUrl && (
+                        <Button type="button" variant="outline" size="sm" onClick={() => { setAddAvatarFile(null); setAvatarUrl(''); }}>
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
@@ -193,6 +345,15 @@ export default function Instructors() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    placeholder="+1234567890"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="bio">Bio (Optional)</Label>
                   <Textarea
                     id="bio"
@@ -202,13 +363,31 @@ export default function Instructors() {
                     rows={3}
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="instagram">Instagram URL</Label>
+                    <Input id="instagram" placeholder="https://instagram.com/..." value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="linkedin">LinkedIn URL</Label>
+                    <Input id="linkedin" placeholder="https://linkedin.com/in/..." value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="twitter">Twitter URL</Label>
+                    <Input id="twitter" placeholder="https://twitter.com/..." value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Website</Label>
+                    <Input id="website" placeholder="https://..." value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => { resetForm(); setIsAddOpen(false); }}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddInstructor} disabled={isSubmitting}>
-                  {isSubmitting ? 'Creating...' : 'Add Instructor'}
+                <Button onClick={handleAddInstructor} disabled={isSubmitting || isAvatarUploading}>
+                  {isSubmitting || isAvatarUploading ? 'Creating...' : 'Add Instructor'}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -266,6 +445,12 @@ export default function Instructors() {
                       <Mail className="w-3 h-3" />
                       {instructor.email}
                     </p>
+                    {instructor.phone && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <span className="w-3 h-3">📞</span>
+                        {instructor.phone}
+                      </p>
+                    )}
                     {instructor.specialization && (
                       <p className="text-sm text-primary">{instructor.specialization}</p>
                     )}
@@ -275,7 +460,7 @@ export default function Instructors() {
                     <div className="text-right text-sm text-muted-foreground hidden sm:block">
                       Added {format(new Date(instructor.created_at), 'MMM d, yyyy')}
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <Switch
                         checked={instructor.is_active}
@@ -290,6 +475,10 @@ export default function Instructors() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditInstructor(instructor.id)}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit details
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => setDeleteId(instructor.id)}
                           className="text-destructive"
@@ -305,6 +494,134 @@ export default function Instructors() {
             </div>
           )}
         </div>
+
+        {/* Edit Instructor */}
+        <Dialog open={isEditOpen} onOpenChange={(open) => {
+          setIsEditOpen(open);
+          if (!open) {
+            setEditInstructorId(null);
+            resetForm();
+          }
+        }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Instructor</DialogTitle>
+              <DialogDescription>
+                Update instructor details shown in the system.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Avatar</Label>
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={avatarUrl || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary">{name.charAt(0).toUpperCase() || 'I'}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      ref={editAvatarFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      aria-label="Upload instructor avatar"
+                      title="Upload instructor avatar"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (!file.type.startsWith('image/')) {
+                          toast.error('Please select an image file');
+                          return;
+                        }
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error('Image must be less than 5MB');
+                          return;
+                        }
+                        setEditAvatarFile(file);
+                        setAvatarUrl(URL.createObjectURL(file));
+                      }}
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={() => editAvatarFileInputRef.current?.click()}>
+                      Upload
+                    </Button>
+                    {avatarUrl && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => { setEditAvatarFile(null); setAvatarUrl(''); }}>
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Full Name</Label>
+                <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email Address</Label>
+                <Input id="edit-email" value={email} disabled />
+                <p className="text-xs text-muted-foreground">Email changes are not supported here.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-specialization">Specialization</Label>
+                <Input
+                  id="edit-specialization"
+                  value={specialization}
+                  onChange={(e) => setSpecialization(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone Number</Label>
+                <Input
+                  id="edit-phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-bio">Bio (Optional)</Label>
+                <Textarea id="edit-bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={3} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-instagram">Instagram URL</Label>
+                  <Input id="edit-instagram" value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-linkedin">LinkedIn URL</Label>
+                  <Input id="edit-linkedin" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-twitter">Twitter URL</Label>
+                  <Input id="edit-twitter" value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-website">Website</Label>
+                  <Input id="edit-website" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Active</Label>
+                <Switch checked={editIsActive} onCheckedChange={setEditIsActive} />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleEditInstructor} disabled={isSubmitting || isAvatarUploading}>
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Info Card */}
         <div className="mt-6 bg-card rounded-xl border border-border p-6">

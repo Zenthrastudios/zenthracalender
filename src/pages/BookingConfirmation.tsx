@@ -1,14 +1,15 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useBookingById, useCancelBooking } from '@/hooks/useBookings';
-import { useProfileById } from '@/hooks/useProfile';
+import { useProfileById, useUserBranding } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Calendar, 
-  CheckCircle, 
-  Clock, 
-  User, 
-  Video, 
+import { ThemeToggle } from '@/components/ThemeToggle';
+import {
+  Calendar,
+  CheckCircle,
+  Clock,
+  User,
+  Video,
   CalendarPlus,
   RefreshCw,
   XCircle,
@@ -16,7 +17,9 @@ import {
   MapPin,
   Phone,
   Link as LinkIcon,
-  ExternalLink
+  ExternalLink,
+  ArrowRight,
+  Globe
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -26,6 +29,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { Share, Heart, Sparkle, Share2 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Share as CapacitorShare } from '@capacitor/share';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 const getLocationIcon = (locationType: string) => {
   switch (locationType) {
@@ -59,32 +67,43 @@ const getLocationLabel = (locationType: string) => {
 export default function BookingConfirmation() {
   const { bookingId } = useParams();
   const navigate = useNavigate();
-  
+
   const { data: booking, isLoading } = useBookingById(bookingId);
   const { data: hostProfile } = useProfileById(booking?.host_id);
+  const { data: branding } = useUserBranding(hostProfile?.id);
   const cancelBooking = useCancelBooking();
+
+  const accentColor = branding?.is_enabled && branding?.brand_color ? branding.brand_color : "#FF9124";
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+        <div className="w-12 h-12 border-4 border-border border-t-primary rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (!booking) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Booking not found</h1>
-          <p className="text-muted-foreground mb-4">This booking doesn't exist or has been cancelled.</p>
-          <Button onClick={() => navigate('/')}>Go Home</Button>
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 text-center">
+        <div className="bg-card rounded-xl border border-border p-8 max-w-md w-full">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6 mx-auto">
+            <XCircle className="w-8 h-8 text-destructive" />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground mb-3">Booking not found</h1>
+          <p className="text-muted-foreground mb-6 text-sm">This booking doesn't exist or has been cancelled.</p>
+          <Button
+            onClick={() => navigate('/')}
+            className="w-full"
+          >
+            Go Home
+          </Button>
         </div>
       </div>
     );
   }
 
-  const LocationIcon = getLocationIcon(booking.event_type?.location_type || 'google_meet');
+  const LocationIconComponent = getLocationIcon(booking.event_type?.location_type || 'google_meet');
 
   const handleAddToCalendar = (type: 'google' | 'outlook' | 'ics') => {
     const title = encodeURIComponent(booking.event_type?.title || 'Meeting');
@@ -110,7 +129,7 @@ SUMMARY:${booking.event_type?.title || 'Meeting'}
 DESCRIPTION:Meeting with ${hostProfile?.name || 'Host'}${booking.meet_link ? `\\nJoin: ${booking.meet_link}` : ''}
 END:VEVENT
 END:VCALENDAR`;
-      
+
       const blob = new Blob([icsContent], { type: 'text/calendar' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -122,11 +141,44 @@ END:VCALENDAR`;
     toast.success('Calendar event added!');
   };
 
-  const handleReschedule = () => {
-    toast.info('Reschedule feature coming soon!');
+  const triggerHaptic = async (style: ImpactStyle = ImpactStyle.Light) => {
+    if (Capacitor.isNativePlatform()) {
+      await Haptics.impact({ style });
+    }
+  };
+
+  const handleShare = async () => {
+    await triggerHaptic(ImpactStyle.Medium);
+    const url = window.location.href;
+    if (Capacitor.isNativePlatform()) {
+      await CapacitorShare.share({
+        title: 'Booking Confirmed!',
+        text: `I just booked a ${booking.event_type?.title} with ${hostProfile?.name}!`,
+        url: url,
+        dialogTitle: 'Share your booking'
+      });
+    } else if (navigator.share) {
+      await navigator.share({
+        title: 'Booking Confirmed!',
+        url: url
+      });
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success('Link copied to clipboard!');
+    }
+  };
+
+  const handleReschedule = async () => {
+    await triggerHaptic(ImpactStyle.Light);
+    if (booking?.reschedule_token) {
+      navigate(`/reschedule/${booking.reschedule_token}`);
+    } else {
+      toast.info('Reschedule not available.');
+    }
   };
 
   const handleCancel = async () => {
+    await triggerHaptic(ImpactStyle.Medium);
     try {
       await cancelBooking.mutateAsync(booking);
       toast.success('Booking cancelled');
@@ -137,155 +189,280 @@ END:VCALENDAR`;
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 pb-12 transition-colors duration-300">
       {/* Header */}
-      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-foreground flex items-center justify-center">
-            <span className="text-background text-sm font-bold">C</span>
+      <header className="w-full px-6 py-4 flex items-center justify-between border-b border-border/50 backdrop-blur-md sticky top-0 z-50 bg-background/80">
+        <Link to="/" className="flex items-center gap-2.5">
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden"
+            style={{ background: accentColor }}
+          >
+            {branding?.is_enabled && branding?.brand_logo_url ? (
+              <img src={branding.brand_logo_url} alt={branding.brand_name || ""} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-white font-semibold text-lg">{(branding?.brand_name || 'C')?.charAt(0)}</span>
+            )}
           </div>
-          <span className="font-semibold">CalSchedule</span>
+          <span className="font-semibold text-lg text-foreground">{branding?.is_enabled ? branding.brand_name : 'CalSchedule'}</span>
         </Link>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => navigate('/auth')}>Login</Button>
-          <Button onClick={() => navigate('/auth')}>Sign up</Button>
+        <div className="flex items-center gap-4">
+          <span className="hidden sm:block text-xs text-muted-foreground">Powered by CalSchedule</span>
+          <ThemeToggle />
         </div>
       </header>
 
+      {/* Confetti Background Effect (CSS Only) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-20">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-2 h-2 rounded-full animate-pulse"
+            style={{
+              top: `${Math.random() * 100}%`,
+              left: `${Math.random() * 100}%`,
+              backgroundColor: i % 2 === 0 ? accentColor : '#fff',
+              animationDelay: `${Math.random() * 2}s`,
+              animationDuration: `${2 + Math.random() * 3}s`
+            }}
+          />
+        ))}
+      </div>
+
       {/* Main Content */}
-      <main className="max-w-xl mx-auto px-4 py-16">
-        <div className="text-center mb-8 animate-fade-in">
-          {/* Success Icon */}
-          <div className="w-16 h-16 rounded-full bg-primary mx-auto mb-6 flex items-center justify-center">
-            <CheckCircle className="w-8 h-8 text-primary-foreground" />
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 relative z-10">
+        <div className="text-center mb-8 animate-in fade-in zoom-in duration-700">
+          <div className="inline-block mb-6 relative group">
+            <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-150 group-hover:scale-175 transition-transform duration-500" />
+            <div
+              className="w-24 h-24 rounded-[2rem] flex items-center justify-center relative z-10 rotate-3 group-hover:rotate-0 transition-transform duration-500 shadow-2xl shadow-primary/40"
+              style={{ background: `linear-gradient(135deg, ${accentColor}, #FFB26B)` }}
+            >
+              <CheckCircle className="w-12 h-12 text-white drop-shadow-lg" />
+            </div>
+            <div className="absolute -top-2 -right-2">
+              <Sparkle className="w-6 h-6 text-primary animate-bounce" />
+            </div>
           </div>
 
-          <h1 className="text-3xl font-bold mb-2">Booking confirmed!</h1>
-          <p className="text-muted-foreground">
-            You are scheduled with {hostProfile?.name || 'the host'}.
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3 tracking-tight">You're all set!</h1>
+          <p className="text-lg text-muted-foreground max-w-sm mx-auto leading-relaxed">
+            Your meeting with <span className="text-foreground font-bold">{booking?.event_type?.instructor?.name || hostProfile?.name || 'the host'}</span> is confirmed.
           </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            A calendar invitation has been sent to your email address.
-          </p>
+          <div className="mt-6 flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 w-fit mx-auto shadow-sm">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Email Confirmation Sent</span>
+          </div>
         </div>
 
         {/* Booking Details Card */}
-        <div className="bg-card rounded-2xl shadow-card p-6 mb-6 animate-slide-up">
-          {/* Host Info */}
-          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
-            <Avatar className="h-12 w-12">
-              <AvatarImage src={hostProfile?.avatar_url || ''} />
-              <AvatarFallback className="bg-primary/10 text-primary">
-                {hostProfile?.name?.charAt(0) || 'H'}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium">{hostProfile?.name || 'Host'}</p>
-              <p className="text-sm text-muted-foreground">@{hostProfile?.username}</p>
+        <div className="bg-card/50 backdrop-blur-xl rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl shadow-black/20 animate-in slide-in-from-bottom-8 duration-700 delay-200 fill-mode-both">
+          <div className="p-8">
+            {/* Host Section */}
+            <div className="flex items-center gap-4 mb-8 pb-8 border-b border-white/5">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/20 blur-lg rounded-full" />
+                <Avatar className="h-16 w-16 rounded-2xl border-2 border-white/10 relative z-10">
+                  <AvatarImage
+                    src={booking?.event_type?.instructor?.avatar_url || hostProfile?.avatar_url || ''}
+                    className="rounded-2xl object-cover"
+                  />
+                  <AvatarFallback className="bg-muted text-muted-foreground font-bold text-xl">
+                    {booking?.event_type?.instructor?.name?.charAt(0) || hostProfile?.name?.charAt(0) || 'H'}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-foreground">{booking?.event_type?.instructor?.name || hostProfile?.name || 'Host'}</p>
+                <p className="text-sm text-muted-foreground font-medium">
+                  {booking?.event_type?.instructor?.specialization || (hostProfile?.username ? `@${hostProfile.username}` : 'username')}
+                </p>
+              </div>
+              <div className="ml-auto">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-white/5 active:scale-90"
+                  onClick={handleShare}
+                >
+                  <Share className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
-                <LocationIcon className="w-3 h-3" /> WHAT
-              </p>
-              <p className="font-semibold">{booking.event_type?.title}</p>
-              <p className="text-sm text-muted-foreground">{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
-                <User className="w-3 h-3" /> WHO
-              </p>
-              <p className="font-semibold">{booking.attendee_name}</p>
-              <p className="text-sm text-muted-foreground">{booking.attendee_email}</p>
-            </div>
-          </div>
+            {/* Grid Details */}
+            <div className="grid md:grid-cols-2 gap-8 mb-8">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 w-fit">
+                  <LocationIconComponent className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Event Type</span>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-foreground leading-tight">{booking.event_type?.title}</p>
+                  <p className="text-sm text-muted-foreground font-medium mt-1">{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</p>
+                </div>
+              </div>
 
-          <div className="border-t border-dashed border-border pt-4 mb-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
-              <Clock className="w-3 h-3" /> WHEN
-            </p>
-            <p className="font-semibold">
-              {format(new Date(booking.start_time), 'EEEE, MMMM d, yyyy')}{' '}
-              <span className="text-primary">at</span>{' '}
-              {format(new Date(booking.start_time), 'h:mm a')} - {format(new Date(booking.end_time), 'h:mm a')}{' '}
-              <span className="text-muted-foreground">({booking.attendee_timezone?.replace('_', ' ').split('/').pop()})</span>
-            </p>
-          </div>
-
-          {/* Meet Link */}
-          {booking.meet_link && (
-            <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
-                <Video className="w-3 h-3" /> JOIN MEETING
-              </p>
-              <a 
-                href={booking.meet_link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-primary hover:underline font-medium"
-              >
-                <span className="truncate">{booking.meet_link}</span>
-                <ExternalLink className="w-4 h-4 flex-shrink-0" />
-              </a>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 w-fit">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Your Details</span>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-foreground truncate">{booking.attendee_name}</p>
+                  <p className="text-sm text-muted-foreground font-medium truncate">{booking.attendee_email}</p>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* When Section */}
+            <div className="bg-white/5 rounded-[2rem] p-6 border border-white/5 space-y-4 group hover:border-primary/20 transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Schedule</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-[10px] font-bold text-primary uppercase">
+                  <Globe className="w-3 h-3" />
+                  {booking.attendee_timezone?.split('/').pop()?.replace('_', ' ')}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-2xl font-bold text-foreground">
+                  {format(new Date(booking.start_time), 'EEEE, MMM d')}
+                </p>
+                <div className="flex items-center gap-3 text-lg text-muted-foreground">
+                  <span className="text-primary font-bold">{format(new Date(booking.start_time), 'h:mm a')}</span>
+                  <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                  <span className="font-medium">{format(new Date(booking.end_time), 'h:mm a')}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Meet Link */}
+            {booking.meet_link && (
+              <div className="mt-6">
+                <div className="bg-muted/30 rounded-lg p-5 border border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Video className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide">Join Meeting</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-sm text-foreground truncate flex-1">{booking.meet_link}</p>
+                    <a
+                      href={booking.meet_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-9 px-4 rounded-md flex items-center justify-center gap-2 font-medium text-sm text-white transition-all"
+                      style={{ background: accentColor }}
+                    >
+                      Join
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col items-center gap-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8">
-                <CalendarPlus className="w-4 h-4 mr-2" />
-                Add to Calendar
-                <ChevronDown className="w-4 h-4 ml-2" />
+        <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500 fill-mode-both">
+          <div className="flex flex-col items-center gap-6">
+            <div className="flex flex-col sm:flex-row items-center gap-4 w-full">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="w-full sm:flex-1 h-14 rounded-2xl font-bold bg-foreground text-background hover:bg-foreground/90 transition-all shadow-xl active:scale-[0.98]">
+                    <CalendarPlus className="w-5 h-5 mr-3" />
+                    Add to Calendar
+                    <ChevronDown className="w-5 h-5 ml-2 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-card border-white/10 rounded-2xl min-w-[220px] p-2 shadow-2xl backdrop-blur-3xl">
+                  <DropdownMenuItem onClick={() => handleAddToCalendar('google')} className="cursor-pointer rounded-xl py-3 px-4 font-medium focus:bg-primary/10">
+                    <Calendar className="w-4 h-4 mr-3 text-blue-500" />
+                    Google Calendar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleAddToCalendar('outlook')} className="cursor-pointer rounded-xl py-3 px-4 font-medium focus:bg-primary/10">
+                    <Calendar className="w-4 h-4 mr-3 text-blue-600" />
+                    Outlook Calendar
+                  </DropdownMenuItem>
+                  <div className="h-px bg-white/5 my-2"></div>
+                  <DropdownMenuItem onClick={() => handleAddToCalendar('ics')} className="cursor-pointer rounded-xl py-3 px-4 font-medium focus:bg-primary/10">
+                    <ExternalLink className="w-4 h-4 mr-3 text-muted-foreground" />
+                    Download Apple ICS
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                variant="outline"
+                className="w-full sm:flex-1 h-14 rounded-2xl font-bold border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm active:scale-[0.98]"
+                onClick={handleShare}
+              >
+                <Share2 className="w-5 h-5 mr-3 text-primary" />
+                Share Booking
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleAddToCalendar('google')}>
-                Google Calendar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAddToCalendar('outlook')}>
-                Outlook Calendar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAddToCalendar('ics')}>
-                Download .ics file
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </div>
 
-          <div className="flex items-center gap-4 text-sm">
-            <button
-              onClick={handleReschedule}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Reschedule
-            </button>
-            <div className="w-px h-4 bg-border"></div>
-            <button
-              onClick={handleCancel}
-              disabled={cancelBooking.isPending}
-              className="flex items-center gap-2 text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
-            >
-              <XCircle className="w-4 h-4" />
-              {cancelBooking.isPending ? 'Cancelling...' : 'Cancel'}
-            </button>
+            <div className="flex items-center gap-10">
+              <button
+                onClick={handleReschedule}
+                className="flex flex-col items-center gap-2 text-[10px] font-bold text-muted-foreground hover:text-primary transition-all uppercase tracking-widest group"
+              >
+                <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center group-hover:border-primary group-hover:rotate-180 transition-all duration-500">
+                  <RefreshCw className="w-4 h-4" />
+                </div>
+                Reschedule
+              </button>
+
+              <button
+                onClick={handleCancel}
+                disabled={cancelBooking.isPending}
+                className="flex flex-col items-center gap-2 text-[10px] font-bold text-muted-foreground hover:text-destructive transition-all uppercase tracking-widest group"
+              >
+                <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center group-hover:border-destructive transition-all">
+                  <XCircle className="w-4 h-4" />
+                </div>
+                {cancelBooking.isPending ? 'Wait...' : 'Cancel'}
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* View All Bookings */}
-        <div className="text-center mt-8">
-          <Link to="/my-bookings" className="text-primary hover:underline text-sm font-medium">
-            View all your bookings →
-          </Link>
-        </div>
+          {/* Special App Note */}
+          {Capacitor.isNativePlatform() && (
+            <div className="bg-primary/5 rounded-[2rem] p-6 border border-dashed border-primary/20 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                <Heart className="w-6 h-6 text-primary animate-pulse" />
+              </div>
+              <div>
+                <p className="font-bold text-sm">Better on the App</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Get instant notifications and manage your bookings on the move with our mobile app.
+                </p>
+              </div>
+            </div>
+          )}
 
-        {/* Footer */}
-        <div className="text-center mt-8 text-sm text-muted-foreground">
-          POWERED BY <span className="font-semibold text-foreground">CalSchedule</span>
+          {/* Footer Navigation */}
+          <div className="pt-12 border-t border-white/5 flex flex-col items-center gap-8">
+            <Link
+              to="/my-bookings"
+              className="group flex items-center gap-3 px-6 py-3 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all font-bold text-sm text-foreground shadow-sm active:scale-95"
+            >
+              My Bookings Dashboard
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+
+            <div className="flex flex-col items-center gap-2 opacity-40 hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2">
+                <Sparkle className="w-3 h-3 text-primary" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.3em]">Intimatecare.in Calendar</span>
+                <Sparkle className="w-3 h-3 text-primary" />
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>

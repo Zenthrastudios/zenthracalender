@@ -1,5 +1,19 @@
-import { useState } from 'react';
-import { format, isPast, isToday } from 'date-fns';
+import { useState, useEffect } from 'react';
+import {
+  format,
+  isPast,
+  isToday,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  addMonths,
+  subMonths
+} from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useBookings, useCancelBooking, Booking } from '@/hooks/useBookings';
 import { Button } from '@/components/ui/button';
@@ -20,7 +34,11 @@ import {
   ExternalLink,
   Copy,
   FileText,
-  X
+  X,
+  LayoutGrid,
+  List,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -47,17 +65,33 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-type FilterType = 'upcoming' | 'past' | 'cancelled';
+type FilterType = 'upcoming' | 'past' | 'cancelled' | 'rescheduled';
 
 export default function Bookings() {
   const [filter, setFilter] = useState<FilterType>('upcoming');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
   const [searchQuery, setSearchQuery] = useState('');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [searchParams] = useSearchParams();
 
   const { data: bookings, isLoading } = useBookings(filter);
   const cancelBooking = useCancelBooking();
+
+  // Handle deep linking to specific booking
+  useEffect(() => {
+    const bookingId = searchParams.get('id');
+    if (bookingId && bookings) {
+      const booking = bookings.find(b => b.id === bookingId);
+      if (booking) {
+        setSelectedBooking(booking);
+        setDetailDialogOpen(true);
+      }
+    }
+  }, [searchParams, bookings]);
 
   const filteredBookings = bookings?.filter(booking =>
     booking.attendee_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -129,156 +163,272 @@ export default function Bookings() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          {(['upcoming', 'past', 'cancelled'] as FilterType[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize",
-                filter === tab
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground"
-              )}
+        {/* Tabs & View Toggle */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div className="flex gap-2">
+            {(['upcoming', 'past', 'rescheduled', 'cancelled'] as FilterType[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setFilter(tab)}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize",
+                  filter === tab
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card border border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1 bg-card border border-border p-1 rounded-lg">
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className="h-8 px-3"
             >
-              {tab}
-            </button>
-          ))}
+              <List className="w-4 h-4 mr-2" />
+              List
+            </Button>
+            <Button
+              variant={viewMode === 'calendar' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('calendar')}
+              className="h-8 px-3"
+            >
+              <LayoutGrid className="w-4 h-4 mr-2" />
+              Calendar
+            </Button>
+          </div>
         </div>
 
-        {/* Bookings List */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-pulse text-muted-foreground">Loading bookings...</div>
-          </div>
-        ) : filteredBookings.length === 0 ? (
-          <div className="bg-card rounded-xl border border-border p-12 text-center">
-            <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h2 className="text-lg font-semibold mb-2">No {filter} bookings</h2>
-            <p className="text-muted-foreground">
-              {filter === 'upcoming'
-                ? "You don't have any upcoming bookings yet."
-                : filter === 'past'
-                  ? "No past bookings found."
-                  : "No cancelled bookings."}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredBookings.map((booking) => {
-              const startDate = new Date(booking.start_time);
-              const endDate = new Date(booking.end_time);
-              const isBookingToday = isToday(startDate);
-              const isBookingPast = isPast(startDate);
+        {/* View Content */}
+        {viewMode === 'calendar' ? (
+          <div className="bg-card rounded-xl border border-border overflow-hidden animate-in fade-in duration-300">
+            {/* Calendar Header with Nav */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="font-bold text-lg select-none">{format(currentMonth, 'MMMM yyyy')}</h2>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())} className="text-xs h-8">
+                  Today
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
 
-              return (
-                <div
-                  key={booking.id}
-                  className={cn(
-                    "bg-card rounded-xl border border-border p-5 transition-all hover:shadow-card-hover cursor-pointer",
-                    booking.status === 'cancelled' && "opacity-60"
-                  )}
-                  onClick={() => handleViewDetails(booking)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex gap-4">
-                      {/* Date/Time Column */}
-                      <div className="text-center min-w-[80px]">
-                        <div className={cn(
-                          "text-xs font-medium uppercase mb-1",
-                          isBookingToday ? "text-primary" : "text-muted-foreground"
-                        )}>
-                          {isBookingToday ? 'Today' : format(startDate, 'EEE')}
-                        </div>
-                        <div className="text-2xl font-bold">{format(startDate, 'd')}</div>
-                        <div className="text-xs text-muted-foreground">{format(startDate, 'MMM')}</div>
-                      </div>
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 border-b bg-muted/40">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                <div key={day} className="p-3 text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  {day}
+                </div>
+              ))}
+            </div>
 
-                      {/* Booking Details */}
-                      <div>
-                        <h3 className="font-semibold text-lg mb-1">
-                          {booking.event_type?.title || 'Meeting'}
-                        </h3>
+            <div className="grid grid-cols-7 auto-rows-[minmax(140px,auto)] bg-background">
+              {eachDayOfInterval({
+                start: startOfWeek(startOfMonth(currentMonth)),
+                end: endOfWeek(endOfMonth(currentMonth))
+              }).map((day) => {
+                const dayBookings = filteredBookings.filter(b => isSameDay(new Date(b.start_time), day));
+                const isCurrentMonth = isSameMonth(day, currentMonth);
+                const isTodayDate = isToday(day);
 
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-4 h-4" />
-                            <span>
-                              {format(startDate, 'h:mm a')} - {format(endDate, 'h:mm a')}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {getLocationIcon(booking.event_type?.location_type || 'google_meet')}
-                            <span>{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-                              <User className="w-4 h-4 text-accent-foreground" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{booking.attendee_name}</p>
-                              <p className="text-xs text-muted-foreground">{booking.attendee_email}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {booking.notes && (
-                          <p className="text-sm text-muted-foreground mt-3 italic">
-                            "{booking.notes}"
-                          </p>
-                        )}
-
-                        {booking.status === 'cancelled' && (
-                          <span className="inline-block mt-2 px-2 py-1 bg-destructive/10 text-destructive text-xs rounded-md font-medium">
-                            Cancelled
-                          </span>
-                        )}
-                      </div>
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={cn(
+                      "border-r border-b p-2 transition-colors hover:bg-muted/5 min-h-[140px] flex flex-col gap-2 relative group",
+                      !isCurrentMonth && "bg-muted/10 text-muted-foreground/50"
+                    )}
+                  >
+                    <div className={cn(
+                      "text-sm font-semibold p-1 w-8 h-8 flex items-center justify-center rounded-full ml-auto transition-all",
+                      isTodayDate
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                        : "text-muted-foreground group-hover:text-foreground"
+                    )}>
+                      {format(day, 'd')}
                     </div>
 
-                    {/* Actions */}
-                    {booking.status !== 'cancelled' && !isBookingPast && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(`mailto:${booking.attendee_email}`);
-                          }}>
-                            <Mail className="w-4 h-4 mr-2" />
-                            Email attendee
-                          </DropdownMenuItem>
-                          <DropdownMenuItem disabled>
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Reschedule
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive"
+                    <div className="flex flex-col gap-1.5 flex-1 w-full">
+                      {dayBookings.map(booking => {
+                        const timeStr = format(new Date(booking.start_time), 'h:mma').toLowerCase();
+                        return (
+                          <button
+                            key={booking.id}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedBooking(booking);
-                              setCancelDialogOpen(true);
+                              handleViewDetails(booking);
                             }}
+                            className={cn(
+                              "text-xs text-left px-2 py-1.5 rounded-md border truncate font-medium transition-all shadow-sm hover:shadow-md",
+                              booking.status === 'cancelled'
+                                ? "bg-destructive/10 text-destructive border-destructive/20 opacity-70 line-through"
+                                : isPast(new Date(booking.start_time))
+                                  ? "bg-muted text-muted-foreground border-border"
+                                  : "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                            )}
                           >
-                            <XCircle className="w-4 h-4 mr-2" />
-                            Cancel booking
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                            <span className="opacity-75 mr-1 text-[10px] uppercase font-bold tracking-tight">{timeStr}</span>
+                            {booking.attendee_name}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
+        ) : (
+          /* Bookings List */
+          isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-pulse text-muted-foreground">Loading bookings...</div>
+            </div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="bg-card rounded-xl border border-border p-12 text-center">
+              <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h2 className="text-lg font-semibold mb-2">No {filter} bookings</h2>
+              <p className="text-muted-foreground">
+                {filter === 'upcoming'
+                  ? "You don't have any upcoming bookings yet."
+                  : filter === 'past'
+                    ? "No past bookings found."
+                    : filter === 'rescheduled'
+                      ? "No rescheduled bookings found."
+                      : "No cancelled bookings."}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredBookings.map((booking) => {
+                const startDate = new Date(booking.start_time);
+                const endDate = new Date(booking.end_time);
+                const isBookingToday = isToday(startDate);
+                const isBookingPast = isPast(startDate);
+
+                return (
+                  <div
+                    key={booking.id}
+                    className={cn(
+                      "bg-card rounded-xl border border-border p-5 transition-all hover:shadow-card-hover cursor-pointer",
+                      booking.status === 'cancelled' && "opacity-60"
+                    )}
+                    onClick={() => handleViewDetails(booking)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex gap-4">
+                        {/* Date/Time Column */}
+                        <div className="text-center min-w-[80px]">
+                          <div className={cn(
+                            "text-xs font-medium uppercase mb-1",
+                            isBookingToday ? "text-primary" : "text-muted-foreground"
+                          )}>
+                            {isBookingToday ? 'Today' : format(startDate, 'EEE')}
+                          </div>
+                          <div className="text-2xl font-bold">{format(startDate, 'd')}</div>
+                          <div className="text-xs text-muted-foreground">{format(startDate, 'MMM')}</div>
+                        </div>
+
+                        {/* Booking Details */}
+                        <div>
+                          <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
+                            {booking.event_type?.title || 'Meeting'}
+                            {booking.is_rescheduled && (
+                              <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-none text-[10px] h-5 whitespace-nowrap">
+                                Rescheduled
+                              </Badge>
+                            )}
+                          </h3>
+
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-4 h-4" />
+                              <span>
+                                {format(startDate, 'h:mm a')} - {format(endDate, 'h:mm a')}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {getLocationIcon(booking.event_type?.location_type || 'google_meet')}
+                              <span>{getLocationLabel(booking.event_type?.location_type || 'google_meet')}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-sm">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
+                                <User className="w-4 h-4 text-accent-foreground" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{booking.attendee_name}</p>
+                                <p className="text-xs text-muted-foreground">{booking.attendee_email}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {booking.notes && (
+                            <p className="text-sm text-muted-foreground mt-3 italic">
+                              "{booking.notes}"
+                            </p>
+                          )}
+
+                          {booking.status === 'cancelled' && (
+                            <span className="inline-block mt-2 px-2 py-1 bg-destructive/10 text-destructive text-xs rounded-md font-medium">
+                              Cancelled
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      {booking.status !== 'cancelled' && !isBookingPast && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`mailto:${booking.attendee_email}`);
+                            }}>
+                              <Mail className="w-4 h-4 mr-2" />
+                              Email attendee
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled>
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Reschedule
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedBooking(booking);
+                                setCancelDialogOpen(true);
+                              }}
+                            >
+                              <XCircle className="w-4 h-4 mr-2" />
+                              Cancel booking
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
         )}
 
         {/* Booking Detail Dialog */}
@@ -292,9 +442,9 @@ export default function Bookings() {
                       {selectedBooking.event_type?.title || 'Meeting Details'}
                     </DialogTitle>
                     {selectedBooking.status === 'cancelled' ? (
-                      <Badge variant="destructive">Cancelled</Badge>
+                      <Badge variant="destructive" className="font-bold">Cancelled</Badge>
                     ) : (
-                      <Badge className="bg-emerald-500 text-white">Confirmed</Badge>
+                      <Badge className="bg-emerald-500 text-white font-bold">Confirmed</Badge>
                     )}
                   </div>
                 </DialogHeader>
@@ -326,6 +476,9 @@ export default function Bookings() {
                       <div className="flex-1">
                         <p className="font-medium">{selectedBooking.attendee_name}</p>
                         <p className="text-sm text-muted-foreground">{selectedBooking.attendee_email}</p>
+                        {selectedBooking.attendee_phone && (
+                          <p className="text-sm text-muted-foreground">{selectedBooking.attendee_phone}</p>
+                        )}
                       </div>
                       <Button variant="ghost" size="icon" onClick={() => copyToClipboard(selectedBooking.attendee_email, 'Email')}>
                         <Copy className="w-4 h-4" />
@@ -351,24 +504,19 @@ export default function Bookings() {
                           <Copy className="w-4 h-4" />
                         </Button>
                         <Button variant="outline" size="icon" className="shrink-0" asChild>
-                          <a href={selectedBooking.meet_link} target="_blank" rel="noopener noreferrer">
+                          <a
+                            href={selectedBooking.meet_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Open meeting link"
+                            title="Open meeting link"
+                          >
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         </Button>
                       </div>
                     )}
                   </div>
-
-                  {/* Notes */}
-                  {selectedBooking.notes && !selectedBooking.notes.includes('--- Custom Responses ---') && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Notes</h4>
-                      <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                        <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
-                        <p className="text-sm">{selectedBooking.notes}</p>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Legacy notes with custom responses (for old bookings) */}
                   {selectedBooking.notes && selectedBooking.notes.includes('--- Custom Responses ---') && (

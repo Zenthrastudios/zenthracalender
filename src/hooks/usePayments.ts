@@ -2,6 +2,29 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+export interface PublicPaymentInfo {
+  activeGateway: 'razorpay' | 'cashfree';
+  cashfreeMode: 'sandbox' | 'production';
+  razorpayEnabled: boolean;
+  cashfreeEnabled: boolean;
+}
+
+/** Fetches the active payment gateway for a host without exposing secrets.
+ *  Safe to call from public (unauthenticated) pages. */
+export function usePublicPaymentInfo(hostId: string | undefined) {
+  return useQuery({
+    queryKey: ['public-payment-info', hostId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('cashfree-payment', {
+        body: { action: 'get-payment-info', hostId },
+      });
+      if (error) throw error;
+      return data as PublicPaymentInfo;
+    },
+    enabled: !!hostId,
+  });
+}
+
 export interface Payment {
   id: string;
   booking_id: string;
@@ -50,6 +73,7 @@ export function useCreateCashfreeOrder() {
       customerEmail: string;
       customerPhone?: string;
       returnUrl: string;
+      hostId: string;
     }) => {
       const { data: result, error } = await supabase.functions.invoke('cashfree-payment', {
         body: {
@@ -93,11 +117,14 @@ export function useCreateRazorpayOrder() {
 
   return useMutation({
     mutationFn: async (data: {
-      bookingId: string;
-      amount: number; // Amount in paise
+      bookingId?: string;
+      webinarRegistrationId?: string;
+      coursePurchaseId?: string;
+      amount: number; // Amount in rupees (edge function converts to paise)
       customerName: string;
       customerEmail: string;
       customerPhone?: string;
+      hostId: string;
     }) => {
       const { data: result, error } = await supabase.functions.invoke('razorpay-payment', {
         body: {

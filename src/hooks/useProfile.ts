@@ -102,3 +102,25 @@ export function useUploadAvatar() {
     },
   });
 }
+
+export function useUserBranding(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['user-branding', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+
+      const { data, error } = await (supabase as any)
+        .from('branding_settings')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching branding:', error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!userId,
+  });
+}
