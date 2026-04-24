@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEventTypes, useCreateEventType, useUpdateEventType, EventType } from '@/hooks/useEventTypes';
+import { useEventTypes, useCreateEventType, useUpdateEventType, useDeleteEventType, EventType } from '@/hooks/useEventTypes';
 import { useAvailabilitySchedules, useScheduleAvailability } from '@/hooks/useAvailabilitySchedules';
 import { useInstructors } from '@/hooks/useInstructors';
 import { useTestimonials, useCreateTestimonial, useUpdateTestimonial, useDeleteTestimonial, Testimonial } from '@/hooks/useTestimonials';
@@ -120,6 +120,7 @@ export default function EventTypeEditor() {
   const { data: instructors } = useInstructors();
   const createEventType = useCreateEventType();
   const updateEventType = useUpdateEventType();
+  const deleteEventType = useDeleteEventType();
 
   const isNew = id === 'new';
   const existingEvent = eventTypes?.find(et => et.id === id);
@@ -521,6 +522,26 @@ export default function EventTypeEditor() {
             {isNew ? 'New Event Type' : 'Edit Event Type'}
           </h1>
           <div className="flex items-center gap-3">
+            {!isNew && (
+              <Button 
+                variant="destructive" 
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to delete this event type? This action cannot be undone.')) {
+                    try {
+                      await deleteEventType.mutateAsync(id!);
+                      toast.success('Event type deleted');
+                      navigate('/dashboard');
+                    } catch (e: any) {
+                      toast.error(e.message || 'Failed to delete event type');
+                    }
+                  }
+                }}
+                disabled={deleteEventType.isPending}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            )}
             <Button variant="outline" onClick={() => navigate('/dashboard')}>
               Cancel
             </Button>
